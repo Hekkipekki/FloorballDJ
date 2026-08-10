@@ -108,7 +108,7 @@ jobs:
             "artifacts/installer/$version/FloorballDJ-Setup.exe.sha256"
           )
           $arguments = @("release", "create", $tag) + $assets + @("--repo", $releaseRepository, "--title", "FloorballDJ $version", "--generate-notes")
-          if ("${{ github.event_name }}" -eq "workflow_dispatch" -and "${{ inputs.prerelease }}" -eq "true") {
+          if (("${{ github.event_name }}" -eq "workflow_dispatch" -and "${{ inputs.prerelease }}" -eq "true") -or $version -match '-') {
             $arguments += "--prerelease"
           }
           gh @arguments
