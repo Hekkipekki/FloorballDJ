@@ -1,0 +1,30 @@
+<Window x:Class="FloorballDJ.Views.DeckLayoutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Decklayout" Width="440" Height="300" ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
+    <Grid Margin="24,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Text="Rader och kolumner" Style="{StaticResource SectionTitle}" FontSize="23" />
+        <TextBlock x:Name="DeckNameText" Grid.Row="1" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,18" />
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="16" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="RADER (1–12)" Style="{StaticResource FieldLabel}" Margin="0,0,0,5" />
+                <TextBox x:Name="RowsBox" TextAlignment="Center" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="KOLUMNER (1–12)" Style="{StaticResource FieldLabel}" Margin="0,0,0,5" />
+                <TextBox x:Name="ColumnsBox" TextAlignment="Center" />
+            </StackPanel>
+        </Grid>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Avbryt" Style="{StaticResource SecondaryButton}" MinWidth="96" Margin="0,0,8,0" IsCancel="True" />
+            <Button Content="Använd layout" Style="{StaticResource PrimaryButton}" MinWidth="122" IsDefault="True" Click="Save_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

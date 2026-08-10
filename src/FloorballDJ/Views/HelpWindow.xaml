@@ -1,0 +1,376 @@
+<Window x:Class="FloorballDJ.Views.HelpWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Hjälp – FloorballDJ" Width="1180" Height="800" MinWidth="900" MinHeight="620"
+        WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <Style x:Key="HelpGroup" TargetType="GroupBox" BasedOn="{StaticResource ModernGroupBox}">
+            <Setter Property="Margin" Value="0,0,0,13" />
+        </Style>
+        <Style x:Key="HelpBody" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="LineHeight" Value="21" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        </Style>
+        <Style x:Key="HelpMuted" TargetType="TextBlock" BasedOn="{StaticResource HelpBody}">
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+        </Style>
+        <Style x:Key="HelpNavItem" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="13,10" />
+            <Setter Property="Margin" Value="0,2" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Surface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="7" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="#17253A" /></Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="Surface" Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                <Setter TargetName="Surface" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+
+        <Border Padding="26,18" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="HJÄLPCENTER" Style="{StaticResource EyebrowText}" />
+                    <TextBlock Text="Så använder du FloorballDJ" Style="{StaticResource SectionTitle}" FontSize="29" Margin="0,3,0,2" />
+                    <TextBlock Text="Kom igång, lär dig arbetsflödet och slå upp funktioner under matchen." Foreground="{StaticResource MutedBrush}" />
+                </StackPanel>
+                <Border Grid.Column="1" Background="{StaticResource AccentSoftBrush}" CornerRadius="9" Padding="13,8" VerticalAlignment="Center">
+                    <TextBlock Text="BETA-GUIDE" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" FontSize="11" />
+                </Border>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="230" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+            <Border Background="#0B1524" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,1,0" Padding="16,16">
+                <StackPanel>
+                    <TextBlock Text="INNEHÅLL" Style="{StaticResource FieldLabel}" Margin="9,0,0,7" />
+                    <ListBox x:Name="HelpNavigation" SelectionChanged="HelpNavigation_SelectionChanged"
+                             Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource HelpNavItem}">
+                        <ListBoxItem><TextBlock Text="01  Snabbstart" FontWeight="SemiBold" /></ListBoxItem>
+                        <ListBoxItem><TextBlock Text="02  Uppspelning" FontWeight="SemiBold" /></ListBoxItem>
+                        <ListBoxItem><TextBlock Text="03  Decks och jinglar" FontWeight="SemiBold" /></ListBoxItem>
+                        <ListBoxItem><TextBlock Text="04  Autoplay och köer" FontWeight="SemiBold" /></ListBoxItem>
+                        <ListBoxItem><TextBlock Text="05  Ljud och balansering" FontWeight="SemiBold" /></ListBoxItem>
+                        <ListBoxItem><TextBlock Text="06  Jingle-egenskaper" FontWeight="SemiBold" /></ListBoxItem>
+                        <ListBoxItem><TextBlock Text="07  Profiler och backup" FontWeight="SemiBold" /></ListBoxItem>
+                        <ListBoxItem><TextBlock Text="08  Kortkommandon" FontWeight="SemiBold" /></ListBoxItem>
+                        <ListBoxItem><TextBlock Text="09  Licens" FontWeight="SemiBold" /></ListBoxItem>
+                        <ListBoxItem><TextBlock Text="10  Felsökning" FontWeight="SemiBold" /></ListBoxItem>
+                    </ListBox>
+                </StackPanel>
+            </Border>
+
+            <Grid Grid.Column="1" Margin="24,18,24,8">
+                <!-- 01 Snabbstart -->
+                <ScrollViewer x:Name="QuickStartPage" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,0,10,0">
+                        <TextBlock Text="SNABBSTART" Style="{StaticResource EyebrowText}" />
+                        <TextBlock Text="Från tom profil till matchklar" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <GroupBox Header="1. Välj ljudutgång" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Öppna <Run FontWeight="Bold">Verktyg → Inställningar</Run>. Välj publikens ljudutgång och vid behov Utgångsenhet 2 för hörlurar. Börja med låg programvolym och kalibrera mot mixerbordet eller hallens PA.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="2. Skapa eller öppna en profil" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">En profil innehåller decks, knappar, färger, start/slut, snabbtangenter och ljudinställningar. Välj <Run FontWeight="Bold">Profil → Nytt projekt</Run>, öppna en befintlig profil eller importera en Snap XML-profil.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="3. Lägg till ljud" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Klicka på en tom knapp och välj en eller flera ljudfiler. Du kan även dra flera filer från Utforskaren till en knapp. Filerna placeras från den valda platsen och en extra rad skapas om decket blir fullt.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="4. Kontrollera nivåerna" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Öppna <Run FontWeight="Bold">Verktyg → Analysera och balansera ljud</Run>. För idrottshall är <Run FontWeight="Bold">−16 LUFS</Run> och <Run FontWeight="Bold">−1 till −2 dBTP</Run> en bra start. Analysera mäter; Analysera och balansera aktiverar en fast Auto gain per jingle. Originalfilerna ändras aldrig.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="5. Testa före publikinsläpp" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Aktivera Förlyssning om du vill testa i hörlurar. Kontrollera Solo/Mix/Duck, fades, start/slut och snabbtangenter. Skapa därefter en projekt- och mediabackup som reserv.</TextBlock>
+                        </GroupBox>
+                        <Border Background="#1836E0B4" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" CornerRadius="8" Padding="13">
+                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Matchcheck: " />rätt utgång • huvudvolym testad • Session aktiverad • saknade filer = 0 • backup skapad.</TextBlock>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 02 Uppspelning -->
+                <ScrollViewer x:Name="PlaybackPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,0,10,0">
+                        <TextBlock Text="UPPSPELNING" Style="{StaticResource EyebrowText}" />
+                        <TextBlock Text="Spela tryggt under match" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <GroupBox Header="Jingleknappar" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Klicka på en knapp för att spela. Den aktiva knappen ser intryckt ut och pulserar. Klicka på samma knapp igen för att tona ut den. Klicka på en annan Solo-jingle för att crossfadea enligt global eller egen fade-tid.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Transportfältet" Style="{StaticResource HelpGroup}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Stopp:" /> stoppar allt direkt. <Run FontWeight="Bold" Text="Fade:" /> tonar ut allt. <Run FontWeight="Bold" Text="Paus/Play:" /> använder globala fade-tider.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,6,0,0">Klicka i huvudwaveformen för att hoppa i låten. L/R visar korta stereotoppar. Master/Huvudgain är en extra övergripande justering och är inte samma sak som uppmätt LUFS.</TextBlock>
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="PA/Talk" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Mikrofonknappen tonar mjukt ned huvudutgången medan speakern talar och tonar upp den igen vid nästa klick. Dämpningen ställs under <Run FontWeight="Bold">Verktyg → Inställningar → PA/Talk-dämpning</Run>. Förlyssningsutgången påverkas inte. Håll <Run FontWeight="Bold">Ctrl+↑/↓</Run> för att höja eller sänka huvudvolymen i steg om 0,5 dB.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Space i deck-vyn" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Utan kö: Space tonar ut och sparar positionen i <Run FontWeight="Bold">två minuter</Run>; nästa Space återupptar samma låt där toningen slutade. Med Ctrl-kö: första Space tonar ut aktuell låt och nästa Space startar nästa köade jingle.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Spellägen" Style="{StaticResource HelpGroup}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Solo – " />normalvalet. Ersätter/crossfadear den låt som redan spelas.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,4,0,0"><Run FontWeight="Bold" Text="Mix – " />får spelas samtidigt med befintligt ljud, exempelvis mål- eller publikeffekter.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,4,0,0"><Run FontWeight="Bold" Text="Duck – " />spelas samtidigt och dämpar bakgrundsljudet enligt Duck-nivån.</TextBlock>
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="Session och förlyssning" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Session" /> markerar spelade jinglar med en grön punkt; när Session stängs av rensas markeringarna. <Run FontWeight="Bold" Text="Förlyssning" /> gör att nya ljud spelas via Utgångsenhet 2. När läget stängs av stoppas förlyssningsljudet innan huvudutgången återaktiveras.</TextBlock>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 03 Decks -->
+                <ScrollViewer x:Name="DecksPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,0,10,0">
+                        <TextBlock Text="DECKS OCH JINGLAR" Style="{StaticResource EyebrowText}" />
+                        <TextBlock Text="Bygg en tydlig matchlayout" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <GroupBox Header="Lägga till och flytta" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Klicka på en tom plats för att välja filer eller dra en/flera ljudfiler från Utforskaren. Dra en befintlig knapp till en annan plats för att byta plats. En tydlig markering visar målet. Ändringar autosparas.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Högerklick på en jingle" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Öppna egenskaper, ladda/byta ljud, ändra knapp- och textfärg, använda färg på en hel rad, kopiera/klistra in, välja Solo/Mix/Duck eller ta bort jingeln. Att ta bort jingeln raderar inte ljudfilen från disken.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Deckflikar" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Högerklicka på en deckflik för att byta namn, lägga till, ta bort eller ändra rader/kolumner. Scrolla över flikarna för att byta deck. Om du minskar layouten kan jinglar döljas men finnas kvar i profilen.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Sökning och slumpkategorier" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold">Ctrl+F</Run> söker över alla deck och växlar till samt markerar bästa träffen. Dra en deckflik till en annan flik för att ändra deckordningen. I Jingle-egenskaper kan flera jinglar få samma slumpkategori, exempelvis Mål. En tilldelad slumpknapp spelar en slumpvald jingle ur hela kategorin.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Kö och färger" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Ctrl+klick" /> på en jingle lägger till eller tar bort den från deck-kön; siffersymbolen visar ordningen. I färgväljaren kan du använda HEX, visuellt färgfält, snabbval och namngivna sparade färgkombinationer.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Saknad fil" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">En knapp märkt SAKNAS har kvar alla inställningar men ljudfilens sökväg fungerar inte. Använd <Run FontWeight="Bold">Verktyg → Kontrollera ljudfiler</Run> för att söka efter och länka om flyttade filer.</TextBlock>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 04 Autoplay -->
+                <ScrollViewer x:Name="AutoplayPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,0,10,0">
+                        <TextBlock Text="AUTOPLAY OCH KÖER" Style="{StaticResource EyebrowText}" />
+                        <TextBlock Text="Musiklistor som spelar vidare" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <GroupBox Header="Bygg kön" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Öppna Autoplay-fliken. Välj Alla eller filtrera på ett deck, sök efter titel och dubbelklicka eller använd vänsterpilen för att lägga till. Alla kan även visa råa filer från vald musikmapp; deckfilter använder jinglarna med deras sparade start/slut och egenskaper.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Ordning och uppspelning" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Dra rader i kön eller använd upp/ned. Spela nu startar vald rad. Delete eller Ta bort tar bort den valda raden från kön, inte från disken. När en låt tar slut går Autoplay vidare. Loop börjar om från rad 1; Shuffle väljer nästa slumpmässigt.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Övergång" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Övergångstiden delas så att ungefär 75 % används för uttoning och 25 % för intoning. Börja runt 4 sekunder och anpassa efter materialet. Auto gain för varje analyserad låt är fast under hela övergången.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Space och vyisolering" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Autoplay-kön används endast när Autoplay-vyn är aktiv. Space tonar ut aktuell låt och nästa Space återupptar den inom två minuter. Naturligt låtslut går vidare i kön. När du går tillbaka till ett deck ignoreras Autoplay-kön.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Spellistor och förlyssning" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Spara/ladda köer som spellistor. Välj musikmapp för råa filer. När Förlyssning och Utgångsenhet 2 är aktiverade kan du <Run FontWeight="Bold">Shift+klicka</Run> en tillgänglig låt för att lyssna i hörlurar utan att byta publikens huvudutgång.</TextBlock>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 05 Ljud -->
+                <ScrollViewer x:Name="AudioPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,0,10,0">
+                        <TextBlock Text="LJUD OCH BALANSERING" Style="{StaticResource EyebrowText}" />
+                        <TextBlock Text="Jämn nivå utan att ändra filerna" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <GroupBox Header="Begreppen" Style="{StaticResource HelpGroup}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="LUFS – " />upplevd genomsnittlig ljudstyrka. −16 LUFS är starkare än −20 men svagare än −10.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,4,0,0"><Run FontWeight="Bold" Text="True peak/dBTP – " />högsta beräknade verkliga topp. Ett negativt tak lämnar säkerhetsmarginal till digital maxnivå.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,4,0,0"><Run FontWeight="Bold" Text="Auto gain – " />fast uppspelningsjustering som försöker nå målnivån utan att överskrida peak-taket.</TextBlock>
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="Rekommenderad start för idrottshall" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Använd cirka <Run FontWeight="Bold">−16 LUFS</Run>, limiter aktiverad och <Run FontWeight="Bold">−1 eller −2 dBTP</Run>. −2 ger extra marginal för ojämna PA-system. Den verkliga nivån i publiken måste fortfarande ställas med mixer/PA och helst kontrolleras med SPL-mätare.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Analysera eller balansera" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Analysera" /> sparar mätvärden men ändrar inte uppspelningen. <Run FontWeight="Bold" Text="Analysera och balansera" /> aktiverar Auto gain. Plus höjer, minus sänker. Om peak-taket nås får en tyst fil inte höjas hela vägen till målnivån.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Manuell finjustering och säkerhet" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Manuell gain läggs ovanpå Auto gain och är avsedd för öronmässig finjustering. Säkerhetslimitern fångar toppar. Automatiskt mixutrymme används vid avsiktligt samtidiga ljud, men en vanlig uttonande låt ändrar inte nästa låts gain.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Kombinera jinglar" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Under <Run FontWeight="Bold">Verktyg → Kombinera två jinglar</Run> väljer du ljud från decken eller öppnar valfria ljudfiler. Klicka i vågformen för att flytta markören och förhandslyssna från den punkten. <Run FontWeight="Bold">Crossfade</Run> tonar ut det första ljudet medan det andra tonas in. <Run FontWeight="Bold">Överlappning</Run> låter första ljudet fortsätta oförändrat till sitt slut medan det andra tonas in från markeringen. Resultatet blir en ny förlustfri PCM-WAV; originalfilerna ändras aldrig.</TextBlock>
+                        </GroupBox>
+                        <Border Background="#18FFC15A" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" CornerRadius="8" Padding="13">
+                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Observera: " />analysrutorna visar källans analys före manuell gain, EQ och kompressor. Ändrar du dessa påverkas den verkliga utgången; analysera om efter större ljudändringar.</TextBlock>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 06 Egenskaper -->
+                <ScrollViewer x:Name="PropertiesPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,0,10,0">
+                        <TextBlock Text="JINGLE-EGENSKAPER" Style="{StaticResource EyebrowText}" />
+                        <TextBlock Text="Klipp, förhandslyssna och forma ljudet" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <GroupBox Header="Waveforms och position" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Klicka i Full waveform för att hoppa. Den inzoomade tiasekundersvyn följer markören; håll vänster musknapp och dra för precision. Play/Paus/Stopp styr endast förhandslyssningen i egenskapsfönstret.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Start och slut" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Flytta markören och välj Start eller Stopp. Du kan skriva sekunder (78) eller tid (01:18). Plus/minus flyttar 0,1 sekund; håll Shift för 0,01 sekund. Trimma tystnad föreslår hörbara gränser automatiskt.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Uppspelning och snabbtangent" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Välj Solo/Mix/Duck, Loop, egna fade-tider och Välj snabbknapp. Modifierare som Ctrl, Shift, Alt och Win väntar på ytterligare en tangent. Space är reserverad för uppspelningsflödet.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Ljudmixer" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Normalisering ger jämn grundnivå och manuell gain finjusterar. Bas/Mellan/Diskant formar tonen. Kompressorn dämpar signal över tröskeln; högre ratio ger kraftigare kontroll, Attack bestämmer hur snabbt den reagerar och Release hur snabbt den släpper.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Pitch, tempo och rate" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Pitch ändrar tonhöjd. Tempo/Rate-reglagen visas i betaversionen men är ännu inte fullt inkopplade i huvuduppspelningen. Förlita dig därför inte på dem i en skarp match innan funktionen färdigställts.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Teknisk information" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Fliken visar bland annat format, samplingsfrekvens, kanaler, bitrate och filstorlek. Informationen är främst till för kontroll och felsökning.</TextBlock>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 07 Profiler -->
+                <ScrollViewer x:Name="ProfilesPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,0,10,0">
+                        <TextBlock Text="PROFILER OCH BACKUP" Style="{StaticResource EyebrowText}" />
+                        <TextBlock Text="Spara, flytta och återställ arbetet" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <GroupBox Header="Profilmenyn" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Nytt projekt skapar en tom profil. Öppna laddar en .floorballdj.json-profil. Under Senast använda profiler visas de fem senaste giltiga profilerna; en stjärna markerar standardprofilen. Spara/Spara som lagrar layout och inställningar. Importera Snap XML konverterar en Snap Jingle Player-profil och anpassar decks/layout efter innehållet.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Standardprofil" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Välj en standardprofil under <Run FontWeight="Bold">Verktyg → Inställningar → Profiler</Run> om samma matchprofil alltid ska öppnas vid start. Välj Ingen standard för att återgå till den vanliga autosparningen.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Autosparning och historik" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Ändringar autosparas. Under <Run FontWeight="Bold">Hjälp → Autosparningshistorik</Run> kan du granska och återställa tidigare versioner. Upp till 100 ändrade revisioner sparas per profil. Återställning ersätter den aktuella profilen, så kontrollera datum och innehåll.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Två typer av backup" Style="{StaticResource HelpGroup}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Profilbackup – " />sparar profilens data och sökvägar men kopierar inte ljudfilerna.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0"><Run FontWeight="Bold" Text="Projekt- och mediabackup – " />finns i Kontrollera ljudfiler och skapar en flyttbar mapp med profil plus oförändrade originalkopior i Media. Ingen komprimering eller kvalitetsförlust sker.</TextBlock>
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="Flytta till en annan dator" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Skapa projekt- och mediabackup, kopiera hela backupmappen och öppna profilfilen därifrån. För själva programmet ska hela release-/zipmappen packas upp; starta FloorballDJ.exe utan att flytta enskilda DLL-filer.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Ljudfiler och egna typsnitt" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Kontrollera ljudfiler visar hittade/saknade filer, söker rekursivt och uppdaterar sökvägar. Egna .ttf/.otf läggs i Fonts-mappen som öppnas från Inställningar; välj Uppdatera efter att filer lagts till.</TextBlock>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 08 Kortkommandon -->
+                <ScrollViewer x:Name="ShortcutsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,0,10,0">
+                        <TextBlock Text="KORTKOMMANDON" Style="{StaticResource EyebrowText}" />
+                        <TextBlock Text="Snabb kontroll utan att leta" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <GroupBox Header="Globalt" Style="{StaticResource HelpGroup}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Space          " />tona ut/återuppta; med deck-kö startar nästa Space nästa köade ljud.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Ctrl+S         " />spara profilen.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="F1             " />öppna hjälpcentret.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Egen tangent   " />spela jingeln som fått snabbtangenten i Egenskaper.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Esc            " />stäng/avbryt de flesta dialogrutor.</TextBlock>
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="Mus och modifierare" Style="{StaticResource HelpGroup}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Ctrl+klick     " />lägg till/ta bort deck-jingle i kön.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Shift+klick    " />förlyssna en låt i Autoplay när Utgångsenhet 2 är aktiv.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Scroll flikar  " />byt deck.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Scroll volym   " />ändra mastergain när pekaren är över volymreglaget.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Klick waveform " />hoppa till vald position.</TextBlock>
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="Autoplay och redigering" Style="{StaticResource HelpGroup}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Delete         " />ta bort vald rad ur Autoplay-kön.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Enter          " />bekräfta tids- och många värdefält.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Shift +/−      " />justera start/slut med 0,01 s; utan Shift är steget 0,1 s.</TextBlock>
+                            </StackPanel>
+                        </GroupBox>
+                        <Border Background="#1836E0B4" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" CornerRadius="8" Padding="13">
+                            <TextBlock Style="{StaticResource HelpBody}">Egna snabbtangenter kan innehålla Ctrl, Shift, Alt eller Win tillsammans med en annan tangent. Vald deck söks först; därefter övriga decks. Tangenter triggas inte när du skriver i ett textfält.</TextBlock>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 09 Licens -->
+                <ScrollViewer x:Name="LicensingPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,0,10,0">
+                        <TextBlock Text="LICENS OCH PROVPERIOD" Style="{StaticResource EyebrowText}" />
+                        <TextBlock Text="Aktivering och offlineanvändning" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <GroupBox Header="Sju dagars provperiod" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Första starten kräver internet. Provperioden kopplas till datorn och börjar när licenstjänsten godkänner första starten. Återstående dagar visas i statusraden längst ned.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Aktivera en köpt licens" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Öppna <Run FontWeight="Bold">Hjälp → Licens och provperiod</Run>, ange licensnyckeln och välj Aktivera licens. Nyckeln skickas via en krypterad anslutning och sparas inte i klartext på datorn.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Användning utan internet" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Efter aktivering sparas ett signerat och Windows-krypterat licensbevis. En köpt licens fungerar normalt offline i upp till 30 dagar innan en kort onlinekontroll behövs. En pågående match eller ljuduppspelning avbryts aldrig av en licenskontroll.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Ny dator eller avaktivering" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">En ny dator måste aktiveras online. Avaktivera den gamla datorn under licensfönstret för att frigöra platsen. Avaktivering kräver internet och stänger programmet när den är klar.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Sök efter uppdateringar" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Öppna <Run FontWeight="Bold">Hjälp → Sök efter uppdateringar</Run>. Kontrollen körs endast när du väljer kommandot. En ny installerare hämtas via GitHub Releases och måste matcha den publicerade SHA-256-kontrollsumman. Installationen startar inte medan ljud spelas och profilen sparas innan FloorballDJ stängs.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Om kontrollen misslyckas" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Kontrollera internet, datorns datum och tid samt att en brandvägg inte blockerar floorballdj-licensing-api.netlify.app. En giltig, ännu inte utgången offlineaktivering fortsätter fungera även när licenstjänsten tillfälligt inte kan nås.</TextBlock>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 10 Felsökning -->
+                <ScrollViewer x:Name="TroubleshootingPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,0,10,0">
+                        <TextBlock Text="FELSÖKNING" Style="{StaticResource EyebrowText}" />
+                        <TextBlock Text="Vanliga problem och säkra kontroller" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <GroupBox Header="Inget ljud" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Kontrollera vald utgång, Windows-volym, programvolym och att Förlyssning inte är aktiv. Testa Windows standardenhet. Om Utgångsenhet 2 kopplas bort, stäng Förlyssning och välj en aktiv enhet igen.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Saknade eller flyttade filer" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Öppna Kontrollera ljudfiler, välj musikbibliotekets rotmapp och kör Sök och uppdatera. Sökningen matchar filnamn i undermappar. Kontrollera listans problemtext om en fil inte hittas.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Ojämn volym" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Analysera hela biblioteket med samma mål och peak-tak. Kontrollera att Normalisering är aktiverad. Manuell gain, EQ och kompressor kan förändra slutresultatet. L/R-mätaren visar toppar och behöver inte se identisk ut för låtar som upplevs lika starka.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Hack eller nivåhopp" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Använd senaste versionen, välj en stabil aktiv ljudenhet och undvik Bluetooth för publikljud om möjligt. Kontrollera egna fades och extrema EQ/kompressorinställningar. Notera vilka två filer och spellägen som används om problemet går att upprepa.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Analysvärdet verkar gammalt" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Analysen blir inaktuell om filen eller klippets start/slut ändras. Analysera om. EQ, kompressor och manuell gain påverkar den verkliga utgången även om källanalysens LUFS/true peak ligger kvar i informationsrutorna.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Krasch eller återställning" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Starta om programmet och kontrollera autosparningshistoriken. Kraschloggar sparas i FloorballDJ:s Logs-mapp under lokal appdata. Behåll loggen, profilfilen och en kort beskrivning av senaste åtgärden när felet rapporteras.</TextBlock>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+
+        <Border Grid.Row="2" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,1,0,0" Padding="22,12">
+            <Grid>
+                <TextBlock Text="Tips: Öppna hjälpen före första matchen och gå igenom Snabbstart samt Kortkommandon." Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                <Button Content="Stäng" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" MinWidth="110" IsCancel="True" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

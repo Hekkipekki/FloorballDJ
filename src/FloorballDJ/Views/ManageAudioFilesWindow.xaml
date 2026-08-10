@@ -1,0 +1,95 @@
+<Window x:Class="FloorballDJ.Views.ManageAudioFilesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Hantera ljudfiler" Icon="/FloorballDJ;component/Assets/FloorballDJ-Logo.png"
+        Width="900" Height="820" MinWidth="760" MinHeight="700" WindowStartupLocation="CenterOwner">
+    <Grid Margin="26,22">
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+
+        <Grid Margin="0,0,0,18">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="LJUDBIBLIOTEK" Style="{StaticResource EyebrowText}" />
+                <TextBlock Text="Kontrollera och hitta ljudfiler" Style="{StaticResource SectionTitle}" FontSize="28" Margin="0,3,0,2" />
+                <TextBlock Text="Sök efter flyttade filer, uppdatera sökvägar och skapa en komplett backup." Foreground="{StaticResource MutedBrush}" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Uppdatera" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Click="Refresh_Click" />
+        </Grid>
+
+        <UniformGrid Grid.Row="1" Columns="4" Margin="-4,0,-4,14">
+            <Border Style="{StaticResource CardBorder}" Padding="13,10" Margin="4"><StackPanel><TextBlock Text="HITTADE" Style="{StaticResource FieldLabel}" /><TextBlock x:Name="FoundText" FontSize="22" FontWeight="SemiBold" /></StackPanel></Border>
+            <Border Style="{StaticResource CardBorder}" Padding="13,10" Margin="4"><StackPanel><TextBlock Text="SAKNAS" Style="{StaticResource FieldLabel}" /><TextBlock x:Name="MissingText" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource DangerBrush}" /></StackPanel></Border>
+            <Border Style="{StaticResource CardBorder}" Padding="13,10" Margin="4"><StackPanel><TextBlock Text="TOTAL STORLEK" Style="{StaticResource FieldLabel}" /><TextBlock x:Name="SizeText" FontSize="22" FontWeight="SemiBold" /></StackPanel></Border>
+            <Border Style="{StaticResource CardBorder}" Padding="13,10" Margin="4"><StackPanel><TextBlock Text="FORMAT" Style="{StaticResource FieldLabel}" /><TextBlock x:Name="FormatsText" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" /></StackPanel></Border>
+        </UniformGrid>
+
+        <GroupBox Grid.Row="2" Header="Länkade filer och problem" Style="{StaticResource ModernGroupBox}" Margin="0,0,0,14" MinHeight="210">
+            <Grid Margin="0,7,0,0">
+                <ListBox x:Name="FilesList" Background="Transparent" Foreground="{StaticResource TextBrush}" BorderThickness="0"
+                         HorizontalContentAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="2,3" Padding="10,7" CornerRadius="7" BorderThickness="1" BorderBrush="#30425F" Background="#101B2C">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="14" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <Ellipse Width="8" Height="8" VerticalAlignment="Top" Margin="0,6,0,0">
+                                        <Ellipse.Style><Style TargetType="Ellipse"><Setter Property="Fill" Value="{StaticResource AccentBrush}" /><Style.Triggers><DataTrigger Binding="{Binding IsMissing}" Value="True"><Setter Property="Fill" Value="{StaticResource DangerBrush}" /></DataTrigger></Style.Triggers></Style></Ellipse.Style>
+                                    </Ellipse>
+                                    <StackPanel Grid.Column="1">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                                            <Border Background="#35FF6475" CornerRadius="5" Padding="6,1" Margin="8,0,0,0">
+                                                <TextBlock Text="SAKNAS" Foreground="#FF8A98" FontSize="9" FontWeight="Bold" />
+                                                <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsMissing}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Border.Style>
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding FilePath}" Foreground="{StaticResource MutedBrush}" FontFamily="Cascadia Mono" FontSize="10" TextTrimming="CharacterEllipsis" ToolTip="{Binding FilePath}" />
+                                        <TextBlock Text="{Binding Problem}" Foreground="#FF8A98" FontSize="10" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding SearchHint}" Foreground="{StaticResource MutedBrush}" FontSize="10" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2" Text="{Binding DeckName}" Foreground="{StaticResource MutedBrush}" FontSize="10" VerticalAlignment="Top" Margin="12,3" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock x:Name="EmptyLibraryText" Text="Inga ljudfiler har lagts till ännu." Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" />
+            </Grid>
+        </GroupBox>
+
+        <StackPanel Grid.Row="3">
+            <GroupBox Header="Sök och uppdatera filsökvägar" Style="{StaticResource ModernGroupBox}" Margin="0,0,0,12">
+                <StackPanel Margin="0,7,0,0">
+                    <TextBlock Text="Välj en mapp ovanför de saknade filernas förväntade plats. FloorballDJ söker i alla undermappar och matchar filnamnen." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,9" />
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <TextBox x:Name="SearchFolderBox" IsReadOnly="True" />
+                        <Button Grid.Column="1" Content="Välj mapp…" Style="{StaticResource SecondaryButton}" Margin="8,0" Click="BrowseSearchFolder_Click" />
+                        <Button x:Name="SearchButton" Grid.Column="2" Content="Sök och uppdatera" Style="{StaticResource PrimaryButton}" Click="SearchAndUpdate_Click" />
+                    </Grid>
+                    <CheckBox x:Name="UpdateAllCheck" Content="Uppdatera även giltiga sökvägar" Margin="0,9,0,0" />
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Projekt- och mediabackup" Style="{StaticResource ModernGroupBox}">
+                <StackPanel Margin="0,7,0,0">
+                    <TextBlock Text="Skapar en flyttbar kopia av profilen och alla ljudfiler som går att hitta. Kopians länkar skrivs om till den medföljande Media-mappen, så den kan öppnas på en annan dator." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,9" />
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <TextBox x:Name="BackupFolderBox" IsReadOnly="True" />
+                        <Button Grid.Column="1" Content="Välj mapp…" Style="{StaticResource SecondaryButton}" Margin="8,0" Click="BrowseBackupFolder_Click" />
+                        <Button x:Name="BackupButton" Grid.Column="2" Content="Skapa backup" Style="{StaticResource PrimaryButton}" Click="CreateBackup_Click" />
+                    </Grid>
+                </StackPanel>
+            </GroupBox>
+        </StackPanel>
+
+        <Grid Grid.Row="4" Margin="0,16,0,0">
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="StatusText" Text="Redo" Foreground="{StaticResource MutedBrush}" FontSize="11" />
+                <ProgressBar x:Name="WorkProgress" Height="3" Margin="0,5,150,0" IsIndeterminate="True" Visibility="Collapsed" />
+            </StackPanel>
+            <Button Content="Stäng" Style="{StaticResource SecondaryButton}" MinWidth="110" HorizontalAlignment="Right" IsCancel="True" />
+        </Grid>
+    </Grid>
+</Window>

@@ -1,0 +1,146 @@
+<Window x:Class="FloorballDJ.Views.ButtonAppearanceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Knapputseende" Width="620" Height="720" MinWidth="560" MinHeight="620"
+        ResizeMode="CanResize" WindowStartupLocation="CenterOwner">
+    <Grid Margin="24,18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- De separata värdena sparas här medan ett gemensamt HEX-fält visas i väljaren. -->
+        <Grid Visibility="Collapsed">
+            <TextBox x:Name="ButtonColorBox" TextChanged="ColorTextChanged" />
+            <TextBox x:Name="TextColorBox" TextChanged="ColorTextChanged" />
+            <TextBlock x:Name="ButtonHexStatus" />
+            <TextBlock x:Name="TextHexStatus" />
+            <Border x:Name="ButtonColorSample" />
+            <Border x:Name="TextColorSample" />
+        </Grid>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="0,0,8,0">
+                <Border Background="#0C1727" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="1" CornerRadius="10" Padding="14">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="VISUELL FÄRGVÄLJARE" Style="{StaticResource FieldLabel}" />
+                                <TextBlock Text="Klicka eller dra i fältet för att välja färg." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,3,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button x:Name="SavedColorsButton" Content="Sparade färger" Style="{StaticResource SecondaryButton}" Padding="11,7" Margin="0,0,6,0" Click="SavedColors_Click" />
+                                <Button x:Name="EditButtonColorButton" Content="Knappfärg" Style="{StaticResource SecondaryButton}" Padding="11,7" Margin="0,0,6,0" Click="EditButtonColor_Click" />
+                                <Button x:Name="EditTextColorButton" Content="Textfärg" Style="{StaticResource SecondaryButton}" Padding="11,7" Click="EditTextColor_Click" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid x:Name="ColorFieldInput" Height="184" Cursor="Cross" ClipToBounds="False"
+                              MouseLeftButtonDown="ColorField_MouseLeftButtonDown"
+                              MouseLeftButtonUp="ColorField_MouseLeftButtonUp"
+                              MouseMove="ColorField_MouseMove">
+                            <Border x:Name="ColorFieldBase" Background="#FF0000" CornerRadius="4" />
+                            <Border CornerRadius="4">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                        <GradientStop Color="White" Offset="0" />
+                                        <GradientStop Color="#00FFFFFF" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                            <Border CornerRadius="4">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                                        <GradientStop Color="#00000000" Offset="0" />
+                                        <GradientStop Color="Black" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                            <Canvas IsHitTestVisible="False">
+                                <Ellipse x:Name="ColorCursor" Width="16" Height="16" Stroke="White" StrokeThickness="2">
+                                    <Ellipse.Effect><DropShadowEffect Color="Black" BlurRadius="4" ShadowDepth="0" Opacity="0.9" /></Ellipse.Effect>
+                                </Ellipse>
+                            </Canvas>
+                        </Grid>
+
+                        <TextBlock Text="NYANS" Style="{StaticResource FieldLabel}" Margin="0,11,0,3" />
+                        <Grid Height="24">
+                            <Border Height="8" VerticalAlignment="Center" CornerRadius="4">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                        <GradientStop Color="#FFFF0000" Offset="0" />
+                                        <GradientStop Color="#FFFFFF00" Offset="0.1667" />
+                                        <GradientStop Color="#FF00FF00" Offset="0.3333" />
+                                        <GradientStop Color="#FF00FFFF" Offset="0.5" />
+                                        <GradientStop Color="#FF0000FF" Offset="0.6667" />
+                                        <GradientStop Color="#FFFF00FF" Offset="0.8333" />
+                                        <GradientStop Color="#FFFF0000" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                            <Slider x:Name="HueSlider" Minimum="0" Maximum="360" LargeChange="30"
+                                    IsMoveToPointEnabled="True" Background="Transparent" ValueChanged="HueSlider_ValueChanged" />
+                        </Grid>
+
+                        <UniformGrid Columns="3" Margin="0,8,0,0">
+                            <Border Background="#132139" CornerRadius="5" Padding="10,7" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="HEX  (#RRGGBB)" Style="{StaticResource FieldLabel}" />
+                                    <TextBox x:Name="ActiveHexBox" MinHeight="28" Height="30" Padding="7,3" Margin="0,3,0,0"
+                                             TextChanged="ActiveHexBox_TextChanged" />
+                                    <TextBlock x:Name="ActiveHexStatus" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <Border Background="#132139" CornerRadius="5" Padding="10,7" Margin="4,0">
+                                <StackPanel>
+                                    <TextBlock Text="RGB" Style="{StaticResource FieldLabel}" />
+                                    <TextBlock x:Name="RgbValueText" Foreground="{StaticResource TextBrush}" Margin="0,8,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <Border Background="#132139" CornerRadius="5" Padding="10,7" Margin="4,0,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="HSV" Style="{StaticResource FieldLabel}" />
+                                    <TextBlock x:Name="HsvValueText" Foreground="{StaticResource TextBrush}" Margin="0,8,0,0" />
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock x:Name="QuickColorLabel" Text="SNABBVAL KNAPPFÄRG" Style="{StaticResource FieldLabel}" Margin="0,15,0,7" />
+                <UniformGrid Columns="7">
+                    <Button Tag="#142238" Background="#142238" Height="35" Margin="3" Click="SetQuickColor_Click" />
+                    <Button Tag="#123047" Background="#123047" Height="35" Margin="3" Click="SetQuickColor_Click" />
+                    <Button Tag="#17453B" Background="#17453B" Height="35" Margin="3" Click="SetQuickColor_Click" />
+                    <Button Tag="#4B294B" Background="#4B294B" Height="35" Margin="3" Click="SetQuickColor_Click" />
+                    <Button Tag="#512C37" Background="#512C37" Height="35" Margin="3" Click="SetQuickColor_Click" />
+                    <Button Tag="#55401E" Background="#55401E" Height="35" Margin="3" Click="SetQuickColor_Click" />
+                    <Button Tag="#303849" Background="#303849" Height="35" Margin="3" Click="SetQuickColor_Click" />
+                    <Button Tag="#111827" Background="#111827" Height="35" Margin="3" Click="SetQuickColor_Click" />
+                    <Button Tag="#F7FAFC" Background="#F7FAFC" Height="35" Margin="3" Click="SetQuickColor_Click" />
+                    <Button Tag="#36E0B4" Background="#36E0B4" Height="35" Margin="3" Click="SetQuickColor_Click" />
+                    <Button Tag="#FFC15A" Background="#FFC15A" Height="35" Margin="3" Click="SetQuickColor_Click" />
+                    <Button Tag="#FF8EA0" Background="#FF8EA0" Height="35" Margin="3" Click="SetQuickColor_Click" />
+                    <Button Tag="#AFCBFF" Background="#AFCBFF" Height="35" Margin="3" Click="SetQuickColor_Click" />
+                    <Button Tag="#5E8BFF" Background="#5E8BFF" Height="35" Margin="3" Click="SetQuickColor_Click" />
+                </UniformGrid>
+
+                <TextBlock Text="FÖRHANDSVISNING" Style="{StaticResource FieldLabel}" Margin="0,15,0,6" />
+                <Border x:Name="PreviewBorder" CornerRadius="10" Padding="16" MinHeight="76"
+                        BorderBrush="{StaticResource HairlineBrush}" BorderThickness="1">
+                    <TextBlock x:Name="PreviewText" Text="Jingle – förhandsvisning" HorizontalAlignment="Center"
+                               VerticalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" FontWeight="SemiBold" />
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+            <Button Content="Avbryt" Style="{StaticResource SecondaryButton}" MinWidth="100" Margin="0,0,8,0" IsCancel="True" />
+            <Button Content="Använd färger" Style="{StaticResource PrimaryButton}" MinWidth="130" IsDefault="True" Click="Save_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

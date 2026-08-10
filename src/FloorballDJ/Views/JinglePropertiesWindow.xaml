@@ -1,0 +1,200 @@
+<Window x:Class="FloorballDJ.Views.JinglePropertiesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:FloorballDJ.Controls"
+        Title="Jingle-egenskaper" Width="1120" Height="820" MinWidth="720" MinHeight="580" WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <Style x:Key="PropertyValueBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="Foreground" Value="#FFFFFF" /><Setter Property="Background" Value="#1A2940" />
+            <Setter Property="CaretBrush" Value="#36E0B4" /><Setter Property="BorderBrush" Value="#405677" />
+            <Setter Property="SelectionBrush" Value="#36E0B4" /><Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </Window.Resources>
+    <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <Grid Margin="18,12" MinWidth="660">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="88" />
+            <RowDefinition Height="155" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="82" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <Grid.RowDefinitions><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+            <TextBlock Text="Titel" Style="{StaticResource FieldLabel}" /><TextBox x:Name="TitleBox" Grid.Column="1" Margin="0,3" Foreground="{StaticResource TextBrush}" Background="{StaticResource PanelRaisedBrush}" />
+            <TextBlock Grid.Row="1" Text="Ljudfil" Style="{StaticResource FieldLabel}" /><TextBox x:Name="PathBox" Grid.Row="1" Grid.Column="1" Margin="0,3" IsReadOnly="True" Foreground="{StaticResource TextBrush}" Background="{StaticResource PanelRaisedBrush}" />
+            <Button Grid.Row="1" Grid.Column="2" Content="Byt fil…" Style="{StaticResource SecondaryButton}" Margin="8,3,0,3" Click="Browse_Click" />
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,0,0,7">
+            <TextBlock Text="FULL WAVEFORM" Style="{StaticResource EyebrowText}" Margin="8,5" Panel.ZIndex="2" IsHitTestVisible="False" />
+            <Border x:Name="FullWaveformSurface" Style="{StaticResource CardBorder}" ClipToBounds="True" Background="Transparent" Cursor="Hand"
+                    PreviewMouseLeftButtonDown="Waveform_MouseLeftButtonDown" PreviewMouseMove="Waveform_MouseMove" PreviewMouseLeftButtonUp="Waveform_MouseLeftButtonUp">
+                <controls:WaveformControl x:Name="FullWaveform" IsHitTestVisible="False" />
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="0,0,0,7">
+            <TextBlock Text="WAVEFORM SCROLL" Style="{StaticResource EyebrowText}" Margin="8,5" Panel.ZIndex="2" IsHitTestVisible="False" />
+            <Border x:Name="DetailWaveformSurface" Style="{StaticResource CardBorder}" ClipToBounds="True" Background="Transparent" Cursor="SizeWE"
+                    PreviewMouseLeftButtonDown="Waveform_MouseLeftButtonDown" PreviewMouseMove="Waveform_MouseMove" PreviewMouseLeftButtonUp="Waveform_MouseLeftButtonUp">
+                <controls:WaveformControl x:Name="DetailWaveform" IsHitTestVisible="False" />
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="3" Margin="0,2,0,8">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock x:Name="PreviewPositionText" Text="00:00.000 / 00:00.000" FontFamily="Cascadia Mono" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Margin="2,0,0,4" />
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="▶  Spela" Style="{StaticResource PrimaryButton}" MinWidth="76" Padding="9,7" Click="PreviewPlay_Click" />
+                    <Button Content="Ⅱ  Paus" Style="{StaticResource SecondaryButton}" MinWidth="70" Padding="9,7" Margin="5,0" Click="PreviewPause_Click" />
+                    <Button Content="■  Stopp" Style="{StaticResource SecondaryButton}" MinWidth="70" Padding="9,7" Click="PreviewStop_Click" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom">
+                <StackPanel Margin="5,0,9,0">
+                    <TextBlock Text="START" Style="{StaticResource EyebrowText}" HorizontalAlignment="Center" />
+                    <TextBox x:Name="StartText" FontFamily="Cascadia Mono" FontWeight="Bold" Width="100" Height="27" MinHeight="27" Padding="4,1" TextAlignment="Center" Margin="0,1,0,3"
+                             ToolTip="Skriv sekunder eller tid, exempelvis 78 eller 01:18" LostKeyboardFocus="StartText_LostKeyboardFocus" KeyDown="TimeText_KeyDown" />
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="−" Style="{StaticResource SecondaryButton}" Width="30" Padding="0" ToolTip="0,1 s (Shift: 0,01 s)" Click="StartMinus_Click" />
+                        <Button Content="Start" Style="{StaticResource SecondaryButton}" MinWidth="72" Padding="9,6" Margin="4,0" Click="SetStart_Click" />
+                        <Button Content="+" Style="{StaticResource SecondaryButton}" Width="30" Padding="0" ToolTip="0,1 s (Shift: 0,01 s)" Click="StartPlus_Click" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Margin="9,0,5,0">
+                    <TextBlock Text="SLUT" Style="{StaticResource EyebrowText}" HorizontalAlignment="Center" />
+                    <TextBox x:Name="EndText" FontFamily="Cascadia Mono" FontWeight="Bold" Width="100" Height="27" MinHeight="27" Padding="4,1" TextAlignment="Center" Margin="0,1,0,3"
+                             ToolTip="Skriv sekunder eller tid, exempelvis 78 eller 01:18" LostKeyboardFocus="EndText_LostKeyboardFocus" KeyDown="TimeText_KeyDown" />
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="−" Style="{StaticResource SecondaryButton}" Width="30" Padding="0" ToolTip="0,1 s (Shift: 0,01 s)" Click="EndMinus_Click" />
+                        <Button Content="Stopp" Style="{StaticResource SecondaryButton}" MinWidth="72" Padding="9,6" Margin="4,0" Click="SetEnd_Click" />
+                        <Button Content="+" Style="{StaticResource SecondaryButton}" Width="30" Padding="0" ToolTip="0,1 s (Shift: 0,01 s)" Click="EndPlus_Click" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel VerticalAlignment="Center" Margin="8,0,0,0">
+                    <TextBlock Text="LÄNGD" Style="{StaticResource EyebrowText}" HorizontalAlignment="Center" />
+                    <TextBlock x:Name="DurationText" FontFamily="Cascadia Mono" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,4" />
+                </StackPanel>
+            </StackPanel>
+            <Button Grid.Column="2" Content="Trimma tystnad" Style="{StaticResource SecondaryButton}" VerticalAlignment="Bottom" Click="TrimSilence_Click" />
+        </Grid>
+
+        <TabControl Grid.Row="4" Background="Transparent" BorderThickness="0">
+            <TabItem Header="Ljudmixer">
+                <Grid Margin="0,7,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="14" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <GroupBox Header="Nivå och normalisering" Style="{StaticResource ModernGroupBox}">
+                        <Grid Margin="0,5,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="116" /><ColumnDefinition /><ColumnDefinition Width="74" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                            <TextBlock Text="Manuell gain" Style="{StaticResource FieldLabel}" /><Slider x:Name="GainSlider" Grid.Column="1" Minimum="-24" Maximum="12" TickFrequency="1" /><TextBox x:Name="GainBox" Grid.Column="2" Margin="8,3,0,3" TextAlignment="Center" Style="{StaticResource PropertyValueBox}" />
+                            <TextBlock Grid.Row="1" Text="Normalisering  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Jämnar ut upplevd ljudstyrka mellan jinglar. Justeringen sker bara vid uppspelning och ändrar aldrig originalfilen." /><CheckBox x:Name="NormalizationCheck" Grid.Row="1" Grid.Column="1" Content="Automatisk LUFS-anpassning" VerticalAlignment="Center" ToolTip="Använd den beräknade Auto gain-justeringen när jingeln spelas." />
+                            <TextBlock Grid.Row="2" Text="Målnivå  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Önskad upplevd genomsnittsnivå. För idrottshall är −16 LUFS en bra utgångspunkt." /><TextBox x:Name="TargetLufsBox" Grid.Row="2" Grid.Column="1" Width="82" HorizontalAlignment="Left" TextAlignment="Center" Style="{StaticResource PropertyValueBox}" ToolTip="Målnivå i LUFS, exempelvis −16." /><TextBlock Grid.Row="2" Grid.Column="2" Text="LUFS" Style="{StaticResource FieldLabel}" />
+                            <StackPanel Grid.Row="3" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,5">
+                                <Button x:Name="AnalyzeLoudnessButton" Content="Analysera ljudfil" Style="{StaticResource PrimaryButton}" Click="AnalyzeLoudness_Click" />
+                                <TextBlock x:Name="LoudnessStatusText" Text="Inte analyserad" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
+                            </StackPanel>
+                            <UniformGrid Grid.Row="4" Grid.ColumnSpan="3" Columns="3" Margin="0,4,0,0">
+                                <Border Style="{StaticResource CardBorder}" Padding="8" Margin="0,0,5,0" ToolTip="Uppmätt genomsnittlig upplevd ljudstyrka för den valda delen av filen."><StackPanel><TextBlock Text="LOUDNESS  ⓘ" Style="{StaticResource EyebrowText}"/><TextBlock x:Name="IntegratedLufsText" Text="– LUFS" FontFamily="Cascadia Mono" FontSize="15" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/></StackPanel></Border>
+                                <Border Style="{StaticResource CardBorder}" Padding="8" Margin="2,0" ToolTip="Högsta beräknade verkliga ljudtopp. Ett lägre värde ger mer säkerhetsmarginal."><StackPanel><TextBlock Text="TRUE PEAK  ⓘ" Style="{StaticResource EyebrowText}"/><TextBlock x:Name="TruePeakText" Text="– dBTP" FontFamily="Cascadia Mono" FontSize="15" FontWeight="Bold"/></StackPanel></Border>
+                                <Border Style="{StaticResource CardBorder}" Padding="8" Margin="5,0,0,0" ToolTip="Automatisk volymändring under uppspelning. Minus sänker och plus höjer. Höjningen begränsas av peak-säkerheten; originalfilen ändras inte."><StackPanel><TextBlock Text="AUTO GAIN  ⓘ" Style="{StaticResource EyebrowText}"/><TextBlock x:Name="SuggestedGainText" Text="– dB" FontFamily="Cascadia Mono" FontSize="15" FontWeight="Bold"/></StackPanel></Border>
+                            </UniformGrid>
+                        </Grid>
+                    </GroupBox>
+                    <GroupBox Grid.Column="2" Header="Uppspelning" Style="{StaticResource ModernGroupBox}">
+                        <Grid Margin="0,5,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="100" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                            <TextBlock Text="Spelläge" Style="{StaticResource FieldLabel}" />
+                            <ComboBox x:Name="PlayModeCombo" Grid.Column="1" Margin="0,3" Width="160" MinHeight="32" HorizontalAlignment="Left"
+                                      HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Foreground="#111820" Background="White" BorderBrush="#36E0B4" />
+                            <TextBlock Grid.Row="1" Text="Alternativ" Style="{StaticResource FieldLabel}" />
+                            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <CheckBox x:Name="LoopCheck" Content="Loop" VerticalAlignment="Center" />
+                                <CheckBox x:Name="MultipleClicksCheck" Content="Multiple Clicks" Margin="20,0,0,0" VerticalAlignment="Center"
+                                          ToolTip="Startar en ny kopia från början vid varje klick, medan tidigare kopior fortsätter spela. Högst 8 kopior spelar samtidigt för att skydda ljudmotorn." />
+                            </StackPanel>
+                            <TextBlock Grid.Row="2" Text="Egen fade in" Style="{StaticResource FieldLabel}" /><TextBox x:Name="FadeInBox" Grid.Row="2" Grid.Column="1" Width="90" HorizontalAlignment="Left" TextAlignment="Center" Margin="0,3" Style="{StaticResource PropertyValueBox}" ToolTip="Sekunder. Både 1,5 och 1.5 fungerar." />
+                            <TextBlock Grid.Row="3" Text="Egen fade ut" Style="{StaticResource FieldLabel}" /><TextBox x:Name="FadeOutBox" Grid.Row="3" Grid.Column="1" Width="90" HorizontalAlignment="Left" TextAlignment="Center" Margin="0,3" Style="{StaticResource PropertyValueBox}" ToolTip="Sekunder. Både 1,5 och 1.5 fungerar." />
+                            <TextBlock Grid.Row="4" Text="Snabbtangent" Style="{StaticResource FieldLabel}" />
+                            <Grid Grid.Row="4" Grid.Column="1" Margin="0,3" MaxWidth="340" HorizontalAlignment="Stretch">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="132" /></Grid.ColumnDefinitions>
+                                <Border Background="#1736E0B4" BorderBrush="#36E0B4" BorderThickness="1" CornerRadius="5" Padding="8,6" Margin="0,0,8,0">
+                                    <TextBlock x:Name="ShortcutText" Foreground="#73F4D3" FontFamily="Cascadia Mono" FontWeight="Bold" TextAlignment="Center" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                                </Border>
+                                <Button Grid.Column="1" Content="Välj snabbknapp" Style="{StaticResource SecondaryButton}" Click="ChooseShortcut_Click" Padding="7,5" HorizontalAlignment="Stretch" />
+                            </Grid>
+                            <TextBlock Grid.Row="5" Text="Slumpkategori" Style="{StaticResource FieldLabel}" ToolTip="Jinglar med samma kategorinamn bildar en grupp, till exempel Mål eller Periodpaus." />
+                            <TextBox x:Name="CategoryBox" Grid.Row="5" Grid.Column="1" Margin="0,3" MaxWidth="340" HorizontalAlignment="Stretch" ToolTip="Samma namn måste användas på alla jinglar i gruppen." />
+                            <TextBlock Grid.Row="6" Text="Slumpknapp" Style="{StaticResource FieldLabel}" />
+                            <Grid Grid.Row="6" Grid.Column="1" Margin="0,3" MaxWidth="340" HorizontalAlignment="Stretch">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="132" /></Grid.ColumnDefinitions>
+                                <Border Background="#1736E0B4" BorderBrush="#36E0B4" BorderThickness="1" CornerRadius="5" Padding="8,6" Margin="0,0,8,0">
+                                    <TextBlock x:Name="CategoryShortcutText" Foreground="#73F4D3" FontFamily="Cascadia Mono" FontWeight="Bold" TextAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                </Border>
+                                <Button Grid.Column="1" Content="Välj slumpknapp" Style="{StaticResource SecondaryButton}" Click="ChooseCategoryShortcut_Click" Padding="7,5" />
+                            </Grid>
+                        </Grid>
+                    </GroupBox>
+                    <Expander Grid.Row="1" Grid.ColumnSpan="3" Header="AVANCERAT: EQ, KOMPRESSOR, PITCH OCH TEMPO" IsExpanded="False" Margin="0,10,0,0">
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="14" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                            <GroupBox Header="Tonkontroll och hastighet" Style="{StaticResource ModernGroupBox}">
+                                <Grid Margin="0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition/><ColumnDefinition Width="68"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                    <TextBlock Text="Bas" Style="{StaticResource FieldLabel}"/><Slider x:Name="EqLowSlider" Grid.Column="1" Minimum="-12" Maximum="12"/><TextBox x:Name="EqLowBox" Grid.Column="2" Margin="8,3,0,3" Style="{StaticResource PropertyValueBox}"/>
+                                    <TextBlock Grid.Row="1" Text="Mellan" Style="{StaticResource FieldLabel}"/><Slider x:Name="EqMidSlider" Grid.Row="1" Grid.Column="1" Minimum="-12" Maximum="12"/><TextBox x:Name="EqMidBox" Grid.Row="1" Grid.Column="2" Margin="8,3,0,3" Style="{StaticResource PropertyValueBox}"/>
+                                    <TextBlock Grid.Row="2" Text="Diskant" Style="{StaticResource FieldLabel}"/><Slider x:Name="EqHighSlider" Grid.Row="2" Grid.Column="1" Minimum="-12" Maximum="12"/><TextBox x:Name="EqHighBox" Grid.Row="2" Grid.Column="2" Margin="8,3,0,3" Style="{StaticResource PropertyValueBox}"/>
+                                    <TextBlock Grid.Row="3" Text="Pitch" Style="{StaticResource FieldLabel}"/><Slider x:Name="PitchSlider" Grid.Row="3" Grid.Column="1" Minimum="-12" Maximum="12"/><TextBox x:Name="PitchBox" Grid.Row="3" Grid.Column="2" Margin="8,3,0,3" Style="{StaticResource PropertyValueBox}"/>
+                                    <TextBlock Grid.Row="4" Text="Tempo / Rate" Style="{StaticResource FieldLabel}"/><StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal"><Slider x:Name="TempoSlider" Width="120" Minimum="-50" Maximum="100"/><Slider x:Name="RateSlider" Width="120" Minimum="-50" Maximum="100" Margin="8,0,0,0"/></StackPanel><StackPanel Grid.Row="4" Grid.Column="2"><TextBox x:Name="TempoBox" Style="{StaticResource PropertyValueBox}"/><TextBox x:Name="RateBox" Style="{StaticResource PropertyValueBox}" Margin="0,3,0,0"/></StackPanel>
+                                </Grid>
+                            </GroupBox>
+                            <GroupBox Grid.Column="2" Header="Kompressor" Style="{StaticResource ModernGroupBox}">
+                                <Grid Margin="0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="112"/><ColumnDefinition/><ColumnDefinition Width="70"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                    <TextBlock Text="Aktiverad" Style="{StaticResource FieldLabel}"/><CheckBox x:Name="CompressorCheck" Grid.Column="1" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="1" Text="Tröskel" Style="{StaticResource FieldLabel}"/><Slider x:Name="CompressorThresholdSlider" Grid.Row="1" Grid.Column="1" Minimum="-36" Maximum="0"/><TextBox x:Name="CompressorThresholdBox" Grid.Row="1" Grid.Column="2" Margin="8,3,0,3" Style="{StaticResource PropertyValueBox}"/>
+                                    <TextBlock Grid.Row="2" Text="Ratio" Style="{StaticResource FieldLabel}"/><Slider x:Name="CompressorRatioSlider" Grid.Row="2" Grid.Column="1" Minimum="1" Maximum="12"/><TextBox x:Name="CompressorRatioBox" Grid.Row="2" Grid.Column="2" Margin="8,3,0,3" Style="{StaticResource PropertyValueBox}"/>
+                                    <TextBlock Grid.Row="3" Text="Attack" Style="{StaticResource FieldLabel}"/><TextBox x:Name="CompressorAttackBox" Grid.Row="3" Grid.Column="1" Width="90" HorizontalAlignment="Left" Style="{StaticResource PropertyValueBox}"/><TextBlock Grid.Row="3" Grid.Column="2" Text="ms" Style="{StaticResource FieldLabel}"/>
+                                    <TextBlock Grid.Row="4" Text="Release" Style="{StaticResource FieldLabel}"/><TextBox x:Name="CompressorReleaseBox" Grid.Row="4" Grid.Column="1" Width="90" HorizontalAlignment="Left" Style="{StaticResource PropertyValueBox}"/><TextBlock Grid.Row="4" Grid.Column="2" Text="ms" Style="{StaticResource FieldLabel}"/>
+                                </Grid>
+                            </GroupBox>
+                        </Grid>
+                    </Expander>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Teknisk information">
+                <Border Style="{StaticResource CardBorder}" Padding="18" Margin="0,7,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="150" /><ColumnDefinition Width="*" /><ColumnDefinition Width="150" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                        <TextBlock Text="Format" Style="{StaticResource FieldLabel}" /><TextBlock x:Name="FormatInfoText" Grid.Column="1" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="Filstorlek" Style="{StaticResource FieldLabel}" /><TextBlock x:Name="FileSizeInfoText" Grid.Column="3" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="1" Text="Längd" Style="{StaticResource FieldLabel}" /><TextBlock x:Name="DurationInfoText" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="1" Grid.Column="2" Text="Bitrate" Style="{StaticResource FieldLabel}" /><TextBlock x:Name="BitrateInfoText" Grid.Row="1" Grid.Column="3" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="2" Text="Samplingsfrekvens" Style="{StaticResource FieldLabel}" /><TextBlock x:Name="SampleRateInfoText" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="2" Grid.Column="2" Text="Kanaler" Style="{StaticResource FieldLabel}" /><TextBlock x:Name="ChannelsInfoText" Grid.Row="2" Grid.Column="3" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="3" Text="Kodning" Style="{StaticResource FieldLabel}" /><TextBlock x:Name="EncodingInfoText" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="3" Grid.Column="2" Text="Senast ändrad" Style="{StaticResource FieldLabel}" /><TextBlock x:Name="ModifiedInfoText" Grid.Row="3" Grid.Column="3" VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+            </TabItem>
+        </TabControl>
+
+    </Grid>
+    </ScrollViewer>
+    <Grid Grid.Row="1" Margin="24,12,24,18">
+        <TextBlock Text="Markören är förhandslyssningens position. Start/Stopp sparar positionen." Foreground="{StaticResource MutedBrush}" FontSize="10" VerticalAlignment="Center" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Avbryt" Style="{StaticResource SecondaryButton}" MinWidth="100" Margin="0,0,8,0" IsCancel="True" />
+            <Button Content="Spara ändringar" Style="{StaticResource PrimaryButton}" MinWidth="140" IsDefault="True" Click="Save_Click" />
+        </StackPanel>
+    </Grid>
+    </Grid>
+</Window>

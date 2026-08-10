@@ -1,0 +1,15 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*_wpftmp.csproj
+*.floorballdj.json
+artifacts/
+*.pfx
+*.p12
+*.snk
+*.cer
+*.key
+licensing-api/
+website/.netlify/

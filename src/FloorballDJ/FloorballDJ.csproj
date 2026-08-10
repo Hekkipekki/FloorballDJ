@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>Assets\FloorballDJ-AppIcon.ico</ApplicationIcon>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>false</PublishSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <SatelliteResourceLanguages>sv;en</SatelliteResourceLanguages>
+    <Version>0.40.0-beta.12</Version>
+    <AssemblyVersion>0.40.0.0</AssemblyVersion>
+    <FileVersion>0.40.0.0</FileVersion>
+    <InformationalVersion>0.40.0-beta.12</InformationalVersion>
+    <Product>FloorballDJ</Product>
+    <Company>FloorballDJ</Company>
+    <Authors>FloorballDJ</Authors>
+    <Description>Modern jingle cart och ljudspelare för sportevenemang.</Description>
+    <Copyright>Copyright © FloorballDJ</Copyright>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\FloorballDJ-Logo.png" />
+    <Resource Include="Assets\FloorballDJ-AppIcon.png" />
+    <Resource Include="Assets\FloorballDJ-AppIcon.ico" />
+  </ItemGroup>
+</Project>

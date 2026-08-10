@@ -1,0 +1,153 @@
+name: Build Windows installer and release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version utan inledande v, exempelvis 0.40.0-beta.1
+        required: true
+        type: string
+      prerelease:
+        description: Publicera som förhandsversion
+        required: true
+        default: true
+        type: boolean
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows-release:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Resolve release version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $version = "${{ inputs.version }}"
+          } else {
+            $version = "${{ github.ref_name }}" -replace '^v', ''
+          }
+          if ($version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
+            throw "Ogiltigt versionsnummer: $version"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Install verified Inno Setup 7
+        shell: pwsh
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP "innosetup.exe"
+          Invoke-WebRequest "https://github.com/jrsoftware/issrc/releases/download/is-7_0_2/innosetup-7.0.2-x64.exe" -OutFile $installer
+          $signature = Get-AuthenticodeSignature -LiteralPath $installer
+          if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid -or $signature.SignerCertificate.Subject -notmatch 'Pyrsys B\.V\.') {
+            throw "Inno Setup-installationens signatur är inte giltig."
+          }
+          $process = Start-Process -FilePath $installer -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/CURRENTUSER' -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Inno Setup-installationen misslyckades med kod $($process.ExitCode)."
+          }
+
+      - name: Prepare optional signing certificate
+        id: signing
+        shell: pwsh
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not [string]::IsNullOrWhiteSpace($env:CERTIFICATE_BASE64)) {
+            $pfxPath = Join-Path $env:RUNNER_TEMP "floorballdj-signing.pfx"
+            [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:CERTIFICATE_BASE64))
+            "enabled=true" >> $env:GITHUB_OUTPUT
+            "FLOORBALLDJ_SIGN_PFX=$pfxPath" >> $env:GITHUB_ENV
+            "FLOORBALLDJ_SIGN_PASSWORD=$env:CERTIFICATE_PASSWORD" >> $env:GITHUB_ENV
+          } else {
+            "enabled=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $sign = "${{ steps.signing.outputs.enabled }}" -eq "true"
+          & .\scripts\Build-Installer.ps1 -Version "${{ steps.version.outputs.version }}" -Sign:$sign
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FloorballDJ-${{ steps.version.outputs.version }}-win-x64
+          path: |
+            artifacts/installer/${{ steps.version.outputs.version }}/FloorballDJ-Setup.exe
+            artifacts/installer/${{ steps.version.outputs.version }}/FloorballDJ-Setup.exe.sha256
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_REPOSITORY_TOKEN: ${{ github.token }}
+          PUBLIC_RELEASE_REPOSITORY: ${{ vars.RELEASE_REPOSITORY }}
+          PUBLIC_RELEASE_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $tag = "v$version"
+          $releaseRepository = if ([string]::IsNullOrWhiteSpace($env:PUBLIC_RELEASE_REPOSITORY)) { $env:SOURCE_REPOSITORY } else { $env:PUBLIC_RELEASE_REPOSITORY }
+          $env:GH_TOKEN = if ([string]::IsNullOrWhiteSpace($env:PUBLIC_RELEASE_TOKEN)) { $env:SOURCE_REPOSITORY_TOKEN } else { $env:PUBLIC_RELEASE_TOKEN }
+          $assets = @(
+            "artifacts/installer/$version/FloorballDJ-Setup.exe",
+            "artifacts/installer/$version/FloorballDJ-Setup.exe.sha256"
+          )
+          $arguments = @("release", "create", $tag) + $assets + @("--repo", $releaseRepository, "--title", "FloorballDJ $version", "--generate-notes")
+          if ("${{ github.event_name }}" -eq "workflow_dispatch" -and "${{ inputs.prerelease }}" -eq "true") {
+            $arguments += "--prerelease"
+          }
+          gh @arguments
+
+      - name: Update website release metadata
+        continue-on-error: true
+        shell: pwsh
+        env:
+          PUBLIC_RELEASE_REPOSITORY: ${{ vars.RELEASE_REPOSITORY }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $releaseRepository = if ([string]::IsNullOrWhiteSpace($env:PUBLIC_RELEASE_REPOSITORY)) { "${{ github.repository }}" } else { $env:PUBLIC_RELEASE_REPOSITORY }
+          $installerUrl = "https://github.com/$releaseRepository/releases/download/v$version/FloorballDJ-Setup.exe"
+          $hash = (Get-FileHash -LiteralPath "artifacts/installer/$version/FloorballDJ-Setup.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
+          $defaultBranch = "${{ github.event.repository.default_branch }}"
+          git fetch origin $defaultBranch
+          git checkout -B $defaultBranch "origin/$defaultBranch"
+          $manifest = [ordered]@{
+            version = $version
+            channel = if ("${{ inputs.prerelease }}" -eq "true" -or $version -match '-') { "beta" } else { "stable" }
+            installerUrl = $installerUrl
+            downloadPage = "https://floorballdj.netlify.app/licens/#download"
+            releaseNotesUrl = "https://floorballdj.netlify.app/changelog/"
+            sha256 = $hash
+            publishedAt = [DateTimeOffset]::UtcNow.ToString("O")
+            summary = "FloorballDJ $version är den senaste publicerade versionen."
+          }
+          $manifest | ConvertTo-Json | Set-Content -LiteralPath website/update.json -Encoding utf8
+          $configPath = "website/assets/site-config.js"
+          $config = Get-Content -LiteralPath $configPath -Raw
+          $displayVersion = $version -replace '-beta\.', ' beta '
+          $config = $config -replace 'downloadUrl:\s*"[^"]*"', "downloadUrl: `"$installerUrl`""
+          $config = $config -replace 'currentVersion:\s*"[^"]*"', "currentVersion: `"$displayVersion`""
+          Set-Content -LiteralPath $configPath -Value $config -Encoding utf8
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add website/update.json website/assets/site-config.js
+          if (-not (git diff --cached --quiet)) {
+            git commit -m "Update website download to $version"
+            git push origin $defaultBranch
+          }

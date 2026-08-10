@@ -1,0 +1,32 @@
+<Window x:Class="FloorballDJ.Views.JingleSearchWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Sök jingle" Width="620" Height="480" MinWidth="470" MinHeight="340"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Text="Sök bland alla jinglar" Style="{StaticResource SectionTitle}" FontSize="24" />
+        <TextBox x:Name="SearchBox" Grid.Row="1" Margin="0,12,0,12" FontSize="16" TextChanged="SearchBox_TextChanged"
+                 ToolTip="Skriv hela eller delar av titeln" />
+        <ListBox x:Name="ResultsList" Grid.Row="2" MouseDoubleClick="ResultsList_MouseDoubleClick" KeyDown="ResultsList_KeyDown">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="8,6">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="150" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding DeckName}" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Avbryt" Style="{StaticResource SecondaryButton}" MinWidth="100" Margin="0,0,8,0" IsCancel="True" />
+            <Button Content="Visa jingle" Style="{StaticResource PrimaryButton}" MinWidth="120" IsDefault="True" Click="Select_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

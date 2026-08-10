@@ -1,0 +1,10 @@
+{
+  "version": "0.40.0-beta.12",
+  "channel": "beta",
+  "installerUrl": "https://github.com/Hekkipekki/FloorballDJ/releases/download/v0.40.0-beta.12/FloorballDJ-Setup.exe",
+  "downloadPage": "https://floorballdj.netlify.app/licens/#download",
+  "releaseNotesUrl": "https://floorballdj.netlify.app/changelog/",
+  "sha256": "07eeb7d6dc3af19b34a05fabed31804dfef55d30071b58d41e7619507ab986ca",
+  "publishedAt": "2026-08-10T20:00:00Z",
+  "summary": "Manuell uppdateringskontroll, säkrare nedladdning och fortsatta förbättringar av jingleverktygen."
+}
