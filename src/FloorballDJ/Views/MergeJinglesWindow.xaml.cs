@@ -642,10 +642,10 @@ public partial class MergeJinglesWindow : Window
             await _merge.MergeManyAsync(segments, transitions, outputPath);
             using var reader = new AudioFileReader(outputPath);
             var targetDeck = _viewModel.SelectedDeck ?? _viewModel.Decks.First();
-            var target = targetDeck.Jingles.FirstOrDefault(jingle => !jingle.HasAudio);
+            var target = targetDeck.Jingles.FirstOrDefault(jingle => !jingle.HasContent);
             if (target is null)
             {
-                targetDeck.Rows++; _viewModel.ApplyLayout(); target = targetDeck.Jingles.First(jingle => !jingle.HasAudio);
+                targetDeck.Rows++; _viewModel.ApplyLayout(); target = targetDeck.Jingles.First(jingle => !jingle.HasContent);
             }
             target.Title = outputTitle;
             target.FilePath = outputPath; target.StartSeconds = 0; target.EndSeconds = null; target.DurationSeconds = reader.TotalTime.TotalSeconds;

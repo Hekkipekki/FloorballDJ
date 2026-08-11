@@ -124,7 +124,7 @@
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="PA/Talk" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Mikrofonknappen tonar mjukt ned huvudutgången medan speakern talar och tonar upp den igen vid nästa klick. Dämpningen ställs under <Run FontWeight="Bold">Verktyg → Inställningar → PA/Talk-dämpning</Run>. Förlyssningsutgången påverkas inte. Håll <Run FontWeight="Bold">Ctrl+↑/↓</Run> för att höja eller sänka huvudvolymen i steg om 0,5 dB.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Mikrofonknappen tonar mjukt ned huvudutgången medan speakern talar och tonar upp den igen vid nästa klick. PA/Talk stängs också automatiskt av när en ny Solo-jingle startas, så nästa låt spelas på normal nivå. Dämpningen ställs under <Run FontWeight="Bold">Verktyg → Inställningar → PA/Talk-dämpning</Run>. Förlyssningsutgången påverkas inte. Håll <Run FontWeight="Bold">Ctrl+↑/↓</Run> för att höja eller sänka huvudvolymen i steg om 0,5 dB.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Space i deck-vyn" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Utan kö: Space tonar ut och sparar positionen i <Run FontWeight="Bold">två minuter</Run>; nästa Space återupptar samma låt där toningen slutade. Med Ctrl-kö: första Space tonar ut aktuell låt och nästa Space startar nästa köade jingle.</TextBlock>
@@ -148,7 +148,7 @@
                         <TextBlock Text="DECKS OCH JINGLAR" Style="{StaticResource EyebrowText}" />
                         <TextBlock Text="Bygg en tydlig matchlayout" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
                         <GroupBox Header="Lägga till och flytta" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Klicka på en tom plats för att välja filer eller dra en/flera ljudfiler från Utforskaren. Dra en befintlig knapp till en annan plats för att byta plats. En tydlig markering visar målet. Ändringar autosparas.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Klicka på en tom plats för att välja filer eller dra en/flera ljudfiler från Utforskaren. Högerklicka på en tom plats och välj Lägg till textblock för en rubrik eller avdelare som inte kan spelas, köas eller visas i Autoplay. Dra en befintlig knapp eller ett textblock till en annan plats för att byta plats. Ändringar autosparas.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Högerklick på en jingle" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Öppna egenskaper, ladda/byta ljud, ändra knapp- och textfärg, använda färg på en hel rad, kopiera/klistra in, välja Solo/Mix/Duck eller ta bort jingeln. Att ta bort jingeln raderar inte ljudfilen från disken.</TextBlock>
@@ -233,7 +233,7 @@
                             <TextBlock Style="{StaticResource HelpBody}">Flytta markören och välj Start eller Stopp. Du kan skriva sekunder (78) eller tid (01:18). Plus/minus flyttar 0,1 sekund; håll Shift för 0,01 sekund. Trimma tystnad föreslår hörbara gränser automatiskt.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Uppspelning och snabbtangent" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Välj Solo/Mix/Duck, Loop, egna fade-tider och Välj snabbknapp. Modifierare som Ctrl, Shift, Alt och Win väntar på ytterligare en tangent. Space är reserverad för uppspelningsflödet.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Välj Solo/Mix/Duck, Loop, egna fade-tider och Välj snabbknapp. Markera Hoppa till om snabbknappen också ska visa jingelns deck. Modifierare som Ctrl, Shift, Alt och Win väntar på ytterligare en tangent. Space är reserverad för uppspelningsflödet.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Ljudmixer" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Normalisering ger jämn grundnivå och manuell gain finjusterar. Bas/Mellan/Diskant formar tonen. Kompressorn dämpar signal över tröskeln; högre ratio ger kraftigare kontroll, Attack bestämmer hur snabbt den reagerar och Release hur snabbt den släpper.</TextBlock>

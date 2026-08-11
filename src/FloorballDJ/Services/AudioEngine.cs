@@ -165,7 +165,8 @@ public sealed class AudioEngine : IDisposable
         return Task.CompletedTask;
     }
 
-    public PlaybackAction Play(Jingle jingle, bool honorJingleLoop = true, double? fadeInSecondsOverride = null, double? fadeOutPreviousSecondsOverride = null)
+    public PlaybackAction Play(Jingle jingle, bool honorJingleLoop = true, double? fadeInSecondsOverride = null,
+        double? fadeOutPreviousSecondsOverride = null, bool releaseTalkDucking = true)
     {
         if (!File.Exists(jingle.FilePath))
             throw new FileNotFoundException("Ljudfilen kunde inte hittas.", jingle.FilePath);
@@ -197,6 +198,7 @@ public sealed class AudioEngine : IDisposable
                 : _voices.Where(voice => voice.UsesSecondaryDevice == _useSecondaryDevice && voice.Jingle.PlayMode != JinglePlayMode.Mix &&
                     !(jingle.AllowMultipleClicks && (voice.Jingle.Id == jingle.Id ||
                         string.Equals(voice.Jingle.FilePath, jingle.FilePath, StringComparison.OrdinalIgnoreCase)))).ToArray();
+            var resetTalkForNewPrimary = releaseTalkDucking && !_useSecondaryDevice && jingle.PlayMode == JinglePlayMode.Solo;
 
             AudioFileReader? reader = null;
             WasapiOut? output = null;
@@ -211,7 +213,7 @@ public sealed class AudioEngine : IDisposable
                 var volume = new VolumeSampleProvider(source);
                 var effects = new DjEffectsSampleProvider(volume, jingle, _masterLimiterCeilingDbtp, _masterLimiterEnabled);
                 var talkGain = new SmoothGainSampleProvider(effects,
-                    DbToLinear(_useSecondaryDevice ? 0 : _talkGainDb));
+                    DbToLinear(_useSecondaryDevice || resetTalkForNewPrimary ? 0 : _talkGainDb));
                 var meter = new MeteringSampleProvider(talkGain);
                 output = new WasapiOut(ResolveDevice(), AudioClientShareMode.Shared, true, 50);
                 var voice = new Voice
@@ -232,6 +234,13 @@ public sealed class AudioEngine : IDisposable
                     voice.PeakRight = e.MaxSampleValues.ElementAtOrDefault(1);
                 };
                 output.Init(meter.ToWaveProvider());
+                if (resetTalkForNewPrimary && _talkDuckingEnabled)
+                {
+                    _talkDuckingEnabled = false;
+                    _talkGainDb = 0;
+                    foreach (var activeVoice in _voices.Where(candidate => !candidate.IsDisposed && !candidate.StopRequested && !candidate.UsesSecondaryDevice))
+                        activeVoice.TalkGain.SetTarget(1, _fadeInSeconds);
+                }
                 output.PlaybackStopped += (_, e) => OnStopped(voice, e.Exception);
                 _voices.Add(voice);
                 if (jingle.AllowMultipleClicks)

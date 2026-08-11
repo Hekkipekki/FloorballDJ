@@ -31,6 +31,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private CancellationTokenSource? _saveRequestCancellation;
     private bool _disposed;
 
+    public event EventHandler? PrimaryPlaybackStarted;
+
     public MainViewModel(ProjectService projects, ProfilePreferencesService profilePreferences, AudioEngine audio)
     {
         _projects = projects;
@@ -145,7 +147,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         PlaybackAction action;
         try
         {
-            action = _audio.Play(jingle, honorJingleLoop, transitionFadeInSeconds, transitionFadeOutSeconds);
+            action = _audio.Play(jingle, honorJingleLoop, transitionFadeInSeconds, transitionFadeOutSeconds,
+                releaseTalkDucking: !previewOnly);
         }
         catch (Exception ex)
         {
@@ -156,6 +159,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         if (action == PlaybackAction.Started)
         {
+            if (!previewOnly && jingle.PlayMode == JinglePlayMode.Solo)
+                PrimaryPlaybackStarted?.Invoke(this, EventArgs.Empty);
             _isFadingOutCurrent = false;
             Raise(nameof(NowPlayingLabel));
             if (Settings.TrackSession) jingle.SessionPlayCount++;
@@ -331,11 +336,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(QueuedCount));
     }
 
-    public void MoveDeck(Deck source, Deck target)
+    public void MoveDeck(Deck source, int insertionIndex)
     {
         var sourceIndex = Decks.IndexOf(source);
-        var targetIndex = Decks.IndexOf(target);
-        if (sourceIndex < 0 || targetIndex < 0 || sourceIndex == targetIndex) return;
+        if (sourceIndex < 0) return;
+        var targetIndex = Math.Clamp(insertionIndex, 0, Decks.Count);
+        if (targetIndex > sourceIndex) targetIndex--;
+        if (sourceIndex == targetIndex) return;
         Decks.Move(sourceIndex, targetIndex);
         SelectedDeck = source;
         Status = $"Flyttade {source.Name} till plats {targetIndex + 1}";

@@ -103,9 +103,15 @@ public sealed class TakeCountConverter : IMultiValueConverter
 {
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
     {
-        if (values.Length < 2 || values[0] is not System.Collections.IEnumerable source || values[1] is not int count)
+        if (values.Length < 2 || values[0] is not IList source || values[1] is not int count)
             return Array.Empty<object>();
-        return source.Cast<object>().Take(Math.Max(0, count)).ToList();
+        var visibleCount = Math.Max(0, count);
+        return new ListCollectionView(source)
+        {
+            // Keep a live view of the actual deck collection. A detached ToList snapshot
+            // redraws the old order after drag/drop even though the project was updated.
+            Filter = item => source.IndexOf(item) >= 0 && source.IndexOf(item) < visibleCount
+        };
     }
     public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) => targetTypes.Select(_ => Binding.DoNothing).ToArray();
 }

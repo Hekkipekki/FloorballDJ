@@ -125,12 +125,14 @@
                             <TextBlock Grid.Row="2" Text="Egen fade in" Style="{StaticResource FieldLabel}" /><TextBox x:Name="FadeInBox" Grid.Row="2" Grid.Column="1" Width="90" HorizontalAlignment="Left" TextAlignment="Center" Margin="0,3" Style="{StaticResource PropertyValueBox}" ToolTip="Sekunder. Både 1,5 och 1.5 fungerar." />
                             <TextBlock Grid.Row="3" Text="Egen fade ut" Style="{StaticResource FieldLabel}" /><TextBox x:Name="FadeOutBox" Grid.Row="3" Grid.Column="1" Width="90" HorizontalAlignment="Left" TextAlignment="Center" Margin="0,3" Style="{StaticResource PropertyValueBox}" ToolTip="Sekunder. Både 1,5 och 1.5 fungerar." />
                             <TextBlock Grid.Row="4" Text="Snabbtangent" Style="{StaticResource FieldLabel}" />
-                            <Grid Grid.Row="4" Grid.Column="1" Margin="0,3" MaxWidth="340" HorizontalAlignment="Stretch">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="132" /></Grid.ColumnDefinitions>
-                                <Border Background="#1736E0B4" BorderBrush="#36E0B4" BorderThickness="1" CornerRadius="5" Padding="8,6" Margin="0,0,8,0">
+                            <Grid Grid.Row="4" Grid.Column="1" Margin="0,3" MaxWidth="390" HorizontalAlignment="Left">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="132" /></Grid.ColumnDefinitions>
+                                <Border Background="#1736E0B4" BorderBrush="#36E0B4" BorderThickness="1" CornerRadius="5" Padding="7,6" Margin="0,0,10,0" MinWidth="58" MaxWidth="116">
                                     <TextBlock x:Name="ShortcutText" Foreground="#73F4D3" FontFamily="Cascadia Mono" FontWeight="Bold" TextAlignment="Center" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
                                 </Border>
-                                <Button Grid.Column="1" Content="Välj snabbknapp" Style="{StaticResource SecondaryButton}" Click="ChooseShortcut_Click" Padding="7,5" HorizontalAlignment="Stretch" />
+                                <CheckBox x:Name="ShortcutSwitchesDeckCheck" Grid.Column="1" Content="Hoppa till" Margin="0,0,12,0" VerticalAlignment="Center"
+                                          ToolTip="Byter till jingelns deck när snabbknappen används. Jingeln spelas samtidigt som vanligt." />
+                                <Button Grid.Column="2" Content="Välj snabbknapp" Style="{StaticResource SecondaryButton}" Click="ChooseShortcut_Click" Padding="7,5" HorizontalAlignment="Stretch" />
                             </Grid>
                             <TextBlock Grid.Row="5" Text="Slumpkategori" Style="{StaticResource FieldLabel}" ToolTip="Jinglar med samma kategorinamn bildar en grupp, till exempel Mål eller Periodpaus." />
                             <TextBox x:Name="CategoryBox" Grid.Row="5" Grid.Column="1" Margin="0,3" MaxWidth="340" HorizontalAlignment="Stretch" ToolTip="Samma namn måste användas på alla jinglar i gruppen." />

@@ -39,6 +39,7 @@ public sealed class Jingle : INotifyPropertyChanged
     private int _position;
     private string _buttonColor = "#182338";
     private string _textColor = "#F7FAFC";
+    private bool _isTextBlock;
     private double _startSeconds;
     private double? _endSeconds;
     private double _durationSeconds;
@@ -52,6 +53,7 @@ public sealed class Jingle : INotifyPropertyChanged
     private double? _fadeInOverrideSeconds;
     private double? _fadeOutOverrideSeconds;
     private string? _shortcut;
+    private bool _shortcutSwitchesDeck;
     private string _category = "";
     private string? _categoryShortcut;
     private int _sessionPlayCount;
@@ -78,10 +80,11 @@ public sealed class Jingle : INotifyPropertyChanged
 
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Title { get => _title; set => Set(ref _title, value); }
-    public string FilePath { get => _filePath; set { if (Set(ref _filePath, value)) { Raise(nameof(HasAudio)); Raise(nameof(IsMissing)); Raise(nameof(HasFreshLoudnessAnalysis)); } } }
+    public string FilePath { get => _filePath; set { if (Set(ref _filePath, value)) { Raise(nameof(HasAudio)); Raise(nameof(HasContent)); Raise(nameof(IsMissing)); Raise(nameof(HasFreshLoudnessAnalysis)); } } }
     public int Position { get => _position; set => Set(ref _position, value); }
     public string ButtonColor { get => _buttonColor; set => Set(ref _buttonColor, value); }
     public string TextColor { get => _textColor; set => Set(ref _textColor, value); }
+    public bool IsTextBlock { get => _isTextBlock; set { if (Set(ref _isTextBlock, value)) Raise(nameof(HasContent)); } }
     public double StartSeconds { get => _startSeconds; set => Set(ref _startSeconds, value); }
     public double? EndSeconds { get => _endSeconds; set => Set(ref _endSeconds, value); }
     public double DurationSeconds { get => _durationSeconds; set => Set(ref _durationSeconds, value); }
@@ -95,6 +98,7 @@ public sealed class Jingle : INotifyPropertyChanged
     public double? FadeInOverrideSeconds { get => _fadeInOverrideSeconds; set => Set(ref _fadeInOverrideSeconds, value); }
     public double? FadeOutOverrideSeconds { get => _fadeOutOverrideSeconds; set => Set(ref _fadeOutOverrideSeconds, value); }
     public string? Shortcut { get => _shortcut; set => Set(ref _shortcut, value); }
+    public bool ShortcutSwitchesDeck { get => _shortcutSwitchesDeck; set => Set(ref _shortcutSwitchesDeck, value); }
     public string Category { get => _category; set => Set(ref _category, value); }
     public string? CategoryShortcut { get => _categoryShortcut; set => Set(ref _categoryShortcut, value); }
     public int SessionPlayCount { get => _sessionPlayCount; set => Set(ref _sessionPlayCount, value); }
@@ -127,6 +131,7 @@ public sealed class Jingle : INotifyPropertyChanged
     [JsonIgnore] public int QueuePosition { get => _queuePosition; set => Set(ref _queuePosition, value); }
     [JsonIgnore] public int AutoplayQueuePosition { get => _autoplayQueuePosition; set => Set(ref _autoplayQueuePosition, value); }
     [JsonIgnore] public bool HasAudio => !string.IsNullOrWhiteSpace(FilePath);
+    [JsonIgnore] public bool HasContent => HasAudio || IsTextBlock;
     [JsonIgnore] public bool IsMissing => HasAudio && !File.Exists(FilePath);
     [JsonIgnore] public bool IsSearchMatch { get => _isSearchMatch; set => Set(ref _isSearchMatch, value); }
 

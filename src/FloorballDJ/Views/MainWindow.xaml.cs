@@ -38,7 +38,10 @@ public partial class MainWindow : Window
     private bool _closeCommitted;
     private Point _deckDragStart;
     private Deck? _deckDragSource;
+    private bool _deckDragActive;
     private TabItem? _deckDropTarget;
+    private int _deckDropInsertionIndex = -1;
+    private bool _deckDropAfterTarget;
     private readonly System.Windows.Threading.DispatcherTimer _inlineSearchClearTimer = new()
         { Interval = TimeSpan.FromSeconds(4) };
     private readonly System.Windows.Threading.DispatcherTimer _inlineSearchDebounceTimer = new()
@@ -70,6 +73,10 @@ public partial class MainWindow : Window
         RefreshLicenseStatus();
         SourceInitialized += MainWindow_SourceInitialized;
         DataContext = new MainViewModel(_projects, _profilePreferences, _audio);
+        ViewModel.PrimaryPlaybackStarted += (_, _) =>
+        {
+            if (TalkToggle.IsChecked == true) TalkToggle.IsChecked = false;
+        };
         Loaded += async (_, _) =>
         {
             await ViewModel.InitializeAsync();
@@ -179,6 +186,7 @@ public partial class MainWindow : Window
     {
         if (_suppressNextClick) { _suppressNextClick = false; return; }
         if ((sender as Button)?.DataContext is not Jingle jingle) return;
+        if (jingle.IsTextBlock) return;
         if (!jingle.HasAudio) { await LoadAudioAsync(jingle); return; }
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
         {
@@ -669,6 +677,17 @@ public partial class MainWindow : Window
             {
                 e.Handled = true;
                 ClearSpaceResume();
+                if (shortcutJingle.ShortcutSwitchesDeck)
+                {
+                    var shortcutDeck = ViewModel.Decks.FirstOrDefault(deck => deck.Jingles.Contains(shortcutJingle));
+                    if (shortcutDeck is not null)
+                    {
+                        EmbeddedAutoplay.Visibility = Visibility.Collapsed;
+                        ViewModel.SetAutoplayMode(false);
+                        ViewModel.SelectedDeck = shortcutDeck;
+                        DeckTabsControl.SelectedItem = shortcutDeck;
+                    }
+                }
                 try { ViewModel.Play(shortcutJingle); }
                 catch (Exception ex) { MessageBox.Show(this, ex.Message, "Kunde inte spela", MessageBoxButton.OK, MessageBoxImage.Warning); }
                 return;
@@ -904,13 +923,11 @@ public partial class MainWindow : Window
         if (GetContextDeck(sender) is not { } deck) return;
         var dialog = new DeckLayoutWindow(deck) { Owner = this };
         if (dialog.ShowDialog() != true) return;
-        var newSlots = dialog.Rows * dialog.Columns;
-        var hiddenAudio = deck.Jingles.Count(item => item.HasAudio && item.Position >= newSlots);
+        var hiddenAudio = ProjectService.CountHiddenAudioAfterResize(deck, dialog.Rows, dialog.Columns);
         if (hiddenAudio > 0 && MessageBox.Show(this,
-                $"Den nya layouten döljer {hiddenAudio} jinglar. De finns kvar och visas igen om decket förstoras. Fortsätta?",
+                $"Den nya layouten har inte plats för {hiddenAudio} jinglar. De finns kvar dolda och visas igen om decket förstoras. Fortsätta?",
                 "Dolda jinglar", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
-        deck.Rows = dialog.Rows;
-        deck.Columns = dialog.Columns;
+        ProjectService.ResizeDeckLayout(deck, dialog.Rows, dialog.Columns);
         ViewModel.ApplyLayout();
         ViewModel.Status = $"{deck.Name}: {deck.Rows} rader × {deck.Columns} kolumner";
         await SaveSafelyAsync();
@@ -949,6 +966,7 @@ public partial class MainWindow : Window
 
     private void DeckTabs_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        EndDeckDrag();
         var tab = FindAncestor<TabItem>(e.OriginalSource as DependencyObject);
         _deckDragStart = e.GetPosition(DeckTabsControl);
         _deckDragSource = tab?.DataContext as Deck ?? tab?.Content as Deck;
@@ -961,60 +979,101 @@ public partial class MainWindow : Window
 
     private void DeckTabs_PreviewMouseMove(object sender, MouseEventArgs e)
     {
-        if (e.LeftButton != MouseButtonState.Pressed || _deckDragSource is null) return;
-        var current = e.GetPosition(DeckTabsControl);
-        if (Math.Abs(current.X - _deckDragStart.X) < SystemParameters.MinimumHorizontalDragDistance &&
-            Math.Abs(current.Y - _deckDragStart.Y) < SystemParameters.MinimumVerticalDragDistance) return;
-        var source = _deckDragSource;
-        _deckDragSource = null;
-        DragDrop.DoDragDrop(DeckTabsControl, new DataObject(typeof(Deck), source), DragDropEffects.Move);
-        ClearDeckDropTarget();
-    }
-
-    private void DeckTabs_DragOver(object sender, DragEventArgs e)
-    {
-        var source = e.Data.GetData(typeof(Deck)) as Deck;
-        var tab = FindAncestor<TabItem>(e.OriginalSource as DependencyObject);
-        var target = tab?.DataContext as Deck ?? tab?.Content as Deck;
-        e.Effects = source is not null && target is not null && source != target ? DragDropEffects.Move : DragDropEffects.None;
-        if (!ReferenceEquals(tab, _deckDropTarget))
+        if (e.LeftButton != MouseButtonState.Pressed)
         {
-            ClearDeckDropTarget();
-            _deckDropTarget = tab;
-            if (_deckDropTarget is not null && e.Effects == DragDropEffects.Move)
-            {
-                _deckDropTarget.BorderBrush = (Brush)FindResource("AccentBrush");
-                _deckDropTarget.BorderThickness = new Thickness(2);
-                _deckDropTarget.Opacity = .78;
-            }
+            // MouseUp completes the operation. Clearing here can discard the insertion
+            // point on systems that report a final move after the button was released.
+            if (!_deckDragActive) _deckDragSource = null;
+            return;
         }
+        if (_deckDragSource is null) return;
+        var current = e.GetPosition(DeckTabsControl);
+        if (!_deckDragActive)
+        {
+            if (Math.Abs(current.X - _deckDragStart.X) < SystemParameters.MinimumHorizontalDragDistance &&
+                Math.Abs(current.Y - _deckDragStart.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+            _deckDragActive = true;
+            Mouse.Capture(DeckTabsControl, CaptureMode.SubTree);
+            DeckTabsControl.Cursor = Cursors.SizeWE;
+        }
+
+        UpdateDeckDropPosition(current);
         e.Handled = true;
     }
 
-    private void DeckTabs_DragLeave(object sender, DragEventArgs e)
+    private void DeckTabs_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        if (e.OriginalSource == sender) ClearDeckDropTarget();
-    }
-
-    private void DeckTabs_Drop(object sender, DragEventArgs e)
-    {
-        var source = e.Data.GetData(typeof(Deck)) as Deck;
-        var tab = FindAncestor<TabItem>(e.OriginalSource as DependencyObject) ?? _deckDropTarget;
-        var target = tab?.DataContext as Deck ?? tab?.Content as Deck;
-        ClearDeckDropTarget();
-        if (source is null || target is null || source == target) return;
-        ViewModel.MoveDeck(source, target);
+        var source = _deckDragSource;
+        var insertionIndex = _deckDropInsertionIndex;
+        var moved = _deckDragActive && source is not null && insertionIndex >= 0;
+        EndDeckDrag();
+        if (!moved || source is null) return;
+        ViewModel.MoveDeck(source, insertionIndex);
         DeckTabsControl.Items.Refresh();
         e.Handled = true;
     }
 
+    private void UpdateDeckDropPosition(Point pointer)
+    {
+        var (insertionIndex, tab, afterTarget) = GetDeckDropPosition(pointer);
+        var sourceIndex = _deckDragSource is null ? -1 : ViewModel.Decks.IndexOf(_deckDragSource);
+        var finalIndex = insertionIndex > sourceIndex ? insertionIndex - 1 : insertionIndex;
+        if (sourceIndex < 0 || insertionIndex < 0 || finalIndex == sourceIndex)
+        {
+            ClearDeckDropTarget();
+            return;
+        }
+
+        if (ReferenceEquals(tab, _deckDropTarget) && insertionIndex == _deckDropInsertionIndex && afterTarget == _deckDropAfterTarget) return;
+        ClearDeckDropTarget();
+        _deckDropTarget = tab;
+        _deckDropInsertionIndex = insertionIndex;
+        _deckDropAfterTarget = afterTarget;
+        if (_deckDropTarget is not null)
+        {
+            _deckDropTarget.BorderBrush = (Brush)FindResource("AccentBrush");
+            _deckDropTarget.BorderThickness = afterTarget
+                ? new Thickness(0, 0, 3, 0)
+                : new Thickness(3, 0, 0, 0);
+        }
+    }
+
+    private (int InsertionIndex, TabItem? Target, bool AfterTarget) GetDeckDropPosition(Point pointer)
+    {
+        TabItem? lastTab = null;
+        for (var index = 0; index < DeckTabsControl.Items.Count; index++)
+        {
+            if (DeckTabsControl.ItemContainerGenerator.ContainerFromIndex(index) is not TabItem candidate) continue;
+            lastTab = candidate;
+            var origin = candidate.TransformToAncestor(DeckTabsControl).Transform(new Point(0, 0));
+            if (pointer.X < origin.X + candidate.ActualWidth / 2)
+                return (index, candidate, false);
+        }
+
+        return lastTab is null
+            ? (-1, null, false)
+            : (DeckTabsControl.Items.Count, lastTab, true);
+    }
+
+    private void EndDeckDrag()
+    {
+        _deckDragActive = false;
+        _deckDragSource = null;
+        ClearDeckDropTarget();
+        DeckTabsControl.ClearValue(CursorProperty);
+        if (ReferenceEquals(Mouse.Captured, DeckTabsControl)) Mouse.Capture(null);
+    }
+
     private void ClearDeckDropTarget()
     {
-        if (_deckDropTarget is null) return;
-        _deckDropTarget.ClearValue(Border.BorderBrushProperty);
-        _deckDropTarget.ClearValue(Border.BorderThicknessProperty);
-        _deckDropTarget.Opacity = 1;
+        if (_deckDropTarget is not null)
+        {
+            _deckDropTarget.ClearValue(Border.BorderBrushProperty);
+            _deckDropTarget.ClearValue(Border.BorderThicknessProperty);
+        }
         _deckDropTarget = null;
+        _deckDropInsertionIndex = -1;
+        _deckDropAfterTarget = false;
     }
 
     private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
@@ -1049,6 +1108,7 @@ public partial class MainWindow : Window
             Multiselect = true
         };
         if (dialog.ShowDialog(this) != true) return;
+        if (jingle.IsTextBlock) jingle.IsTextBlock = false;
         await AssignAudioFilesAsync(jingle, dialog.FileNames);
     }
 
@@ -1075,6 +1135,7 @@ public partial class MainWindow : Window
             if (slotIndex < 0) break;
 
             var jingle = deck.Jingles[slotIndex];
+            jingle.IsTextBlock = false;
             jingle.FilePath = path;
             jingle.Title = Path.GetFileNameWithoutExtension(path);
             try { using var reader = new AudioFileReader(path); jingle.DurationSeconds = reader.TotalTime.TotalSeconds; }
@@ -1100,13 +1161,48 @@ public partial class MainWindow : Window
         if (capacity <= 0) return -1;
         var start = Math.Clamp(startIndex, 0, capacity);
         for (var index = start; index < capacity; index++)
-            if (!deck.Jingles[index].HasAudio) return index;
+            if (!deck.Jingles[index].HasContent) return index;
         for (var index = 0; index < start; index++)
-            if (!deck.Jingles[index].HasAudio) return index;
+            if (!deck.Jingles[index].HasContent) return index;
         return -1;
     }
 
     private static bool IsAudioFile(string path) => File.Exists(path) && AudioExtensions.Contains(Path.GetExtension(path));
+
+    private async void TextBlock_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetContextJingle(sender) is not { } jingle) return;
+        var convertingAudio = jingle.HasAudio;
+        var wasEmpty = !jingle.HasContent;
+        var isNew = !jingle.IsTextBlock;
+        var dialog = new TextPromptWindow(
+            convertingAudio ? "Gör om till textblock" : isNew ? "Lägg till textblock" : "Redigera textblock",
+            "Text på deckrutan",
+            "Textblocket används som en visuell rubrik eller avdelare och kan inte spelas eller köas.",
+            jingle.Title) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+        if (convertingAudio && MessageBox.Show(this,
+                "Ljudkopplingen tas bort från den här rutan. Originalfilen på disken påverkas inte. Fortsätta?",
+                "Gör om till textblock", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+
+        jingle.IsTextBlock = true;
+        jingle.FilePath = "";
+        jingle.Title = dialog.Value;
+        jingle.DurationSeconds = 0;
+        jingle.StartSeconds = 0;
+        jingle.EndSeconds = null;
+        jingle.QueuePosition = 0;
+        jingle.AutoplayQueuePosition = 0;
+        if (wasEmpty)
+        {
+            jingle.ButtonColor = "#101010";
+            jingle.TextColor = "#FFFFFF";
+        }
+        ViewModel.NotifyJingleChanged(jingle);
+        ViewModel.Status = convertingAudio ? $"Gjorde om {jingle.Title} till textblock"
+            : isNew ? $"Lade till textblocket {jingle.Title}" : $"Uppdaterade textblocket {jingle.Title}";
+        await SaveSafelyAsync();
+    }
 
     private void JingleProperties_Click(object sender, RoutedEventArgs e)
     {
@@ -1231,8 +1327,9 @@ public partial class MainWindow : Window
 
     private void ClearJingle_Click(object sender, RoutedEventArgs e)
     {
-        if (GetContextJingle(sender) is not { } jingle || !jingle.HasAudio) return;
-        if (MessageBox.Show(this, $"Ta bort '{jingle.Title}' från knappen? Ljudfilen på disken raderas inte.", "Ta bort jingle", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        if (GetContextJingle(sender) is not { } jingle || !jingle.HasContent) return;
+        var detail = jingle.HasAudio ? " Ljudfilen på disken raderas inte." : "";
+        if (MessageBox.Show(this, $"Töm rutan '{jingle.Title}'?{detail}", "Töm ruta", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         var position = jingle.Position;
         CopyInto(new Jingle { Position = position }, jingle, true);
         ViewModel.NotifyJingleChanged(jingle);
@@ -1404,8 +1501,11 @@ public partial class MainWindow : Window
         var beforeLayouts = ViewModel.Decks.ToDictionary(deck => deck.Id, deck => (deck.Rows, deck.Columns));
         var dialog = new SettingsWindow(ViewModel.Project, _audio.GetOutputDevices(), _profilePreferences) { Owner = this };
         if (dialog.ShowDialog() != true) return;
-        var hidesJingles = ViewModel.Decks.Any(deck =>
-                deck.Jingles.Any(jingle => jingle.Position >= deck.Rows * deck.Columns && jingle.HasAudio)) ||
+        var requestedLayouts = ViewModel.Decks.ToDictionary(deck => deck.Id, deck => (deck.Rows, deck.Columns));
+        foreach (var deck in ViewModel.Decks)
+            if (beforeLayouts.TryGetValue(deck.Id, out var layout)) { deck.Rows = layout.Rows; deck.Columns = layout.Columns; }
+        var hidesJingles = ViewModel.Decks.Any(deck => requestedLayouts.TryGetValue(deck.Id, out var layout) &&
+                ProjectService.CountHiddenAudioAfterResize(deck, layout.Rows, layout.Columns) > 0) ||
             (ViewModel.Settings.DeckCount < beforeDecks && ViewModel.Decks.Skip(ViewModel.Settings.DeckCount).SelectMany(x => x.Jingles).Any(x => x.HasAudio));
         if (hidesJingles && MessageBox.Show(this, "Den nya layouten döljer jinglar. De sparas fortfarande i projektet och visas igen om layouten förstoras. Fortsätta?", "Dolda jinglar", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
         {
@@ -1416,6 +1516,8 @@ public partial class MainWindow : Window
                 if (beforeLayouts.TryGetValue(deck.Id, out var layout)) { deck.Rows = layout.Rows; deck.Columns = layout.Columns; }
             return;
         }
+        foreach (var deck in ViewModel.Decks)
+            if (requestedLayouts.TryGetValue(deck.Id, out var layout)) ProjectService.ResizeDeckLayout(deck, layout.Rows, layout.Columns);
         ViewModel.ApplyLayout();
         ViewModel.ConfigureAudio();
         RefreshOutputName();
@@ -1526,7 +1628,7 @@ public partial class MainWindow : Window
     private static void CopyInto(Jingle source, Jingle target, bool keepPosition)
     {
         var position = target.Position;
-        target.Id = Guid.NewGuid(); target.Title = source.Title; target.FilePath = source.FilePath; target.ButtonColor = source.ButtonColor; target.TextColor = source.TextColor;
+        target.Id = Guid.NewGuid(); target.Title = source.Title; target.FilePath = source.FilePath; target.IsTextBlock = source.IsTextBlock; target.ButtonColor = source.ButtonColor; target.TextColor = source.TextColor;
         target.StartSeconds = source.StartSeconds; target.EndSeconds = source.EndSeconds; target.DurationSeconds = source.DurationSeconds; target.PlayMode = source.PlayMode; target.Loop = source.Loop; target.AllowMultipleClicks = source.AllowMultipleClicks;
         target.GainDb = source.GainDb; target.PitchSemitones = source.PitchSemitones; target.TempoPercent = source.TempoPercent; target.RatePercent = source.RatePercent;
         target.NormalizationEnabled = source.NormalizationEnabled; target.NormalizationTargetLufs = source.NormalizationTargetLufs;
@@ -1536,7 +1638,7 @@ public partial class MainWindow : Window
         target.EqLowDb = source.EqLowDb; target.EqMidDb = source.EqMidDb; target.EqHighDb = source.EqHighDb;
         target.CompressorEnabled = source.CompressorEnabled; target.CompressorThresholdDb = source.CompressorThresholdDb; target.CompressorRatio = source.CompressorRatio;
         target.CompressorAttackMs = source.CompressorAttackMs; target.CompressorReleaseMs = source.CompressorReleaseMs;
-        target.FadeInOverrideSeconds = source.FadeInOverrideSeconds; target.FadeOutOverrideSeconds = source.FadeOutOverrideSeconds; target.Shortcut = source.Shortcut; target.SessionPlayCount = 0;
+        target.FadeInOverrideSeconds = source.FadeInOverrideSeconds; target.FadeOutOverrideSeconds = source.FadeOutOverrideSeconds; target.Shortcut = source.Shortcut; target.ShortcutSwitchesDeck = source.ShortcutSwitchesDeck; target.SessionPlayCount = 0;
         target.Position = keepPosition ? position : source.Position;
     }
 }

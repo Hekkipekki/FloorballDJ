@@ -78,6 +78,7 @@ public partial class JinglePropertiesWindow : Window
         FadeInBox.Text = FormatNullable(jingle.FadeInOverrideSeconds);
         FadeOutBox.Text = FormatNullable(jingle.FadeOutOverrideSeconds);
         _shortcut = ShortcutService.Normalize(jingle.Shortcut);
+        ShortcutSwitchesDeckCheck.IsChecked = jingle.ShortcutSwitchesDeck;
         CategoryBox.Text = jingle.Category;
         _categoryShortcut = ShortcutService.Normalize(jingle.CategoryShortcut);
         UpdateShortcutText();
@@ -374,6 +375,7 @@ public partial class JinglePropertiesWindow : Window
         _target.AllowMultipleClicks = MultipleClicksCheck.IsChecked == true;
         _target.FadeInOverrideSeconds = ParseNullable(FadeInBox.Text); _target.FadeOutOverrideSeconds = ParseNullable(FadeOutBox.Text);
         _target.Shortcut = _shortcut;
+        _target.ShortcutSwitchesDeck = ShortcutSwitchesDeckCheck.IsChecked == true;
         _target.Category = CategoryBox.Text.Trim();
         _target.CategoryShortcut = _categoryShortcut;
         DialogResult = true;
@@ -410,7 +412,7 @@ public partial class JinglePropertiesWindow : Window
         UpdateShortcutText();
     }
 
-    private void UpdateShortcutText() => ShortcutText.Text = _shortcut ?? "Ingen snabbknapp";
+    private void UpdateShortcutText() => ShortcutText.Text = _shortcut ?? "<Ingen>";
 
     private void ChooseCategoryShortcut_Click(object sender, RoutedEventArgs e)
     {

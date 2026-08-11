@@ -168,27 +168,36 @@ public sealed class ProjectService
         var json = JsonSerializer.Serialize(project, JsonOptions);
         var copy = JsonSerializer.Deserialize<FloorballProject>(json, JsonOptions)
             ?? throw new InvalidDataException("Projektet kunde inte kopieras.");
-        var copiedFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var jingle in copy.Decks.SelectMany(deck => deck.Jingles).Where(jingle => jingle.HasAudio))
+        var usedDeckFolderNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var deck in copy.Decks)
         {
-            var source = jingle.FilePath;
-            if (!File.Exists(source)) continue;
-            if (!copiedFiles.TryGetValue(source, out var relativePath))
+            var baseFolderName = SanitizePathSegment(deck.Name, $"Deck {copy.Decks.IndexOf(deck) + 1}");
+            var deckFolderName = baseFolderName;
+            var folderSuffix = 2;
+            while (!usedDeckFolderNames.Add(deckFolderName)) deckFolderName = $"{baseFolderName}-{folderSuffix++}";
+            Directory.CreateDirectory(Path.Combine(mediaDirectory, deckFolderName));
+
+            var copiedFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var jingle in deck.Jingles.Where(jingle => jingle.HasAudio))
             {
-                var originalName = Path.GetFileName(source);
-                var fileName = originalName;
-                var index = 2;
-                while (!usedNames.Add(fileName))
-                    fileName = $"{Path.GetFileNameWithoutExtension(originalName)}-{index++}{Path.GetExtension(originalName)}";
-                relativePath = Path.Combine("Media", fileName);
-                copiedFiles[source] = relativePath;
-                await using var input = File.OpenRead(source);
-                await using var output = File.Create(Path.Combine(directory, relativePath));
-                await input.CopyToAsync(output);
+                var source = jingle.FilePath;
+                if (!File.Exists(source)) continue;
+                if (!copiedFiles.TryGetValue(source, out var relativePath))
+                {
+                    var originalName = Path.GetFileName(source);
+                    var fileName = originalName;
+                    var index = 2;
+                    while (!usedNames.Add(fileName))
+                        fileName = $"{Path.GetFileNameWithoutExtension(originalName)}-{index++}{Path.GetExtension(originalName)}";
+                    relativePath = Path.Combine("Media", deckFolderName, fileName);
+                    copiedFiles[source] = relativePath;
+                    await using var input = File.OpenRead(source);
+                    await using var output = File.Create(Path.Combine(directory, relativePath));
+                    await input.CopyToAsync(output);
+                }
+                jingle.FilePath = relativePath;
             }
-            jingle.FilePath = relativePath;
         }
 
         var projectName = string.Concat(project.Name.Select(character => Path.GetInvalidFileNameChars().Contains(character) ? '_' : character));
@@ -196,11 +205,85 @@ public sealed class ProjectService
         return directory;
     }
 
+    private static string SanitizePathSegment(string? value, string fallback)
+    {
+        var candidate = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+        var invalidCharacters = Path.GetInvalidFileNameChars();
+        candidate = string.Concat(candidate.Select(character => invalidCharacters.Contains(character) ? '_' : character)).Trim(' ', '.');
+        return string.IsNullOrWhiteSpace(candidate) ? fallback : candidate;
+    }
+
     public static FloorballProject CreateDefault()
     {
         var project = new FloorballProject();
         EnsureLayout(project);
         return project;
+    }
+
+    public static int CountHiddenAudioAfterResize(Deck deck, int rows, int columns)
+    {
+        var slots = Math.Clamp(rows, 1, MaximumDeckRows) * Math.Clamp(columns, 1, MaximumDeckColumns);
+        return Math.Max(0, deck.Jingles.Count(jingle => jingle.HasContent) - slots);
+    }
+
+    public static void ResizeDeckLayout(Deck deck, int rows, int columns)
+    {
+        var oldRows = Math.Clamp(deck.Rows, 1, MaximumDeckRows);
+        var oldColumns = Math.Clamp(deck.Columns, 1, MaximumDeckColumns);
+        var newRows = Math.Clamp(rows, 1, MaximumDeckRows);
+        var newColumns = Math.Clamp(columns, 1, MaximumDeckColumns);
+        var newSlots = newRows * newColumns;
+        var visible = new Jingle?[newSlots];
+        var overflowContent = new List<Jingle>();
+
+        // Preserve the physical row/column for every cell that still fits. This means
+        // fewer columns trim the right edge and fewer rows trim the bottom edge.
+        foreach (var jingle in deck.Jingles.OrderBy(jingle => jingle.Position))
+        {
+            var oldPosition = jingle.Position;
+            if (oldPosition >= 0 && oldPosition < oldRows * oldColumns)
+            {
+                var row = oldPosition / oldColumns;
+                var column = oldPosition % oldColumns;
+                if (row < newRows && column < newColumns)
+                {
+                    var newPosition = row * newColumns + column;
+                    if (visible[newPosition] is null)
+                    {
+                        visible[newPosition] = jingle;
+                        continue;
+                    }
+                }
+            }
+
+            if (jingle.HasContent) overflowContent.Add(jingle);
+        }
+
+        // Audio outside the new right/bottom edges is moved only into genuinely empty
+        // visible cells. If capacity is still insufficient it remains hidden after the
+        // visible range, so resizing never deletes a jingle.
+        var overflowIndex = 0;
+        for (var position = 0; position < visible.Length && overflowIndex < overflowContent.Count; position++)
+        {
+            if (visible[position]?.HasContent == true) continue;
+            visible[position] = overflowContent[overflowIndex++];
+        }
+
+        deck.Rows = newRows;
+        deck.Columns = newColumns;
+        deck.Jingles.Clear();
+        for (var position = 0; position < visible.Length; position++)
+        {
+            var jingle = visible[position] ?? new Jingle();
+            jingle.Position = position;
+            deck.Jingles.Add(jingle);
+        }
+        while (overflowIndex < overflowContent.Count)
+        {
+            var jingle = overflowContent[overflowIndex++];
+            jingle.Position = deck.Jingles.Count;
+            deck.Jingles.Add(jingle);
+        }
     }
 
     public static void EnsureLayout(FloorballProject project)

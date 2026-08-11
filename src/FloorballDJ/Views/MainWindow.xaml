@@ -59,7 +59,7 @@
                 <Trigger Property="IsPressed" Value="True">
                     <Setter Property="Opacity" Value="0.84" />
                 </Trigger>
-                <DataTrigger Binding="{Binding HasAudio}" Value="False">
+                <DataTrigger Binding="{Binding HasContent}" Value="False">
                     <Setter Property="Opacity" Value="0.64" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsMissing}" Value="True">
@@ -97,10 +97,12 @@
         <Style x:Key="DeckTab" TargetType="TabItem">
             <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0,0,0,2" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
-                        <Border x:Name="Surface" Background="Transparent" BorderBrush="Transparent" BorderThickness="0,0,0,2" Padding="16,9" Margin="0,0,2,0">
+                        <Border x:Name="Surface" Background="Transparent" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="16,9" Margin="0,0,2,0">
                             <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -339,9 +341,9 @@
             </Grid>
 
             <!-- Seamless deck workspace -->
-            <TabControl x:Name="DeckTabsControl" Grid.Row="2" Style="{StaticResource DeckTabs}" SelectedItem="{Binding SelectedDeck}" ItemContainerStyle="{StaticResource DeckTab}" AllowDrop="True"
+            <TabControl x:Name="DeckTabsControl" Grid.Row="2" Style="{StaticResource DeckTabs}" SelectedItem="{Binding SelectedDeck}" ItemContainerStyle="{StaticResource DeckTab}"
                         PreviewMouseWheel="DeckTabs_PreviewMouseWheel" PreviewMouseLeftButtonDown="DeckTabs_PreviewMouseLeftButtonDown"
-                        PreviewMouseMove="DeckTabs_PreviewMouseMove" DragOver="DeckTabs_DragOver" DragLeave="DeckTabs_DragLeave" Drop="DeckTabs_Drop"
+                        PreviewMouseMove="DeckTabs_PreviewMouseMove" PreviewMouseLeftButtonUp="DeckTabs_PreviewMouseLeftButtonUp"
                         PreviewMouseRightButtonDown="DeckTabs_PreviewMouseRightButtonDown">
                 <TabControl.ItemsSource>
                     <MultiBinding Converter="{StaticResource TakeCount}"><Binding Path="Decks" /><Binding Path="Settings.DeckCount" /></MultiBinding>
@@ -380,7 +382,25 @@
                                                 FontSize="{Binding DataContext.Settings.TitleFontSize, RelativeSource={RelativeSource AncestorType=Window}}">
                                             <Button.ContextMenu>
                                                 <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                                                    <MenuItem Header="Egenskaper…" Click="JingleProperties_Click" />
+                                                    <ContextMenu.Resources>
+                                                        <Style x:Key="AudioOnlyMenuItem" TargetType="MenuItem">
+                                                            <Setter Property="IsEnabled" Value="False" />
+                                                            <Style.Triggers><DataTrigger Binding="{Binding HasAudio}" Value="True"><Setter Property="IsEnabled" Value="True" /></DataTrigger></Style.Triggers>
+                                                        </Style>
+                                                    </ContextMenu.Resources>
+                                                    <MenuItem Click="TextBlock_Click">
+                                                        <MenuItem.Style>
+                                                            <Style TargetType="MenuItem">
+                                                                <Setter Property="Header" Value="Lägg till textblock…" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsTextBlock}" Value="True"><Setter Property="Header" Value="Redigera textblock…" /></DataTrigger>
+                                                                    <DataTrigger Binding="{Binding HasAudio}" Value="True"><Setter Property="Header" Value="Gör om till textblock…" /></DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </MenuItem.Style>
+                                                    </MenuItem>
+                                                    <Separator />
+                                                    <MenuItem Header="Egenskaper…" Style="{StaticResource AudioOnlyMenuItem}" Click="JingleProperties_Click" />
                                                     <MenuItem Header="Ladda ljud…" Click="LoadAudio_Click" />
                                                     <MenuItem Header="Utseende">
                                                         <MenuItem Header="Ändra knappens färger…" Click="ButtonAppearance_Click" />
@@ -390,7 +410,7 @@
                                                     <MenuItem Header="Kopiera jingle" Click="CopyJingle_Click" />
                                                     <MenuItem Header="Klistra in jingle" Click="PasteJingle_Click" />
                                                     <Separator />
-                                                    <MenuItem Header="Spelläge" SubmenuOpened="PlayModeMenu_SubmenuOpened">
+                                                    <MenuItem Header="Spelläge" Style="{StaticResource AudioOnlyMenuItem}" SubmenuOpened="PlayModeMenu_SubmenuOpened">
                                                         <MenuItem Header="Solo" Tag="Solo" IsCheckable="True" Click="PlayMode_Click" />
                                                         <MenuItem Header="Mix" Tag="Mix" IsCheckable="True" Click="PlayMode_Click" />
                                                         <MenuItem Header="Duck" Tag="Duck" IsCheckable="True" Click="PlayMode_Click" />
@@ -399,11 +419,11 @@
                                                                   ToolTip="Varje klick startar en ny instans från början medan tidigare instanser fortsätter. Högst 8 instanser per jingle spelar samtidigt för stabilt ljud." />
                                                     </MenuItem>
                                                     <Separator />
-                                                    <MenuItem Header="Ta bort jingle" Foreground="{StaticResource DangerBrush}" Click="ClearJingle_Click" />
+                                                    <MenuItem Header="Töm ruta" Foreground="{StaticResource DangerBrush}" Click="ClearJingle_Click" />
                                                 </ContextMenu>
                                             </Button.ContextMenu>
                                             <Grid>
-                                                <Border Width="30" Height="30" CornerRadius="15" Background="#22FFFFFF" HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="{Binding HasAudio, Converter={StaticResource EmptyVisibility}}">
+                                                <Border Width="30" Height="30" CornerRadius="15" Background="#22FFFFFF" HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="{Binding HasContent, Converter={StaticResource EmptyVisibility}}">
                                                     <TextBlock Text="+" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="18" FontWeight="Light" />
                                                 </Border>
                                                 <Grid Margin="8,7,8,5">
@@ -427,6 +447,12 @@
                                                 </Grid>
                                                 <Border Background="#28000000" CornerRadius="6" Padding="6,2" HorizontalAlignment="Right" VerticalAlignment="Bottom">
                                                     <TextBlock Text="{Binding DurationSeconds, Converter={StaticResource Duration}}" FontFamily="Cascadia Mono" FontSize="9" />
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                            <Style.Triggers><DataTrigger Binding="{Binding HasAudio}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
                                                 </Border>
                                                 <Border Background="#DDFF6475" CornerRadius="6" Padding="5,2" HorizontalAlignment="Left" VerticalAlignment="Bottom">
                                                     <TextBlock Text="SAKNAS" Foreground="White" FontSize="8" FontWeight="Bold" />
