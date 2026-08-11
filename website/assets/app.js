@@ -28,8 +28,16 @@
 
   const purchase = document.querySelector("[data-purchase-cta]");
   const price = document.querySelector("[data-price-label]");
+  const isTrustedCheckout = (value) => {
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:" &&
+        (url.hostname === "fastspring.com" || url.hostname.endsWith(".fastspring.com") ||
+         url.hostname === "onfastspring.com" || url.hostname.endsWith(".onfastspring.com"));
+    } catch { return false; }
+  };
   if (price && config.priceLabel) price.textContent = config.priceLabel;
-  if (purchase && config.purchasesEnabled && config.checkoutUrl) {
+  if (purchase && config.purchasesEnabled && config.legalReady && isTrustedCheckout(config.checkoutUrl)) {
     purchase.href = config.checkoutUrl;
     purchase.textContent = "Köp FloorballDJ";
     purchase.removeAttribute("aria-disabled");

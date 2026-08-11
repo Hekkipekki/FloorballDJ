@@ -17,6 +17,16 @@
   --shadow: 0 28px 90px rgba(0, 0, 0, 0.38);
 }
 
+.legal-section { max-width: 920px; padding-top: 20px; }
+.legal-notice { margin-bottom: 28px; padding: 18px 20px; border: 1px solid rgba(255,196,93,.3); border-radius: 12px; color: #e7c98e; background: rgba(255,196,93,.06); }
+.legal-copy { display: grid; gap: 14px; }
+.legal-copy article { padding: 30px; border: 1px solid var(--line); border-radius: 16px; background: rgba(13,27,45,.76); }
+.legal-copy h2 { margin-bottom: 10px; font-size: 1.35rem; }
+.legal-copy p, .legal-copy li { color: var(--muted); }
+.legal-copy ul { margin-bottom: 0; }
+.legal-meta { margin-top: 24px; color: #71869a; font-size: .78rem; }
+@media (max-width: 640px) { .legal-copy article { padding: 24px 20px; } }
+
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 92px; }
 body {

@@ -6,6 +6,7 @@ obj/
 *_wpftmp.csproj
 *.floorballdj.json
 artifacts/
+.test-dist-licensing/
 *.pfx
 *.p12
 *.snk

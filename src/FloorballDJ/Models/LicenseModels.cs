@@ -39,7 +39,8 @@ internal sealed record VerifiedLicenseToken(
     string Kind,
     DateTimeOffset IssuedAt,
     DateTimeOffset ExpiresAt,
-    string? Plan);
+    string? Plan,
+    string DeviceBinding);
 
 internal sealed class TrialApiResponse
 {

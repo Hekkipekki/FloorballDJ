@@ -20,6 +20,7 @@ public sealed record UpdateManifest(
 public sealed class UpdateService
 {
     public const string ManifestUrl = "https://floorballdj.netlify.app/update.json";
+    private const long MaxInstallerBytes = 800L * 1024 * 1024;
     private static readonly HttpClient Client = CreateClient();
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
@@ -63,6 +64,8 @@ public sealed class UpdateService
             using var response = await Client.GetAsync(manifest.InstallerUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             response.EnsureSuccessStatusCode();
             var total = response.Content.Headers.ContentLength;
+            if (total is > MaxInstallerBytes)
+                throw new InvalidDataException("Installationsfilen är större än den tillåtna säkerhetsgränsen.");
             await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
             await using (var output = new FileStream(temporaryPath, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 128,
                              FileOptions.Asynchronous | FileOptions.SequentialScan))
@@ -75,6 +78,8 @@ public sealed class UpdateService
                     if (read == 0) break;
                     await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
                     downloaded += read;
+                    if (downloaded > MaxInstallerBytes)
+                        throw new InvalidDataException("Installationsfilen är större än den tillåtna säkerhetsgränsen.");
                     if (total is > 0) progress?.Report(downloaded * 100d / total.Value);
                 }
             }
@@ -110,14 +115,24 @@ public sealed class UpdateService
     {
         if (string.IsNullOrWhiteSpace(manifest.Version) || !SemanticVersion.TryParse(manifest.Version, out _))
             throw new InvalidDataException("Uppdateringens versionsnummer är ogiltigt.");
-        if (!IsHttps(manifest.InstallerUrl) || !IsHttps(manifest.DownloadPage) || !IsHttps(manifest.ReleaseNotesUrl))
+        if (!IsAllowedInstallerUrl(manifest.InstallerUrl) ||
+            !IsAllowedWebsiteUrl(manifest.DownloadPage) ||
+            !IsAllowedWebsiteUrl(manifest.ReleaseNotesUrl))
             throw new InvalidDataException("Uppdateringsinformationen innehåller en osäker adress.");
         if (!Regex.IsMatch(manifest.Sha256 ?? "", "^[0-9a-fA-F]{64}$"))
             throw new InvalidDataException("Uppdateringen saknar en giltig SHA-256-kontrollsumma.");
     }
 
-    private static bool IsHttps(string value) =>
-        Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
+    private static bool IsAllowedInstallerUrl(string value) =>
+        Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
+        uri.Scheme == Uri.UriSchemeHttps &&
+        string.Equals(uri.Host, "github.com", StringComparison.OrdinalIgnoreCase) &&
+        uri.AbsolutePath.StartsWith("/Hekkipekki/FloorballDJ/releases/download/", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAllowedWebsiteUrl(string value) =>
+        Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
+        uri.Scheme == Uri.UriSchemeHttps &&
+        string.Equals(uri.Host, "floorballdj.netlify.app", StringComparison.OrdinalIgnoreCase);
 
     private static async Task<UpdateManifest> CheckGitHubFallbackAsync(CancellationToken cancellationToken)
     {
@@ -137,6 +152,7 @@ public sealed class UpdateService
             if (installer.ValueKind == JsonValueKind.Undefined || checksum.ValueKind == JsonValueKind.Undefined) continue;
 
             var checksumUrl = checksum.GetProperty("browser_download_url").GetString() ?? "";
+            if (!IsAllowedInstallerUrl(checksumUrl)) continue;
             var checksumText = await Client.GetStringAsync(checksumUrl, cancellationToken);
             var hashMatch = Regex.Match(checksumText, "(?i)\\b[0-9a-f]{64}\\b");
             if (!hashMatch.Success) continue;

@@ -40,3 +40,20 @@ Aktivera inte betalning förrän en riktig testprodukt finns. Då ska även sign
 ## Betalningsalternativ
 
 FastSpring passar om målet är att slippa egen hantering av moms och kortdata. Paddle är ett rimligt alternativ med liknande Merchant-of-Record-upplägg. Stripe ger mer kontroll men innebär normalt mer eget ansvar för skatt, kvitton, återbetalningsflöden och licensorkestrering. För FloorballDJ är FastSpring eller Paddle den enklaste säkra vägen.
+
+## Genomförd härdning 11 augusti 2026
+
+- Varje signerat licens- och provbevis innehåller nu en bindning till både installationen och
+  maskinen. En lokalt kopierad token godkänns därför inte på en annan dator.
+- Desktopappen godkänner bara kända signeringsnyckel-ID:n, vilket förbereder kontrollerad
+  nyckelrotation.
+- Publika aktiverings-, refresh- och trial-endpoints har serverbaserad rate limiting.
+- Licensaktivering kan återanvända historiken efter avaktivering utan att bryta databasens
+  unika index.
+- FastSpring-fulfillment kräver exakt en tillåten engångsprodukt och är idempotent per order.
+- Signerade webhookar för order, återbetalning och chargeback behandlas idempotent i databasen.
+- Uppdateraren begränsar installerarens storlek, verifierar SHA-256 och accepterar bara release-
+  länkar från det officiella GitHub-repot.
+
+Den exakta aktiveringsordningen och kvarvarande externa steg finns i
+`docs/FASTSPRING-STARTKLAR.md`.

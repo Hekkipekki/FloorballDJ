@@ -20,6 +20,11 @@ public sealed class LicenseService
         AC+/0DapMgH7ltINYrIqlMpW3ZUYZfCPGF5nXmxoyx+Xytte19y6N5Qi9w==
         -----END PUBLIC KEY-----
         """;
+    private static readonly IReadOnlyDictionary<string, string> TrustedSigningKeys =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["floorballdj-licensing-v1"] = PublicKeyPem
+        };
     private static readonly byte[] StorageEntropy = Encoding.UTF8.GetBytes("FloorballDJ.Licensing.v1");
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly HttpClient _http;
@@ -301,7 +306,7 @@ public sealed class LicenseService
     private static bool IsNetworkError(Exception exception) =>
         exception is HttpRequestException or TaskCanceledException or IOException;
 
-    private static bool TryVerifyToken(string token, DateTimeOffset now, out VerifiedLicenseToken verified)
+    private bool TryVerifyToken(string token, DateTimeOffset now, out VerifiedLicenseToken verified)
     {
         verified = null!;
         try
@@ -310,9 +315,12 @@ public sealed class LicenseService
             if (parts.Length != 3) return false;
             using var header = JsonDocument.Parse(DecodeBase64Url(parts[0]));
             if (header.RootElement.GetProperty("alg").GetString() != "ES256") return false;
+            if (!header.RootElement.TryGetProperty("kid", out var kidValue) ||
+                kidValue.GetString() is not { } keyId || !TrustedSigningKeys.TryGetValue(keyId, out var publicKeyPem))
+                return false;
 
             using var key = ECDsa.Create();
-            key.ImportFromPem(PublicKeyPem);
+            key.ImportFromPem(publicKeyPem);
             var signedData = Encoding.ASCII.GetBytes($"{parts[0]}.{parts[1]}");
             if (!key.VerifyData(signedData, DecodeBase64Url(parts[2]), HashAlgorithmName.SHA256,
                     DSASignatureFormat.IeeeP1363FixedFieldConcatenation)) return false;
@@ -329,7 +337,12 @@ public sealed class LicenseService
             var expiresAt = DateTimeOffset.FromUnixTimeSeconds(root.GetProperty("exp").GetInt64());
             if (issuedAt > now.AddMinutes(5) || expiresAt <= now.AddMinutes(-1)) return false;
             var plan = root.TryGetProperty("plan", out var planValue) ? planValue.GetString() : null;
-            verified = new VerifiedLicenseToken(kind, issuedAt, expiresAt, plan);
+            if (!root.TryGetProperty("device", out var deviceValue) ||
+                deviceValue.GetString() is not { Length: 64 } signedDevice ||
+                !CryptographicOperations.FixedTimeEquals(
+                    Encoding.ASCII.GetBytes(signedDevice),
+                    Encoding.ASCII.GetBytes(GetDeviceBinding()))) return false;
+            verified = new VerifiedLicenseToken(kind, issuedAt, expiresAt, plan, signedDevice);
             return true;
         }
         catch (Exception ex) when (ex is JsonException or FormatException or CryptographicException or KeyNotFoundException)
@@ -385,6 +398,12 @@ public sealed class LicenseService
             ? $"{Environment.MachineName}|{Environment.SystemDirectory}|{Environment.OSVersion.Version}"
             : machineGuid;
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"FloorballDJ|{source}"))).ToLowerInvariant();
+    }
+
+    private string GetDeviceBinding()
+    {
+        var value = $"FloorballDJ.Device.v1|{GetOrCreateInstallationId()}|{GetMachineFingerprint()}";
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
     }
 
     private static string? ReadMachineGuid()

@@ -73,6 +73,9 @@ jobs:
             "FLOORBALLDJ_SIGN_PFX=$pfxPath" >> $env:GITHUB_ENV
             "FLOORBALLDJ_SIGN_PASSWORD=$env:CERTIFICATE_PASSWORD" >> $env:GITHUB_ENV
           } else {
+            if ("${{ vars.REQUIRE_CODE_SIGNING }}" -eq "true") {
+              throw "Kodsignering krävs, men WINDOWS_SIGNING_CERTIFICATE_BASE64 saknas."
+            }
             "enabled=false" >> $env:GITHUB_OUTPUT
           }
 
@@ -114,7 +117,6 @@ jobs:
           gh @arguments
 
       - name: Update website release metadata
-        continue-on-error: true
         shell: pwsh
         env:
           PUBLIC_RELEASE_REPOSITORY: ${{ vars.RELEASE_REPOSITORY }}
