@@ -19,6 +19,7 @@ public partial class LoudnessBatchWindow : Window
     public LoudnessBatchWindow(MainViewModel viewModel)
     {
         InitializeComponent();
+        WindowPlacementService.MaximizeOnOwnerMonitor(this);
         _viewModel = viewModel;
         TargetBox.Text = viewModel.Settings.DefaultLoudnessTargetLufs.ToString("0.#", CultureInfo.InvariantCulture);
         PeakBox.Text = viewModel.Settings.MasterLimiterCeilingDbtp.ToString("0.#", CultureInfo.InvariantCulture);

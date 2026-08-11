@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Input;
 using FloorballDJ.Models;
+using FloorballDJ.Services;
 
 namespace FloorballDJ.Views;
 
@@ -15,6 +16,7 @@ public partial class JingleSearchWindow : Window
     public JingleSearchWindow(IEnumerable<Deck> decks)
     {
         InitializeComponent();
+        WindowPlacementService.MaximizeOnOwnerMonitor(this);
         _all = decks.SelectMany(deck => deck.Jingles.Where(jingle => jingle.HasAudio)
             .Select(jingle => new SearchResult(deck, jingle, deck.Name, jingle.Title, 0))).ToList();
         Loaded += (_, _) => { SearchBox.Focus(); RefreshResults(); };

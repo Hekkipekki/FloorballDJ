@@ -134,11 +134,17 @@
                                           ToolTip="Byter till jingelns deck när snabbknappen används. Jingeln spelas samtidigt som vanligt." />
                                 <Button Grid.Column="2" Content="Välj snabbknapp" Style="{StaticResource SecondaryButton}" Click="ChooseShortcut_Click" Padding="7,5" HorizontalAlignment="Stretch" />
                             </Grid>
-                            <TextBlock Grid.Row="5" Text="Slumpkategori" Style="{StaticResource FieldLabel}" ToolTip="Jinglar med samma kategorinamn bildar en grupp, till exempel Mål eller Periodpaus." />
-                            <TextBox x:Name="CategoryBox" Grid.Row="5" Grid.Column="1" Margin="0,3" MaxWidth="340" HorizontalAlignment="Stretch" ToolTip="Samma namn måste användas på alla jinglar i gruppen." />
-                            <TextBlock Grid.Row="6" Text="Slumpknapp" Style="{StaticResource FieldLabel}" />
-                            <Grid Grid.Row="6" Grid.Column="1" Margin="0,3" MaxWidth="340" HorizontalAlignment="Stretch">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="132" /></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Row="5" Text="Slumpkategori" Style="{StaticResource FieldLabel}" ToolTip="Valfritt. Jinglar med samma kategorinamn bildar en grupp, till exempel Mål eller Periodpaus." />
+                            <Grid Grid.Row="5" Grid.Column="1" Margin="0,3" Width="310" HorizontalAlignment="Left">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <ComboBox x:Name="CategoryBox" IsEditable="True" IsTextSearchEnabled="False" VerticalContentAlignment="Center"
+                                          ToolTip="Skriv en ny kategori eller välj en som redan används i profilen." />
+                                <Button Grid.Column="1" Content="Ta bort" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Padding="10,5"
+                                        Click="DeleteCategory_Click" ToolTip="Tar bort den valda kategorin från profilens jinglar när du sparar." />
+                            </Grid>
+                            <TextBlock Grid.Row="6" Text="Slumpknapp" Style="{StaticResource FieldLabel}" ToolTip="Spelar en slumpvald jingle ur kategorin. Utan kategorinamn grupperas alla jinglar som har samma slumpknapp." />
+                            <Grid Grid.Row="6" Grid.Column="1" Margin="0,3" Width="310" HorizontalAlignment="Left">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="92" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                 <Border Background="#1736E0B4" BorderBrush="#36E0B4" BorderThickness="1" CornerRadius="5" Padding="8,6" Margin="0,0,8,0">
                                     <TextBlock x:Name="CategoryShortcutText" Foreground="#73F4D3" FontFamily="Cascadia Mono" FontWeight="Bold" TextAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 </Border>

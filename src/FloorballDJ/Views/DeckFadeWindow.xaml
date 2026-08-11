@@ -1,7 +1,7 @@
 <Window x:Class="FloorballDJ.Views.DeckFadeWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Fade för deck" Width="470" Height="330" ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
+        Title="Fade för deck" Width="470" Height="330" WindowStartupLocation="CenterOwner">
     <Grid Margin="24,20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />

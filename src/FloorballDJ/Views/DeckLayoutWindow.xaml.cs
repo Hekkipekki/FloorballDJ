@@ -12,6 +12,7 @@ public partial class DeckLayoutWindow : Window
     public DeckLayoutWindow(Deck deck)
     {
         InitializeComponent();
+        WindowPlacementService.MaximizeOnOwnerMonitor(this);
         DeckNameText.Text = deck.Name;
         RowsBox.Text = deck.Rows.ToString();
         ColumnsBox.Text = deck.Columns.ToString();

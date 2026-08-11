@@ -64,6 +64,7 @@ public partial class MergeJinglesWindow : Window
     public MergeJinglesWindow(MainViewModel viewModel)
     {
         InitializeComponent();
+        WindowPlacementService.MaximizeOnOwnerMonitor(this);
         _viewModel = viewModel;
         DataContext = this;
         _choices = new ObservableCollection<MergeChoice>(viewModel.Decks.SelectMany(deck => deck.Jingles

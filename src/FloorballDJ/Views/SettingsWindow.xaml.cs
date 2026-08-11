@@ -16,6 +16,7 @@ public partial class SettingsWindow : Window
         ProfilePreferencesService profilePreferences)
     {
         InitializeComponent();
+        WindowPlacementService.MaximizeOnOwnerMonitor(this);
         _target = project;
         _profilePreferences = profilePreferences;
         ViewData = new SettingsViewData

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Diagnostics;
+using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -33,14 +34,24 @@ public partial class JinglePropertiesWindow : Window
     private double _previewClockStartSeconds;
     private string? _shortcut;
     private string? _categoryShortcut;
+    private readonly ObservableCollection<string> _categories = [];
+    private readonly HashSet<string> _deletedCategories = new(StringComparer.CurrentCultureIgnoreCase);
+    private readonly Action<string>? _deleteCategory;
     private AudioFileReader? _previewReader;
     private WaveOutEvent? _previewOutput;
     private VolumeSampleProvider? _previewVolume;
     private LoudnessAnalysis? _analysis;
 
-    public JinglePropertiesWindow(Jingle jingle, IReadOnlyList<OutputDevice> _, double masterVolumeDb = 0)
+    public JinglePropertiesWindow(Jingle jingle, IReadOnlyList<OutputDevice> _, double masterVolumeDb = 0,
+        IEnumerable<string>? categories = null, Action<string>? deleteCategory = null)
     {
         InitializeComponent();
+        WindowPlacementService.MaximizeOnOwnerMonitor(this);
+        _deleteCategory = deleteCategory;
+        foreach (var category in categories ?? [])
+            if (!string.IsNullOrWhiteSpace(category) && !_categories.Contains(category, StringComparer.CurrentCultureIgnoreCase))
+                _categories.Add(category.Trim());
+        CategoryBox.ItemsSource = _categories;
         _target = jingle;
         _masterVolumeDb = masterVolumeDb;
         _path = jingle.FilePath;
@@ -376,6 +387,7 @@ public partial class JinglePropertiesWindow : Window
         _target.FadeInOverrideSeconds = ParseNullable(FadeInBox.Text); _target.FadeOutOverrideSeconds = ParseNullable(FadeOutBox.Text);
         _target.Shortcut = _shortcut;
         _target.ShortcutSwitchesDeck = ShortcutSwitchesDeckCheck.IsChecked == true;
+        foreach (var deletedCategory in _deletedCategories) _deleteCategory?.Invoke(deletedCategory);
         _target.Category = CategoryBox.Text.Trim();
         _target.CategoryShortcut = _categoryShortcut;
         DialogResult = true;
@@ -422,7 +434,24 @@ public partial class JinglePropertiesWindow : Window
         UpdateCategoryShortcutText();
     }
 
-    private void UpdateCategoryShortcutText() => CategoryShortcutText.Text = _categoryShortcut ?? "Ingen slumpknapp";
+    private void UpdateCategoryShortcutText() => CategoryShortcutText.Text = _categoryShortcut ?? "<Ingen>";
+
+    private void DeleteCategory_Click(object sender, RoutedEventArgs e)
+    {
+        var category = CategoryBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(category)) return;
+        var existing = _categories.FirstOrDefault(item =>
+            string.Equals(item, category, StringComparison.CurrentCultureIgnoreCase));
+        if (existing is null) return;
+        if (MessageBox.Show(this,
+                $"Ta bort slumpkategorin '{existing}'?\n\nJinglarna finns kvar, men kategori och slumpknapp tas bort från dem när du sparar.",
+                "Ta bort slumpkategori", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        _deletedCategories.Add(existing);
+        _categories.Remove(existing);
+        CategoryBox.Text = "";
+        _categoryShortcut = null;
+        UpdateCategoryShortcutText();
+    }
 
     private void UpdateTiming()
     {

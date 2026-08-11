@@ -31,6 +31,7 @@ public partial class ButtonAppearanceWindow : Window
         string? fontFamily = null, double fontSize = 15)
     {
         InitializeComponent();
+        WindowPlacementService.MaximizeOnOwnerMonitor(this);
         Title = appliesToRow ? "Hela radens färger" : "Knappens färger";
         ButtonColor = NormalizeHex(buttonColor, "#142238");
         TextColor = NormalizeHex(textColor, "#F7FAFC");

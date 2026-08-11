@@ -14,6 +14,7 @@ public partial class RevisionHistoryWindow : Window
     public RevisionHistoryWindow(MainViewModel viewModel)
     {
         InitializeComponent();
+        WindowPlacementService.MaximizeOnOwnerMonitor(this);
         _viewModel = viewModel;
         RevisionList.ItemsSource = _revisions;
         Loaded += RevisionHistoryWindow_Loaded;

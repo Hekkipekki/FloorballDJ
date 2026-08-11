@@ -388,6 +388,8 @@
                                                             <Style.Triggers><DataTrigger Binding="{Binding HasAudio}" Value="True"><Setter Property="IsEnabled" Value="True" /></DataTrigger></Style.Triggers>
                                                         </Style>
                                                     </ContextMenu.Resources>
+                                                    <MenuItem Header="Egenskaper…" Style="{StaticResource AudioOnlyMenuItem}" Click="JingleProperties_Click" />
+                                                    <MenuItem Header="Ladda ljud…" Click="LoadAudio_Click" />
                                                     <MenuItem Click="TextBlock_Click">
                                                         <MenuItem.Style>
                                                             <Style TargetType="MenuItem">
@@ -399,9 +401,6 @@
                                                             </Style>
                                                         </MenuItem.Style>
                                                     </MenuItem>
-                                                    <Separator />
-                                                    <MenuItem Header="Egenskaper…" Style="{StaticResource AudioOnlyMenuItem}" Click="JingleProperties_Click" />
-                                                    <MenuItem Header="Ladda ljud…" Click="LoadAudio_Click" />
                                                     <MenuItem Header="Utseende">
                                                         <MenuItem Header="Ändra knappens färger…" Click="ButtonAppearance_Click" />
                                                         <MenuItem Header="Använd färger på hela raden…" Click="RowAppearance_Click" />

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using FloorballDJ.Models;
+using FloorballDJ.Services;
 
 namespace FloorballDJ.Views;
 
@@ -12,6 +13,7 @@ public partial class DeckFadeWindow : Window
     public DeckFadeWindow(Deck deck)
     {
         InitializeComponent();
+        WindowPlacementService.MaximizeOnOwnerMonitor(this);
         DeckNameText.Text = deck.Name;
         FadeInBox.Text = CommonValue(deck, item => item.FadeInOverrideSeconds);
         FadeOutBox.Text = CommonValue(deck, item => item.FadeOutOverrideSeconds);

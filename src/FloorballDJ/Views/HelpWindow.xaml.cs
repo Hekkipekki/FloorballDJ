@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using FloorballDJ.Services;
 
 namespace FloorballDJ.Views;
 
@@ -10,6 +11,7 @@ public partial class HelpWindow : Window
     public HelpWindow()
     {
         InitializeComponent();
+        WindowPlacementService.MaximizeOnOwnerMonitor(this);
         _pages = [QuickStartPage, PlaybackPage, DecksPage, AutoplayPage, AudioPage,
             PropertiesPage, ProfilesPage, ShortcutsPage, LicensingPage, TroubleshootingPage];
         HelpNavigation.SelectedIndex = 0;

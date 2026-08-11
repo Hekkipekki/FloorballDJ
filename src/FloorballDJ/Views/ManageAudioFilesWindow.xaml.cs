@@ -19,6 +19,7 @@ public partial class ManageAudioFilesWindow : Window
     public ManageAudioFilesWindow(MainViewModel viewModel, ProjectService projects)
     {
         InitializeComponent();
+        WindowPlacementService.MaximizeOnOwnerMonitor(this);
         _viewModel = viewModel;
         _projects = projects;
         RefreshStatistics();
