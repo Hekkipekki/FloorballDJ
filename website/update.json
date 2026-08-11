@@ -1,10 +1,10 @@
 {
-  "version": "0.40.0-beta.12",
+  "version": "0.40.0-beta.13",
   "channel": "beta",
-  "installerUrl": "https://github.com/Hekkipekki/FloorballDJ/releases/download/v0.40.0-beta.12/FloorballDJ-Setup.exe",
+  "installerUrl": "https://github.com/Hekkipekki/FloorballDJ/releases/download/v0.40.0-beta.13/FloorballDJ-Setup.exe",
   "downloadPage": "https://floorballdj.netlify.app/licens/#download",
   "releaseNotesUrl": "https://floorballdj.netlify.app/changelog/",
-  "sha256": "f6e14e40b85a333beafddc155e91340222bbc93a11d96ccf71d52455480c3557",
-  "publishedAt": "2026-08-10T17:52:38.8018035+00:00",
-  "summary": "FloorballDJ 0.40.0-beta.12 är den senaste publicerade versionen."
+  "sha256": "9e7f712184aadb21c1dcf6b24164b38502c6644c96404504883b11751ab9c2c5",
+  "publishedAt": "2026-08-11T16:57:25.0580575+00:00",
+  "summary": "FloorballDJ 0.40.0-beta.13 är den senaste publicerade versionen."
 }
