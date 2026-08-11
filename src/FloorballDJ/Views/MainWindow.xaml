@@ -178,8 +178,8 @@
                                    Margin="8,-1,0,0" VerticalAlignment="Center" IsHitTestVisible="False" />
                         <TextBox x:Name="JingleSearchBox" Height="26" MinHeight="26" Padding="29,1,8,1"
                                  BorderThickness="0" Background="Transparent" VerticalContentAlignment="Center"
-                                 TextChanged="JingleSearchBox_TextChanged" KeyDown="JingleSearchBox_KeyDown"
-                                 ToolTip="Sök jingle eller låt i alla deck. Enter visar nästa träff." />
+                                 TextChanged="JingleSearchBox_TextChanged" PreviewKeyDown="JingleSearchBox_KeyDown"
+                                 ToolTip="Sök jingle eller låt i alla deck. Enter spelar träffen, pil ned visar nästa träff och Esc stänger sökningen." />
                         <TextBlock x:Name="JingleSearchPlaceholder" Text="Sök jingle/låt  Ctrl+F"
                                    Margin="29,0,8,0" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}"
                                    IsHitTestVisible="False" />
@@ -233,7 +233,7 @@
                     <MenuItem Header="_Verktyg">
                         <MenuItem Header="Inställningar…" Click="Settings_Click" />
                         <MenuItem Header="Analysera och balansera ljud…" Click="Loudness_Click" />
-                        <MenuItem Header="Kombinera två jinglar…" Click="MergeJingles_Click" />
+                        <MenuItem Header="Bygg egen jingle…" Click="MergeJingles_Click" />
                         <MenuItem Header="Kontrollera ljudfiler…" Click="FindMissing_Click" />
                     </MenuItem>
                     <MenuItem Header="_Hjälp">

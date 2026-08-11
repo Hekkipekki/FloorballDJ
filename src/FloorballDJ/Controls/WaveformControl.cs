@@ -20,11 +20,12 @@ public sealed class WaveformControl : FrameworkElement
     private static readonly Brush ActiveWaveBrush = new SolidColorBrush(Color.FromRgb(54, 224, 180));
     private static readonly Pen MarkerPen = new(new SolidColorBrush(Color.FromRgb(239, 247, 252)), 1.5);
     private static readonly Pen PlayheadPen = new(new SolidColorBrush(Color.FromRgb(245, 250, 255)), 2.2);
+    private static readonly Pen TransitionPen = new(new SolidColorBrush(Color.FromRgb(255, 190, 92)), 2.2);
     private static readonly Brush ShadeBrush = new SolidColorBrush(Color.FromArgb(155, 5, 9, 16));
 
     static WaveformControl()
     {
-        foreach (var freezable in new Freezable[] { BackgroundBrush, GridPen, IdlePen, ActivePen, IdleWaveBrush, ActiveWaveBrush, MarkerPen, PlayheadPen, ShadeBrush })
+        foreach (var freezable in new Freezable[] { BackgroundBrush, GridPen, IdlePen, ActivePen, IdleWaveBrush, ActiveWaveBrush, MarkerPen, PlayheadPen, TransitionPen, ShadeBrush })
             if (freezable.CanFreeze) freezable.Freeze();
     }
 
@@ -56,6 +57,10 @@ public sealed class WaveformControl : FrameworkElement
         nameof(ViewEndFraction), typeof(double), typeof(WaveformControl),
         new FrameworkPropertyMetadata(1d, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty TransitionFractionProperty = DependencyProperty.Register(
+        nameof(TransitionFraction), typeof(double), typeof(WaveformControl),
+        new FrameworkPropertyMetadata(double.NaN, FrameworkPropertyMetadataOptions.AffectsRender));
+
     public string FilePath
     {
         get => (string)GetValue(FilePathProperty);
@@ -78,6 +83,12 @@ public sealed class WaveformControl : FrameworkElement
     {
         get => (double)GetValue(ViewEndFractionProperty);
         set => SetValue(ViewEndFractionProperty, value);
+    }
+
+    public double TransitionFraction
+    {
+        get => (double)GetValue(TransitionFractionProperty);
+        set => SetValue(TransitionFractionProperty, value);
     }
 
     public double StartFraction
@@ -187,6 +198,12 @@ public sealed class WaveformControl : FrameworkElement
             if (endX < RenderSize.Width) dc.DrawRectangle(ShadeBrush, null, new Rect(Math.Max(0, endX), 0, RenderSize.Width - Math.Max(0, endX), RenderSize.Height));
             if (startX >= 0 && startX <= RenderSize.Width) dc.DrawLine(MarkerPen, new Point(startX, 0), new Point(startX, RenderSize.Height));
             if (endX >= 0 && endX <= RenderSize.Width) dc.DrawLine(MarkerPen, new Point(endX, 0), new Point(endX, RenderSize.Height));
+        }
+
+        if (!double.IsNaN(TransitionFraction) && TransitionFraction >= viewStart && TransitionFraction <= viewEnd)
+        {
+            var transitionX = (TransitionFraction - viewStart) * RenderSize.Width / viewSpan;
+            dc.DrawLine(TransitionPen, new Point(transitionX, 0), new Point(transitionX, RenderSize.Height));
         }
     }
 

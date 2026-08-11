@@ -448,7 +448,14 @@ public partial class MainWindow : Window
         {
             e.Handled = true;
             _inlineSearchDebounceTimer.Stop();
+            PlayInlineSearchResult();
+        }
+        else if (e.Key is Key.Down or Key.Tab)
+        {
+            e.Handled = true;
+            _inlineSearchDebounceTimer.Stop();
             FindNextInlineSearchResult(true);
+            JingleSearchBox.Focus();
         }
         else if (e.Key == Key.Escape)
         {
@@ -459,10 +466,27 @@ public partial class MainWindow : Window
         }
     }
 
-    private void FindNextInlineSearchResult(bool advance)
+    private void PlayInlineSearchResult()
+    {
+        _inlineSearchDebounceTimer.Stop();
+        var match = _inlineSearchHighlight ?? FindNextInlineSearchResult(false);
+        if (match is null) return;
+        ClearSpaceResume();
+        try
+        {
+            ViewModel.Play(match);
+            ViewModel.Status = $"Spelar {match.Title}";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Kunde inte spela", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private Jingle? FindNextInlineSearchResult(bool advance)
     {
         var query = JingleSearchBox.Text.Trim();
-        if (query.Length == 0) return;
+        if (query.Length == 0) return null;
 
         var matches = ViewModel.Decks
             .SelectMany(deck => deck.Jingles.Where(jingle => jingle.HasAudio)
@@ -475,7 +499,7 @@ public partial class MainWindow : Window
         {
             ClearInlineSearchHighlight();
             ViewModel.Status = $"Ingen jingle eller låt matchade ”{query}”";
-            return;
+            return null;
         }
 
         if (!string.Equals(_lastInlineSearchQuery, query, StringComparison.CurrentCultureIgnoreCase))
@@ -496,9 +520,11 @@ public partial class MainWindow : Window
         DeckTabsControl.SelectedItem = match.Deck;
         match.Jingle.IsSearchMatch = true;
         _inlineSearchHighlight = match.Jingle;
+        // Behåll markeringen så länge söktexten finns kvar. Det gör att Enter alltid
+        // spelar den träff användaren faktiskt ser och att Tab kan bläddra stabilt.
         _inlineSearchClearTimer.Stop();
-        _inlineSearchClearTimer.Start();
         ViewModel.Status = $"Hittade {match.Jingle.Title} i {match.Deck.Name} · {(_inlineSearchIndex + 1)} av {matches.Count}";
+        return match.Jingle;
     }
 
     private void ClearInlineSearchHighlight()
@@ -542,6 +568,45 @@ public partial class MainWindow : Window
 
     private async void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // Den automatiska sökningen kan byta aktivt deck. WPF kan då flytta
+        // tangentfokus från sökrutan trots att texten och markeringen är kvar.
+        // Låt därför Enter spela den synliga träffen även efter ett sådant
+        // fokusbyte.
+        if (e.Key == Key.Enter &&
+            !string.IsNullOrWhiteSpace(JingleSearchBox.Text) &&
+            _inlineSearchHighlight is not null)
+        {
+            e.Handled = true;
+            PlayInlineSearchResult();
+            return;
+        }
+
+        if (JingleSearchBox.IsKeyboardFocusWithin)
+        {
+            if (e.Key == Key.Enter)
+            {
+                e.Handled = true;
+                PlayInlineSearchResult();
+                return;
+            }
+            if (e.Key is Key.Down or Key.Tab)
+            {
+                e.Handled = true;
+                _inlineSearchDebounceTimer.Stop();
+                FindNextInlineSearchResult(true);
+                JingleSearchBox.Focus();
+                return;
+            }
+            if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                _inlineSearchDebounceTimer.Stop();
+                JingleSearchBox.Clear();
+                Keyboard.ClearFocus();
+                return;
+            }
+        }
+
         if (!e.IsRepeat && e.Key == Key.F1 && Keyboard.Modifiers == ModifierKeys.None)
         {
             e.Handled = true;

@@ -2,155 +2,202 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:FloorballDJ.Controls"
-        Title="Kombinera jinglar" Width="940" Height="780" MinWidth="760" MinHeight="680"
+        Title="Bygg egen jingle" Width="1040" Height="800" MinWidth="820" MinHeight="680"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
-    <Grid Margin="20">
+    <Window.Resources>
+        <Style x:Key="SyncMarkerButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+            <Setter Property="Width" Value="36"/><Setter Property="Height" Value="34"/><Setter Property="Padding" Value="0"/>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.28"/>
+                    <Setter Property="Background" Value="{StaticResource PanelRaisedBrush}"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+    <Grid Margin="18">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="JINGLEBYGGARE" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" FontSize="11" />
+                <TextBlock Text="Skapa mållåtar och egna ljudsekvenser" FontSize="24" FontWeight="SemiBold" Margin="0,3,0,0" />
+                <TextBlock Text="Lägg till två eller fler ljud, trimma dem och ställ övergången mellan varje del. Originalfilerna ändras aldrig."
+                           Foreground="{StaticResource MutedBrush}" Margin="0,3,0,0" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                <TextBlock Text="Mall" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+                <ComboBox x:Name="TemplateCombo" Width="190" SelectionChanged="TemplateCombo_SelectionChanged"
+                          Foreground="#111820" Background="White">
+                    <ComboBox.ItemContainerStyle>
+                        <Style TargetType="ComboBoxItem">
+                            <Setter Property="Foreground" Value="#111820"/><Setter Property="Background" Value="White"/><Setter Property="Padding" Value="10,7"/>
+                            <Style.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter Property="Background" Value="#BEEFE3"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#8CE5CF"/></Trigger></Style.Triggers>
+                        </Style>
+                    </ComboBox.ItemContainerStyle>
+                    <ComboBoxItem Content="Mållåt – tydlig övergång" Tag="Goal" Foreground="#111820" />
+                    <ComboBoxItem Content="Utvisning – snabb växling" Tag="Penalty" Foreground="#111820" />
+                    <ComboBoxItem Content="Mjuk musikövergång" Tag="Smooth" Foreground="#111820" />
+                    <ComboBoxItem Content="Egen" Tag="Custom" Foreground="#111820" />
+                </ComboBox>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,14,0,10">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TabControl x:Name="ClipTabs" ItemsSource="{Binding Clips}" SelectionChanged="ClipTabs_SelectionChanged" MinHeight="42">
+                <TabControl.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding TabTitle}" MaxWidth="150" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                </TabControl.ItemTemplate>
+                <TabControl.ContentTemplate><DataTemplate><Border Height="0"/></DataTemplate></TabControl.ContentTemplate>
+            </TabControl>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="10,0,0,0">
+                <Button Content="＋ Lägg till ljud" Style="{StaticResource PrimaryButton}" Click="AddClip_Click" />
+                <Button Content="Ta bort" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="RemoveClip_Click" />
+                <Button Content="←" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" ToolTip="Flytta ljudet åt vänster" Click="MoveClipLeft_Click" />
+                <Button Content="→" Style="{StaticResource SecondaryButton}" Margin="6,0,0,0" ToolTip="Flytta ljudet åt höger" Click="MoveClipRight_Click" />
+            </StackPanel>
+        </Grid>
+
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="0,0,8,0">
-                <TextBlock Text="Välj två ljud och markera exakt var övergången ska ske. Originalfilerna ändras aldrig."
-                           Foreground="{StaticResource MutedBrush}" Margin="0,0,0,14" />
-
-                <GroupBox Header="1 · Första jinglen" Style="{StaticResource ModernGroupBox}" Margin="0,0,0,12">
-                    <StackPanel Margin="4,8">
+                <GroupBox Header="Valt ljud" Style="{StaticResource ModernGroupBox}" Margin="0,0,0,10">
+                    <StackPanel Margin="5,8">
                         <Grid Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                            <ComboBox x:Name="FirstCombo" DisplayMemberPath="Display" SelectionChanged="FirstCombo_SelectionChanged"
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <ComboBox x:Name="SourceCombo" DisplayMemberPath="Display" SelectionChanged="SourceCombo_SelectionChanged"
                                       Foreground="#111820" Background="White">
                                 <ComboBox.ItemContainerStyle>
                                     <Style TargetType="ComboBoxItem">
-                                        <Setter Property="Foreground" Value="#111820" /><Setter Property="Background" Value="White" /><Setter Property="Padding" Value="10,7" />
-                                        <Style.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter Property="Background" Value="#BEEFE3" /></Trigger><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#8CE5CF" /></Trigger></Style.Triggers>
+                                        <Setter Property="Foreground" Value="#111820"/><Setter Property="Background" Value="White"/><Setter Property="Padding" Value="10,7"/>
+                                        <Style.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter Property="Background" Value="#BEEFE3"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#8CE5CF"/></Trigger></Style.Triggers>
                                     </Style>
                                 </ComboBox.ItemContainerStyle>
                             </ComboBox>
-                            <Button Grid.Column="1" Content="Öppna ljudfil…" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="OpenFirstFile_Click" />
+                            <Button Grid.Column="1" Content="Öppna rå ljudfil…" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="OpenFile_Click" />
                         </Grid>
-                        <Border x:Name="FirstWaveformSurface" Style="{StaticResource CardBorder}" Height="118" Background="Transparent"
-                                ClipToBounds="True" Cursor="Hand" PreviewMouseLeftButtonDown="FirstWaveform_MouseLeftButtonDown">
-                            <controls:WaveformControl x:Name="FirstWaveform" IsHitTestVisible="False" />
+
+                        <Border x:Name="WaveformSurface" Style="{StaticResource CardBorder}" Height="145" Background="Transparent"
+                                ClipToBounds="True" Cursor="SizeWE" PreviewMouseLeftButtonDown="Waveform_MouseLeftButtonDown"
+                                PreviewMouseMove="Waveform_MouseMove" PreviewMouseLeftButtonUp="Waveform_MouseLeftButtonUp"
+                                ToolTip="Klicka eller dra åt vänster/höger för att flytta markören. Håll Ctrl medan du drar för finjustering.">
+                            <controls:WaveformControl x:Name="Waveform" IsHitTestVisible="False" />
                         </Border>
-                        <Grid Margin="0,8,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="140" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="24" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="140" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Start" Style="{StaticResource FieldLabel}" />
-                            <TextBox x:Name="FirstStartBox" Grid.Column="1" Margin="8,0" KeyDown="TimingBox_KeyDown" LostKeyboardFocus="TimingBox_LostKeyboardFocus" />
-                            <Button Grid.Column="2" Content="Sätt start" Style="{StaticResource SecondaryButton}" Click="SetFirstStart_Click" />
-                            <TextBlock x:Name="FirstTransitionLabel" Grid.Column="4" Text="Crossfade från" Style="{StaticResource FieldLabel}" />
-                            <TextBox x:Name="FirstCrossfadeBox" Grid.Column="5" Margin="8,0" KeyDown="TimingBox_KeyDown" LostKeyboardFocus="TimingBox_LostKeyboardFocus" />
-                            <Button x:Name="SetTransitionStartButton" Grid.Column="6" Content="Sätt crossfade" Style="{StaticResource SecondaryButton}" Click="SetCrossfadeStart_Click" />
-                            <TextBlock x:Name="FirstCursorText" Grid.Column="7" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                       Foreground="{StaticResource AccentBrush}" FontFamily="Consolas" />
+
+                        <Grid Margin="0,9,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Border Background="#101E30" BorderBrush="#263B55" BorderThickness="1" CornerRadius="6" Padding="10,8">
+                                <StackPanel>
+                                    <TextBlock x:Name="ClipTimingHeader" Text="LJUD 1 · KLIPPGRÄNSER" Foreground="{StaticResource MutedBrush}" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,7"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="98"/><ColumnDefinition Width="42"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                            <TextBlock Text="Start" Style="{StaticResource FieldLabel}"/>
+                                            <TextBox x:Name="StartBox" Grid.Column="1" KeyDown="TimingBox_KeyDown" LostKeyboardFocus="TimingBox_LostKeyboardFocus"/>
+                                            <Button Grid.Column="2" Margin="6,0,0,0" Style="{StaticResource SyncMarkerButton}" Click="SetStart_Click" ToolTip="Använd markörens position som start">
+                                                <Grid Width="16" Height="16"><Ellipse Width="12" Height="12" Stroke="{StaticResource TextBrush}" StrokeThickness="1.5"/><Ellipse Width="4" Height="4" Fill="{StaticResource AccentBrush}"/><Path Stroke="{StaticResource TextBrush}" StrokeThickness="1" Data="M 8,0 V 4 M 8,12 V 16 M 0,8 H 4 M 12,8 H 16"/></Grid>
+                                            </Button>
+                                            <TextBlock Grid.Row="1" Text="Slut" Margin="0,6,0,0" Style="{StaticResource FieldLabel}"/>
+                                            <TextBox x:Name="EndBox" Grid.Row="1" Grid.Column="1" Margin="0,6,0,0" KeyDown="TimingBox_KeyDown" LostKeyboardFocus="TimingBox_LostKeyboardFocus"/>
+                                            <Button x:Name="SetEndButton" Grid.Row="1" Grid.Column="2" Margin="6,6,0,0" Style="{StaticResource SyncMarkerButton}" Click="SetEnd_Click" ToolTip="Använd markörens position som slut">
+                                                <Grid Width="16" Height="16"><Ellipse Width="12" Height="12" Stroke="{StaticResource TextBrush}" StrokeThickness="1.5"/><Ellipse Width="4" Height="4" Fill="{StaticResource AccentBrush}"/><Path Stroke="{StaticResource TextBrush}" StrokeThickness="1" Data="M 8,0 V 4 M 8,12 V 16 M 0,8 H 4 M 12,8 H 16"/></Grid>
+                                            </Button>
+                                            <CheckBox x:Name="UseEndCheck" Grid.Row="1" Grid.Column="3" Content="Använd slut" Margin="10,6,0,0" VerticalAlignment="Center" Checked="UseEnd_Changed" Unchecked="UseEnd_Changed"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                            <Border x:Name="TransitionMarkerPanel" Grid.Column="2" Background="#12312F" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock x:Name="TransitionMarkerLabel" Text="START FÖR LJUD 2" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" FontSize="11"/>
+                                        <TextBlock Text="Flytta markören i vågformen och spara var nästa ljud ska börja." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,2,0,7"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBox x:Name="TransitionStartBox" Width="108" KeyDown="TimingBox_KeyDown" LostKeyboardFocus="TimingBox_LostKeyboardFocus"/>
+                                            <Button x:Name="SetTransitionButton" Content="Sätt från markör" Margin="6,0,0,0" Style="{StaticResource PrimaryButton}" Click="SetTransition_Click"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <TextBlock x:Name="CursorText" Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource AccentBrush}" FontFamily="Consolas"/>
+                                </Grid>
+                            </Border>
                         </Grid>
-                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                            <Button Content="▶ Spela från markör" Style="{StaticResource PrimaryButton}" Click="PlayFirst_Click" />
-                            <Button Content="Ⅱ Paus / fortsätt" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PausePreview_Click" />
-                            <Button Content="■ Stopp" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="StopPreview_Click" />
-                            <TextBlock x:Name="FirstPreviewText" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontFamily="Consolas" />
-                        </StackPanel>
+
+                        <Grid Margin="0,9,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="130"/><ColumnDefinition Width="*"/><ColumnDefinition Width="72"/></Grid.ColumnDefinitions>
+                            <Button Width="42" Height="38" Padding="0" Style="{StaticResource PrimaryButton}" Click="PlayPreview_Click" ToolTip="Spela från markören">
+                                <TextBlock Text="&#xE768;" FontFamily="Segoe Fluent Icons" FontSize="18" Foreground="#07131F"/>
+                            </Button>
+                            <Button Grid.Column="1" Width="42" Height="38" Padding="0" Style="{StaticResource SecondaryButton}" Margin="7,0,0,0" Click="PausePreview_Click" ToolTip="Pausa eller fortsätt">
+                                <TextBlock Text="&#xE769;" FontFamily="Segoe Fluent Icons" FontSize="18"/>
+                            </Button>
+                            <Button Grid.Column="2" Width="42" Height="38" Padding="0" Style="{StaticResource SecondaryButton}" Margin="7,0,0,0" Click="StopPreview_Click" ToolTip="Stoppa">
+                                <TextBlock Text="&#xE71A;" FontFamily="Segoe Fluent Icons" FontSize="18"/>
+                            </Button>
+                            <TextBlock x:Name="PreviewText" Grid.Column="3" Width="118" Margin="10,0,12,0" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontFamily="Consolas"/>
+                            <TextBlock x:Name="ClipVolumeLabel" Grid.Column="4" Text="Ljudnivå ljud 1 (dB)" Style="{StaticResource FieldLabel}"/>
+                            <Slider x:Name="ClipVolumeSlider" Grid.Column="5" Minimum="-24" Maximum="12" TickFrequency="1" IsSnapToTickEnabled="False"
+                                    ValueChanged="ClipVolumeSlider_ValueChanged" ToolTip="Ändrar bara nivån för det valda ljudet i den nya kombinerade filen."/>
+                            <TextBox x:Name="ClipVolumeBox" Grid.Column="6" Margin="8,0,0,0" TextAlignment="Center"
+                                     KeyDown="ClipVolumeBox_KeyDown" LostKeyboardFocus="ClipVolumeBox_LostKeyboardFocus" ToolTip="Extra nivå i dB, från −24 till +12."/>
+                        </Grid>
                     </StackPanel>
                 </GroupBox>
 
-                <GroupBox Header="2 · Andra jinglen" Style="{StaticResource ModernGroupBox}" Margin="0,0,0,12">
-                    <StackPanel Margin="4,8">
-                        <Grid Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                            <ComboBox x:Name="SecondCombo" DisplayMemberPath="Display" SelectionChanged="SecondCombo_SelectionChanged"
-                                      Foreground="#111820" Background="White">
-                                <ComboBox.ItemContainerStyle>
-                                    <Style TargetType="ComboBoxItem">
-                                        <Setter Property="Foreground" Value="#111820" /><Setter Property="Background" Value="White" /><Setter Property="Padding" Value="10,7" />
-                                        <Style.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter Property="Background" Value="#BEEFE3" /></Trigger><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#8CE5CF" /></Trigger></Style.Triggers>
-                                    </Style>
-                                </ComboBox.ItemContainerStyle>
-                            </ComboBox>
-                            <Button Grid.Column="1" Content="Öppna ljudfil…" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="OpenSecondFile_Click" />
-                        </Grid>
-                        <Border x:Name="SecondWaveformSurface" Style="{StaticResource CardBorder}" Height="118" Background="Transparent"
-                                ClipToBounds="True" Cursor="Hand" PreviewMouseLeftButtonDown="SecondWaveform_MouseLeftButtonDown">
-                            <controls:WaveformControl x:Name="SecondWaveform" IsHitTestVisible="False" />
+                <GroupBox x:Name="TransitionGroup" Header="Övergång till nästa ljud" Style="{StaticResource ModernGroupBox}" Margin="0,0,0,10">
+                    <StackPanel Margin="5,8">
+                        <WrapPanel>
+                            <StackPanel x:Name="FadeOutPanel" Orientation="Horizontal" Margin="0,0,24,7">
+                                <TextBlock Text="Typ" Width="75" Style="{StaticResource FieldLabel}"/>
+                                <ComboBox x:Name="TransitionModeCombo" Width="225" SelectionChanged="TransitionSetting_Changed" Foreground="#111820" Background="White">
+                                    <ComboBox.ItemContainerStyle>
+                                        <Style TargetType="ComboBoxItem">
+                                            <Setter Property="Foreground" Value="#111820"/><Setter Property="Background" Value="White"/><Setter Property="Padding" Value="10,7"/>
+                                            <Style.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter Property="Background" Value="#BEEFE3"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#8CE5CF"/></Trigger></Style.Triggers>
+                                        </Style>
+                                    </ComboBox.ItemContainerStyle>
+                                    <ComboBoxItem Content="Crossfade" Tag="Crossfade" Foreground="#111820"/>
+                                    <ComboBoxItem Content="Fade out → fade in" Tag="SequentialFade" Foreground="#111820"/>
+                                    <ComboBoxItem Content="Mixljud – spela samtidigt" Tag="MixSound" Foreground="#111820"/>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,24,7">
+                                <TextBlock x:Name="FadeOutLabel" Text="Fade out ljud 1" Width="115" Style="{StaticResource FieldLabel}"/>
+                                <TextBox x:Name="FadeOutBox" Width="90" Text="2,0" KeyDown="TransitionBox_KeyDown" LostKeyboardFocus="TransitionBox_LostKeyboardFocus" ToolTip="Hur länge det valda ljudet tonas ut från övergångspunkten."/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                                <TextBlock x:Name="FadeInLabel" Text="Fade in ljud 2" Width="110" Style="{StaticResource FieldLabel}"/>
+                                <TextBox x:Name="FadeInBox" Width="90" Text="2,0" KeyDown="TransitionBox_KeyDown" LostKeyboardFocus="TransitionBox_LostKeyboardFocus" ToolTip="Hur länge nästa ljud tonas in efter att det startat."/>
+                            </StackPanel>
+                        </WrapPanel>
+                        <CheckBox x:Name="StartSimultaneouslyCheck" Content="Starta nästa ljud samtidigt som det här ljudet"
+                                  Margin="0,1,0,7" Checked="StartSimultaneously_Changed" Unchecked="StartSimultaneously_Changed"/>
+                        <Border Background="#142337" CornerRadius="5" Padding="10,8" Margin="0,3,0,0">
+                            <TextBlock x:Name="TransitionExplanationText" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"/>
                         </Border>
-                        <Grid Margin="0,8,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="140" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="24" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="140" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Start" Style="{StaticResource FieldLabel}" />
-                            <TextBox x:Name="SecondStartBox" Grid.Column="1" Margin="8,0" KeyDown="TimingBox_KeyDown" LostKeyboardFocus="TimingBox_LostKeyboardFocus" />
-                            <Button Grid.Column="2" Content="Sätt start" Style="{StaticResource SecondaryButton}" Click="SetSecondStart_Click" />
-                            <CheckBox x:Name="UseSecondEndCheck" Grid.Column="4" Content="Eget slut" VerticalAlignment="Center"
-                                      Checked="UseSecondEnd_Changed" Unchecked="UseSecondEnd_Changed" />
-                            <TextBox x:Name="SecondEndBox" Grid.Column="5" Margin="8,0" KeyDown="TimingBox_KeyDown" LostKeyboardFocus="TimingBox_LostKeyboardFocus" />
-                            <Button x:Name="SetSecondEndButton" Grid.Column="6" Content="Sätt slut" Style="{StaticResource SecondaryButton}" Click="SetSecondEnd_Click" />
-                            <TextBlock x:Name="SecondCursorText" Grid.Column="7" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                       Foreground="{StaticResource AccentBrush}" FontFamily="Consolas" />
-                        </Grid>
-                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                            <Button Content="▶ Spela från markör" Style="{StaticResource PrimaryButton}" Click="PlaySecond_Click" />
-                            <Button Content="Ⅱ Paus / fortsätt" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PausePreview_Click" />
-                            <Button Content="■ Stopp" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="StopPreview_Click" />
-                            <TextBlock x:Name="SecondPreviewText" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontFamily="Consolas" />
-                        </StackPanel>
                     </StackPanel>
                 </GroupBox>
 
-                <GroupBox Header="Resultat" Style="{StaticResource ModernGroupBox}">
-                    <Grid Margin="4,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="150" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Text="Övergångstyp" Style="{StaticResource FieldLabel}" />
-                        <ComboBox x:Name="TransitionModeCombo" Grid.Column="1" Grid.ColumnSpan="2" Width="330" HorizontalAlignment="Left"
-                                  Foreground="#111820" Background="White" SelectionChanged="TransitionMode_SelectionChanged">
-                            <ComboBoxItem Content="Crossfade – båda ljuden tonas" Tag="Crossfade" Foreground="#111820" Background="White" />
-                            <ComboBoxItem Content="Överlappning – första ljudet fortsätter" Tag="Overlay" Foreground="#111820" Background="White" />
-                        </ComboBox>
-                        <TextBlock x:Name="TransitionLengthLabel" Grid.Row="1" Text="Crossfade-längd" Style="{StaticResource FieldLabel}" />
-                        <TextBox x:Name="TransitionBox" Grid.Row="1" Grid.Column="1" Width="120" HorizontalAlignment="Left" Text="2,0"
-                                 ToolTip="Hur länge det andra ljudet tonas in. Övergången startar vid markeringen i första jinglen." />
-                        <TextBlock Grid.Row="1" Grid.Column="2" Text="sekunder" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" Margin="8,0,0,0" />
-                        <TextBlock Grid.Row="2" Text="Namn på ny jingle" Style="{StaticResource FieldLabel}" />
-                        <TextBox x:Name="TitleBox" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,6" />
-                        <TextBlock Grid.Row="3" Text="Ny WAV-fil" Style="{StaticResource FieldLabel}" />
-                        <TextBox x:Name="PathBox" Grid.Row="3" Grid.Column="1" IsReadOnly="True" />
-                        <Button Grid.Row="3" Grid.Column="2" Content="Välj…" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="Browse_Click" />
-                    </Grid>
-                </GroupBox>
             </StackPanel>
         </ScrollViewer>
 
-        <Border Grid.Row="1" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,12,0,0">
+        <Border Grid.Row="3" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,12,0,0">
             <Grid>
-                <TextBlock x:Name="StatusText" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                <TextBlock x:Name="StatusText" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="Avbryt" Style="{StaticResource SecondaryButton}" MinWidth="105" Margin="0,0,8,0" IsCancel="True" />
-                    <Button x:Name="CreateButton" Content="Skapa och lägg till" Style="{StaticResource PrimaryButton}" MinWidth="155" Click="Create_Click" />
+                    <Button x:Name="PreviewAllButton" Content="▶ Förhandslyssna hela mixen" Style="{StaticResource SecondaryButton}" MinWidth="190" Margin="0,0,8,0" Click="PreviewAll_Click"/>
+                    <Button Content="Ⅱ Paus" Style="{StaticResource SecondaryButton}" MinWidth="90" Margin="0,0,8,0" Click="PausePreview_Click"/>
+                    <Button Content="■ Stoppa preview" Style="{StaticResource SecondaryButton}" MinWidth="130" Margin="0,0,18,0" Click="StopPreview_Click"/>
+                    <Button Content="Avbryt" Style="{StaticResource SecondaryButton}" MinWidth="105" Margin="0,0,8,0" IsCancel="True"/>
+                    <Button x:Name="CreateButton" Content="Skapa och lägg till" Style="{StaticResource PrimaryButton}" MinWidth="155" Click="Create_Click"/>
                 </StackPanel>
             </Grid>
         </Border>

@@ -8,6 +8,97 @@ public sealed class JingleMergeService
 {
     private const int SampleRate = 48000;
 
+    public enum TransitionMode
+    {
+        Crossfade,
+        SequentialFade,
+        MixSound
+    }
+
+    public sealed record Segment(Jingle Jingle, double StartSeconds, double? EndSeconds,
+        double VolumeAdjustmentDb = 0);
+
+    public sealed record Transition(double StartSecondsInPrevious, double FadeOutSeconds,
+        double FadeInSeconds, TransitionMode Mode);
+
+    public Task MergeManyAsync(IReadOnlyList<Segment> segments, IReadOnlyList<Transition> transitions,
+        string outputPath, CancellationToken cancellationToken = default) => Task.Run(() =>
+    {
+        if (segments.Count < 2) throw new ArgumentException("Välj minst två ljud.", nameof(segments));
+        if (transitions.Count != segments.Count - 1)
+            throw new ArgumentException("Varje skarv mellan ljuden måste ha en övergång.", nameof(transitions));
+
+        var readers = new List<AudioFileReader>(segments.Count);
+        try
+        {
+            foreach (var segment in segments)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                readers.Add(new AudioFileReader(segment.Jingle.FilePath));
+            }
+
+            var starts = new double[segments.Count];
+            var ends = new double[segments.Count];
+            var durations = new double[segments.Count];
+            var timelineStarts = new double[segments.Count];
+            for (var index = 0; index < segments.Count; index++)
+            {
+                var total = readers[index].TotalTime.TotalSeconds;
+                var configuredEnd = segments[index].EndSeconds ?? EffectiveEnd(segments[index].Jingle, total);
+                var naturalEnd = Math.Clamp(configuredEnd, 0, total);
+                starts[index] = Math.Clamp(segments[index].StartSeconds, 0, naturalEnd);
+                ends[index] = naturalEnd;
+
+                if (index < transitions.Count && transitions[index].Mode != TransitionMode.MixSound)
+                {
+                    var transitionStart = Math.Clamp(transitions[index].StartSecondsInPrevious, starts[index], naturalEnd);
+                    ends[index] = Math.Min(naturalEnd, transitionStart + Math.Max(0, transitions[index].FadeOutSeconds));
+                }
+
+                durations[index] = Math.Max(0.001, ends[index] - starts[index]);
+            }
+
+            for (var index = 0; index < transitions.Count; index++)
+            {
+                var transition = transitions[index];
+                var markerOffset = Math.Clamp(transition.StartSecondsInPrevious - starts[index], 0, durations[index]);
+                timelineStarts[index + 1] = timelineStarts[index] + markerOffset;
+                if (transition.Mode == TransitionMode.SequentialFade)
+                    timelineStarts[index + 1] += Math.Max(0, transition.FadeOutSeconds);
+            }
+
+            var inputs = new List<ISampleProvider>(segments.Count);
+            for (var index = 0; index < segments.Count; index++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var source = Prepare(readers[index], segments[index].Jingle, starts[index], durations[index],
+                    segments[index].VolumeAdjustmentDb);
+                var fadeIn = index == 0 ? 0 : Math.Max(0, transitions[index - 1].FadeInSeconds);
+                var fadeOutStart = -1d;
+                var fadeOut = 0d;
+                if (index < transitions.Count && transitions[index].Mode != TransitionMode.MixSound)
+                {
+                    fadeOutStart = Math.Clamp(transitions[index].StartSecondsInPrevious - starts[index], 0, durations[index]);
+                    fadeOut = Math.Max(0, transitions[index].FadeOutSeconds);
+                }
+                source = new SegmentEnvelopeSampleProvider(source, fadeIn, fadeOutStart, fadeOut);
+                if (timelineStarts[index] > 0)
+                    source = new OffsetSampleProvider(source) { DelayBy = TimeSpan.FromSeconds(timelineStarts[index]) };
+                inputs.Add(source);
+            }
+
+            var merged = new MixingSampleProvider(inputs);
+
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
+            WaveFileWriter.CreateWaveFile16(outputPath, merged);
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        finally
+        {
+            foreach (var reader in readers) reader.Dispose();
+        }
+    }, cancellationToken);
+
     public Task MergeAsync(Jingle first, Jingle second, double transitionSeconds, string outputPath,
         CancellationToken cancellationToken = default)
     {
@@ -59,7 +150,8 @@ public sealed class JingleMergeService
     private static double EffectiveEnd(Jingle jingle, double totalSeconds) =>
         Math.Clamp(jingle.EndSeconds ?? totalSeconds, 0, totalSeconds);
 
-    private static ISampleProvider Prepare(AudioFileReader reader, Jingle jingle, double startSeconds, double duration)
+    private static ISampleProvider Prepare(AudioFileReader reader, Jingle jingle, double startSeconds, double duration,
+        double volumeAdjustmentDb = 0)
     {
         ISampleProvider source = reader;
         if (source.WaveFormat.Channels == 1) source = new MonoToStereoSampleProvider(source);
@@ -71,8 +163,51 @@ public sealed class JingleMergeService
             SkipOver = TimeSpan.FromSeconds(Math.Max(0, startSeconds)),
             Take = TimeSpan.FromSeconds(duration)
         };
-        var gainDb = jingle.GainDb + (jingle.NormalizationEnabled ? jingle.NormalizationGainDb : 0);
+        var gainDb = jingle.GainDb + (jingle.NormalizationEnabled ? jingle.NormalizationGainDb : 0) + volumeAdjustmentDb;
         return new VolumeSampleProvider(segment) { Volume = (float)Math.Pow(10, gainDb / 20) };
+    }
+
+    private sealed class SegmentEnvelopeSampleProvider : ISampleProvider
+    {
+        private readonly ISampleProvider _source;
+        private readonly long _fadeInSamples;
+        private readonly long _fadeOutStartSamples;
+        private readonly long _fadeOutSamples;
+        private long _position;
+
+        public SegmentEnvelopeSampleProvider(ISampleProvider source, double fadeInSeconds,
+            double fadeOutStartSeconds, double fadeOutSeconds)
+        {
+            _source = source;
+            WaveFormat = source.WaveFormat;
+            _fadeInSamples = ToSamples(fadeInSeconds);
+            _fadeOutStartSamples = fadeOutStartSeconds < 0 ? -1 : ToSamples(fadeOutStartSeconds);
+            _fadeOutSamples = ToSamples(fadeOutSeconds);
+        }
+
+        public WaveFormat WaveFormat { get; }
+
+        public int Read(float[] buffer, int offset, int count)
+        {
+            var read = _source.Read(buffer, offset, count);
+            for (var index = 0; index < read; index++)
+            {
+                var samplePosition = _position + index;
+                var gain = _fadeInSamples <= 0 ? 1f : Math.Clamp((float)samplePosition / _fadeInSamples, 0, 1);
+                if (_fadeOutStartSamples >= 0 && samplePosition >= _fadeOutStartSamples)
+                {
+                    var fadeOutGain = _fadeOutSamples <= 0
+                        ? 0
+                        : Math.Clamp(1f - (float)(samplePosition - _fadeOutStartSamples) / _fadeOutSamples, 0, 1);
+                    gain *= fadeOutGain;
+                }
+                buffer[offset + index] *= gain;
+            }
+            _position += read;
+            return read;
+        }
+
+        private long ToSamples(double seconds) => (long)Math.Round(Math.Max(0, seconds) * WaveFormat.SampleRate * WaveFormat.Channels);
     }
 
     private sealed class CrossfadeSequenceSampleProvider : ISampleProvider
