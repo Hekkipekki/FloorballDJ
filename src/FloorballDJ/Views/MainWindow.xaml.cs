@@ -652,45 +652,29 @@ public partial class MainWindow : Window
 
         if (!e.IsRepeat && Keyboard.FocusedElement is not TextBoxBase and not ComboBox)
         {
+            if (ShortcutService.Matches(ViewModel.Settings.RandomPoolShortcut, e))
+            {
+                var selectedDeckIds = (ViewModel.Settings.RandomPoolDeckIds ?? []).ToHashSet();
+                var selectedJingleIds = (ViewModel.Settings.RandomPoolJingleIds ?? []).ToHashSet();
+                var pool = ViewModel.Decks
+                    .SelectMany(deck => deck.Jingles.Where(jingle => jingle.HasAudio &&
+                        (selectedDeckIds.Contains(deck.Id) || selectedJingleIds.Contains(jingle.Id))))
+                    .DistinctBy(jingle => jingle.Id)
+                    .ToArray();
+                if (TryHandleRandomShortcut(e, pool)) return;
+            }
+
             var categoryAnchor = ViewModel.Decks.SelectMany(deck => deck.Jingles)
                 .FirstOrDefault(jingle => jingle.HasAudio && ShortcutService.Matches(jingle.CategoryShortcut, e));
             if (categoryAnchor is not null)
             {
-                var pressedRandomShortcut = RandomShortcutToken(e);
                 var hasNamedCategory = !string.IsNullOrWhiteSpace(categoryAnchor.Category);
                 var candidates = ViewModel.Decks.SelectMany(deck => deck.Jingles)
                     .Where(jingle => jingle.HasAudio &&
                         ((hasNamedCategory && string.Equals(jingle.Category.Trim(), categoryAnchor.Category.Trim(), StringComparison.CurrentCultureIgnoreCase)) ||
                          ShortcutService.Matches(jingle.CategoryShortcut, e)))
                     .ToArray();
-                if (candidates.Length > 0)
-                {
-                    e.Handled = true;
-                    ClearSpaceResume();
-                    var activeRandom = _activeRandomJingleId is Guid activeId
-                        ? candidates.FirstOrDefault(candidate => candidate.Id == activeId)
-                        : null;
-                    var sameRandomShortcut = string.Equals(_activeRandomShortcut, pressedRandomShortcut, StringComparison.Ordinal);
-                    if (sameRandomShortcut && !_randomShortcutAwaitingNext && activeRandom is not null &&
-                        ViewModel.NowPlaying.JingleId == activeRandom.Id)
-                    {
-                        _randomShortcutAwaitingNext = true;
-                        try { ViewModel.Play(activeRandom); }
-                        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Kunde inte tona ut", MessageBoxButton.OK, MessageBoxImage.Warning); }
-                        return;
-                    }
-
-                    var nextCandidates = candidates.Length > 1 && sameRandomShortcut && _activeRandomJingleId is Guid previousId
-                        ? candidates.Where(candidate => candidate.Id != previousId).ToArray()
-                        : candidates;
-                    var selected = nextCandidates[Random.Shared.Next(nextCandidates.Length)];
-                    _activeRandomShortcut = pressedRandomShortcut;
-                    _activeRandomJingleId = selected.Id;
-                    _randomShortcutAwaitingNext = false;
-                    try { ViewModel.Play(selected); }
-                    catch (Exception ex) { MessageBox.Show(this, ex.Message, "Kunde inte spela", MessageBoxButton.OK, MessageBoxImage.Warning); }
-                    return;
-                }
+                if (TryHandleRandomShortcut(e, candidates)) return;
             }
             var selectedDeckMatches = ViewModel.SelectedDeck?.Jingles
                 .Where(jingle => jingle.HasAudio && ShortcutService.Matches(jingle.Shortcut, e)) ?? [];
@@ -773,6 +757,38 @@ public partial class MainWindow : Window
     private static string? RandomShortcutToken(KeyEventArgs e) => ShortcutService.FromKeyEvent(e)?
         .Replace(" ", "", StringComparison.Ordinal)
         .ToUpperInvariant();
+
+    private bool TryHandleRandomShortcut(KeyEventArgs e, IReadOnlyCollection<Jingle> candidates)
+    {
+        if (candidates.Count == 0) return false;
+        e.Handled = true;
+        ClearSpaceResume();
+        var candidateArray = candidates.ToArray();
+        var pressedRandomShortcut = RandomShortcutToken(e);
+        var activeRandom = _activeRandomJingleId is Guid activeId
+            ? candidateArray.FirstOrDefault(candidate => candidate.Id == activeId)
+            : null;
+        var sameRandomShortcut = string.Equals(_activeRandomShortcut, pressedRandomShortcut, StringComparison.Ordinal);
+        if (sameRandomShortcut && !_randomShortcutAwaitingNext && activeRandom is not null &&
+            ViewModel.NowPlaying.JingleId == activeRandom.Id)
+        {
+            _randomShortcutAwaitingNext = true;
+            try { ViewModel.Play(activeRandom); }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Kunde inte tona ut", MessageBoxButton.OK, MessageBoxImage.Warning); }
+            return true;
+        }
+
+        var nextCandidates = candidateArray.Length > 1 && sameRandomShortcut && _activeRandomJingleId is Guid previousId
+            ? candidateArray.Where(candidate => candidate.Id != previousId).ToArray()
+            : candidateArray;
+        var selected = nextCandidates[Random.Shared.Next(nextCandidates.Length)];
+        _activeRandomShortcut = pressedRandomShortcut;
+        _activeRandomJingleId = selected.Id;
+        _randomShortcutAwaitingNext = false;
+        try { ViewModel.Play(selected); }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Kunde inte spela", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        return true;
+    }
 
     private void ClearSpaceResume()
     {
@@ -1543,30 +1559,8 @@ public partial class MainWindow : Window
 
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
-        var beforeDecks = ViewModel.Settings.DeckCount;
-        var beforeRows = ViewModel.Settings.Rows;
-        var beforeColumns = ViewModel.Settings.Columns;
-        var beforeLayouts = ViewModel.Decks.ToDictionary(deck => deck.Id, deck => (deck.Rows, deck.Columns));
         var dialog = new SettingsWindow(ViewModel.Project, _audio.GetOutputDevices(), _profilePreferences) { Owner = this };
         if (dialog.ShowDialog() != true) return;
-        var requestedLayouts = ViewModel.Decks.ToDictionary(deck => deck.Id, deck => (deck.Rows, deck.Columns));
-        foreach (var deck in ViewModel.Decks)
-            if (beforeLayouts.TryGetValue(deck.Id, out var layout)) { deck.Rows = layout.Rows; deck.Columns = layout.Columns; }
-        var hidesJingles = ViewModel.Decks.Any(deck => requestedLayouts.TryGetValue(deck.Id, out var layout) &&
-                ProjectService.CountHiddenAudioAfterResize(deck, layout.Rows, layout.Columns) > 0) ||
-            (ViewModel.Settings.DeckCount < beforeDecks && ViewModel.Decks.Skip(ViewModel.Settings.DeckCount).SelectMany(x => x.Jingles).Any(x => x.HasAudio));
-        if (hidesJingles && MessageBox.Show(this, "Den nya layouten döljer jinglar. De sparas fortfarande i projektet och visas igen om layouten förstoras. Fortsätta?", "Dolda jinglar", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
-        {
-            ViewModel.Settings.DeckCount = beforeDecks;
-            ViewModel.Settings.Rows = beforeRows;
-            ViewModel.Settings.Columns = beforeColumns;
-            foreach (var deck in ViewModel.Decks)
-                if (beforeLayouts.TryGetValue(deck.Id, out var layout)) { deck.Rows = layout.Rows; deck.Columns = layout.Columns; }
-            return;
-        }
-        foreach (var deck in ViewModel.Decks)
-            if (requestedLayouts.TryGetValue(deck.Id, out var layout)) ProjectService.ResizeDeckLayout(deck, layout.Rows, layout.Columns);
-        ViewModel.ApplyLayout();
         ViewModel.ConfigureAudio();
         RefreshOutputName();
         ViewModel.RequestSave();

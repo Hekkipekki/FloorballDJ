@@ -30,6 +30,9 @@ public sealed class AppSettings
     public double MasterLimiterCeilingDbtp { get; set; } = -1;
     public bool AutoMixHeadroomEnabled { get; set; } = true;
     public bool TrackSession { get; set; }
+    public string? RandomPoolShortcut { get; set; }
+    public List<Guid> RandomPoolDeckIds { get; set; } = [];
+    public List<Guid> RandomPoolJingleIds { get; set; } = [];
 }
 
 public sealed class Jingle : INotifyPropertyChanged

@@ -10,6 +10,7 @@ public partial class SettingsWindow : Window
 {
     private readonly FloorballProject _target;
     private readonly ProfilePreferencesService _profilePreferences;
+    private string? _randomPoolShortcut;
     public SettingsViewData ViewData { get; }
 
     public SettingsWindow(FloorballProject project, IReadOnlyList<OutputDevice> devices,
@@ -19,23 +20,42 @@ public partial class SettingsWindow : Window
         WindowPlacementService.MaximizeOnOwnerMonitor(this);
         _target = project;
         _profilePreferences = profilePreferences;
+        var selectedDeckIds = project.Settings.RandomPoolDeckIds ?? [];
+        var selectedJingleIds = project.Settings.RandomPoolJingleIds ?? [];
         ViewData = new SettingsViewData
         {
             Draft = Clone(project.Settings),
             Devices = devices,
             Fonts = new ObservableCollection<FontChoice>(FontService.GetFonts()),
             DefaultProfilePath = profilePreferences.GetDefaultProfilePath() ?? "",
-            Decks = new ObservableCollection<DeckLayoutDraft>(project.Decks
+            RandomPoolDecks = new ObservableCollection<RandomPoolDeckDraft>(project.Decks
                 .Take(project.Settings.DeckCount)
-                .Select(deck => new DeckLayoutDraft
+                .Select(deck => new RandomPoolDeckDraft
                 {
                     DeckId = deck.Id,
                     Name = deck.Name,
-                    Rows = deck.Rows > 0 ? deck.Rows : project.Settings.Rows,
-                    Columns = deck.Columns > 0 ? deck.Columns : project.Settings.Columns
+                    IncludeWholeDeck = selectedDeckIds.Contains(deck.Id),
+                    Jingles = new ObservableCollection<RandomPoolJingleDraft>(deck.Jingles
+                        .Where(jingle => jingle.HasAudio)
+                        .Select(jingle => new RandomPoolJingleDraft
+                        {
+                            JingleId = jingle.Id,
+                            Title = string.IsNullOrWhiteSpace(jingle.Title) ? Path.GetFileNameWithoutExtension(jingle.FilePath) : jingle.Title,
+                            IsIncluded = selectedJingleIds.Contains(jingle.Id)
+                        }))
                 }))
         };
+        _randomPoolShortcut = ShortcutService.Normalize(project.Settings.RandomPoolShortcut);
+        RandomPoolShortcutText.Text = _randomPoolShortcut ?? "<Ingen>";
         DataContext = ViewData;
+    }
+
+    private void ChooseRandomPoolShortcut_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ShortcutCaptureWindow(_randomPoolShortcut) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+        _randomPoolShortcut = ShortcutService.Normalize(dialog.SelectedShortcut);
+        RandomPoolShortcutText.Text = _randomPoolShortcut ?? "<Ingen>";
     }
 
     private void OpenFontFolder_Click(object sender, RoutedEventArgs e)
@@ -78,14 +98,6 @@ public partial class SettingsWindow : Window
     private void Save_Click(object sender, RoutedEventArgs e)
     {
         var settings = ViewData.Draft;
-        if (settings.DeckCount is < 1 or > 20 ||
-            ViewData.Decks.Any(deck => deck.Rows is < 1 or > ProjectService.MaximumDeckRows || deck.Columns is < 1 or > ProjectService.MaximumDeckColumns))
-        {
-            MessageBox.Show(this, $"Deck: 1–20. Rader: 1–{ProjectService.MaximumDeckRows}. Kolumner: 1–{ProjectService.MaximumDeckColumns}.",
-                "Kontrollera layouten", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-
         settings.TitleFontSize = Math.Clamp(settings.TitleFontSize, 9, 40);
         settings.DefaultLoudnessTargetLufs = Math.Clamp(settings.DefaultLoudnessTargetLufs, -30, 0);
         settings.MasterLimiterCeilingDbtp = Math.Clamp(settings.MasterLimiterCeilingDbtp, -12, 0);
@@ -97,14 +109,19 @@ public partial class SettingsWindow : Window
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+        settings.RandomPoolShortcut = _randomPoolShortcut;
+        settings.RandomPoolDeckIds = ViewData.RandomPoolDecks
+            .Where(deck => deck.IncludeWholeDeck)
+            .Select(deck => deck.DeckId)
+            .Distinct()
+            .ToList();
+        settings.RandomPoolJingleIds = ViewData.RandomPoolDecks
+            .SelectMany(deck => deck.Jingles)
+            .Where(jingle => jingle.IsIncluded)
+            .Select(jingle => jingle.JingleId)
+            .Distinct()
+            .ToList();
         Copy(settings, _target.Settings);
-        foreach (var draft in ViewData.Decks)
-        {
-            var deck = _target.Decks.FirstOrDefault(item => item.Id == draft.DeckId);
-            if (deck is null) continue;
-            deck.Rows = draft.Rows;
-            deck.Columns = draft.Columns;
-        }
         DialogResult = true;
     }
 
@@ -139,6 +156,9 @@ public partial class SettingsWindow : Window
         target.MasterLimiterEnabled = source.MasterLimiterEnabled;
         target.MasterLimiterCeilingDbtp = source.MasterLimiterCeilingDbtp;
         target.AutoMixHeadroomEnabled = source.AutoMixHeadroomEnabled;
+        target.RandomPoolShortcut = ShortcutService.Normalize(source.RandomPoolShortcut);
+        target.RandomPoolDeckIds = source.RandomPoolDeckIds?.Distinct().ToList() ?? [];
+        target.RandomPoolJingleIds = source.RandomPoolJingleIds?.Distinct().ToList() ?? [];
     }
 }
 
@@ -147,15 +167,22 @@ public sealed class SettingsViewData
     public required AppSettings Draft { get; init; }
     public required IReadOnlyList<OutputDevice> Devices { get; init; }
     public required ObservableCollection<FontChoice> Fonts { get; init; }
-    public required ObservableCollection<DeckLayoutDraft> Decks { get; init; }
+    public required ObservableCollection<RandomPoolDeckDraft> RandomPoolDecks { get; init; }
     public string DefaultProfilePath { get; set; } = "";
     public string FontFolderPath => FontService.FontsDirectory;
 }
 
-public sealed class DeckLayoutDraft
+public sealed class RandomPoolDeckDraft
 {
     public Guid DeckId { get; init; }
     public required string Name { get; init; }
-    public int Rows { get; set; }
-    public int Columns { get; set; }
+    public bool IncludeWholeDeck { get; set; }
+    public required ObservableCollection<RandomPoolJingleDraft> Jingles { get; init; }
+}
+
+public sealed class RandomPoolJingleDraft
+{
+    public Guid JingleId { get; init; }
+    public required string Title { get; init; }
+    public bool IsIncluded { get; set; }
 }

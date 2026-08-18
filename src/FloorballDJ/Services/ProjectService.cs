@@ -288,6 +288,9 @@ public sealed class ProjectService
 
     public static void EnsureLayout(FloorballProject project)
     {
+        project.Settings.RandomPoolShortcut = ShortcutService.Normalize(project.Settings.RandomPoolShortcut);
+        project.Settings.RandomPoolDeckIds ??= [];
+        project.Settings.RandomPoolJingleIds ??= [];
         while (project.Decks.Count < project.Settings.DeckCount)
             project.Decks.Add(new Deck { Name = $"Deck {project.Decks.Count + 1}" });
 
