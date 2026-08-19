@@ -19,6 +19,7 @@ public partial class JinglePropertiesWindow : Window
 {
     private const double DetailWindowSeconds = 10;
     private readonly Jingle _target;
+    private readonly FloorballProject? _project;
     private readonly double _masterVolumeDb;
     private readonly AudioAnalysisService _analysisService = new();
     private readonly DispatcherTimer _previewTimer;
@@ -36,6 +37,7 @@ public partial class JinglePropertiesWindow : Window
     private string? _categoryShortcut;
     private readonly ObservableCollection<string> _categories = [];
     private readonly HashSet<string> _deletedCategories = new(StringComparer.CurrentCultureIgnoreCase);
+    private readonly HashSet<string> _confirmedShortcutReplacements = new(StringComparer.OrdinalIgnoreCase);
     private readonly Action<string>? _deleteCategory;
     private AudioFileReader? _previewReader;
     private WaveOutEvent? _previewOutput;
@@ -43,7 +45,7 @@ public partial class JinglePropertiesWindow : Window
     private LoudnessAnalysis? _analysis;
 
     public JinglePropertiesWindow(Jingle jingle, IReadOnlyList<OutputDevice> _, double masterVolumeDb = 0,
-        IEnumerable<string>? categories = null, Action<string>? deleteCategory = null)
+        IEnumerable<string>? categories = null, Action<string>? deleteCategory = null, FloorballProject? project = null)
     {
         InitializeComponent();
         WindowPlacementService.MaximizeOnOwnerMonitor(this);
@@ -53,6 +55,7 @@ public partial class JinglePropertiesWindow : Window
                 _categories.Add(category.Trim());
         CategoryBox.ItemsSource = _categories;
         _target = jingle;
+        _project = project;
         _masterVolumeDb = masterVolumeDb;
         _path = jingle.FilePath;
         _totalSeconds = jingle.DurationSeconds;
@@ -390,6 +393,7 @@ public partial class JinglePropertiesWindow : Window
         foreach (var deletedCategory in _deletedCategories) _deleteCategory?.Invoke(deletedCategory);
         _target.Category = CategoryBox.Text.Trim();
         _target.CategoryShortcut = _categoryShortcut;
+        ApplyShortcutReplacements();
         DialogResult = true;
     }
 
@@ -420,7 +424,9 @@ public partial class JinglePropertiesWindow : Window
     {
         var dialog = new ShortcutCaptureWindow(_shortcut) { Owner = this };
         if (dialog.ShowDialog() != true) return;
-        _shortcut = dialog.SelectedShortcut;
+        var shortcut = ShortcutService.Normalize(dialog.SelectedShortcut);
+        if (!ConfirmShortcutReplacement(shortcut, assigningCategory: false)) return;
+        _shortcut = shortcut;
         UpdateShortcutText();
     }
 
@@ -430,11 +436,65 @@ public partial class JinglePropertiesWindow : Window
     {
         var dialog = new ShortcutCaptureWindow(_categoryShortcut) { Owner = this };
         if (dialog.ShowDialog() != true) return;
-        _categoryShortcut = dialog.SelectedShortcut;
+        var shortcut = ShortcutService.Normalize(dialog.SelectedShortcut);
+        if (!ConfirmShortcutReplacement(shortcut, assigningCategory: true)) return;
+        _categoryShortcut = shortcut;
         UpdateCategoryShortcutText();
     }
 
     private void UpdateCategoryShortcutText() => CategoryShortcutText.Text = _categoryShortcut ?? "<Ingen>";
+
+    private bool ConfirmShortcutReplacement(string? shortcut, bool assigningCategory)
+    {
+        if (string.IsNullOrWhiteSpace(shortcut) || _project is null) return true;
+        var globalProfiles = (_project.Settings.RandomPoolProfiles ?? [])
+            .Where(profile => string.Equals(ShortcutService.Normalize(profile.Shortcut), shortcut, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        var conflictingJingles = _project.Decks.SelectMany(deck => deck.Jingles)
+            .Where(jingle => jingle != _target &&
+                (string.Equals(ShortcutService.Normalize(jingle.Shortcut), shortcut, StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(ShortcutService.Normalize(jingle.CategoryShortcut), shortcut, StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
+        var conflictsWithOtherField = string.Equals(
+            ShortcutService.Normalize(assigningCategory ? _shortcut : _categoryShortcut), shortcut, StringComparison.OrdinalIgnoreCase);
+        if (globalProfiles.Length == 0 && conflictingJingles.Length == 0 && !conflictsWithOtherField) return true;
+
+        var owners = globalProfiles.Select(profile => $"slumpgruppen ‘{profile.Name}’")
+            .Concat(conflictingJingles.Select(jingle =>
+                string.Equals(ShortcutService.Normalize(jingle.Shortcut), shortcut, StringComparison.OrdinalIgnoreCase)
+                    ? $"jinglen ‘{jingle.Title}’"
+                    : $"slumpkategorin för ‘{jingle.Title}’"))
+            .Concat(conflictsWithOtherField ? [assigningCategory ? "jinglens vanliga snabbtangent" : "jinglens slumpknapp"] : [])
+            .Distinct().Take(6);
+        if (MessageBox.Show(this,
+                $"Snabbtangenten {shortcut} används redan av {string.Join(", ", owners)}.\n\nVill du ersätta den gamla kopplingen?",
+                "Snabbtangenten används redan", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return false;
+
+        if (conflictsWithOtherField)
+        {
+            if (assigningCategory) { _shortcut = null; UpdateShortcutText(); }
+            else { _categoryShortcut = null; UpdateCategoryShortcutText(); }
+        }
+        _confirmedShortcutReplacements.Add(shortcut);
+        return true;
+    }
+
+    private void ApplyShortcutReplacements()
+    {
+        if (_project is null) return;
+        var activeReplacements = new[] { ShortcutService.Normalize(_shortcut), ShortcutService.Normalize(_categoryShortcut) }
+            .Where(shortcut => shortcut is not null && _confirmedShortcutReplacements.Contains(shortcut))
+            .Cast<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (activeReplacements.Count == 0) return;
+        foreach (var profile in _project.Settings.RandomPoolProfiles ?? [])
+            if (activeReplacements.Contains(ShortcutService.Normalize(profile.Shortcut) ?? "")) profile.Shortcut = null;
+        foreach (var jingle in _project.Decks.SelectMany(deck => deck.Jingles).Where(jingle => jingle != _target))
+        {
+            if (activeReplacements.Contains(ShortcutService.Normalize(jingle.Shortcut) ?? "")) jingle.Shortcut = null;
+            if (activeReplacements.Contains(ShortcutService.Normalize(jingle.CategoryShortcut) ?? "")) jingle.CategoryShortcut = null;
+        }
+    }
 
     private void DeleteCategory_Click(object sender, RoutedEventArgs e)
     {

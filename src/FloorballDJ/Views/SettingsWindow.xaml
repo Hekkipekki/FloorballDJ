@@ -90,45 +90,60 @@
 
                 <GroupBox Header="Slumpmässig låtspelare" Style="{StaticResource ModernGroupBox}" Margin="0,0,0,16">
                     <StackPanel Margin="2,7,2,2">
-                        <TextBlock Text="Skapa en global pool som spelar en slumpvald jingle med en enda snabbtangent. Markera hela deck eller välj enskilda jinglar."
+                        <TextBlock Text="Skapa flera namngivna slumpgrupper, exempelvis Mål och Utvisning. Varje grupp har egen snabbtangent och eget innehåll."
                                    Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,10" />
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                            <TextBlock Text="Snabbtangent" Style="{StaticResource FieldLabel}" ToolTip="Första trycket spelar en slumpvald jingle. Nästa tryck tonar ut den och följande tryck väljer en ny." />
-                            <Border Grid.Column="1" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" CornerRadius="7" Padding="12,7" MinWidth="92" VerticalAlignment="Center">
-                                <TextBlock x:Name="RandomPoolShortcutText" Text="&lt;Ingen&gt;" Foreground="{StaticResource AccentBrush}" FontFamily="Consolas" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                            </Border>
-                            <Button Grid.Column="2" Content="Välj snabbtangent" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="ChooseRandomPoolShortcut_Click" />
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="260" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="Slumpgrupp" Style="{StaticResource FieldLabel}" />
+                            <ComboBox Grid.Column="1" ItemsSource="{Binding RandomPoolProfiles}" DisplayMemberPath="Name"
+                                      SelectedItem="{Binding SelectedRandomPoolProfile, Mode=TwoWay}" Margin="0,4"
+                                      Foreground="#111820" Background="White">
+                                <ComboBox.Resources><Style TargetType="ComboBoxItem"><Setter Property="Foreground" Value="#111820" /><Setter Property="Background" Value="White" /></Style></ComboBox.Resources>
+                            </ComboBox>
+                            <Button Grid.Column="2" Content="+ Ny" Style="{StaticResource SecondaryButton}" Margin="8,4,0,4" Click="AddRandomPoolProfile_Click" />
+                            <Button Grid.Column="3" Content="Ta bort" Style="{StaticResource SecondaryButton}" Margin="8,4,0,4" Click="RemoveRandomPoolProfile_Click" />
                         </Grid>
-                        <TextBlock Text="INNEHÅLL I POOLEN" Foreground="{StaticResource MutedBrush}" FontSize="9" FontWeight="Bold" Margin="0,2,0,5" />
-                        <ItemsControl ItemsSource="{Binding RandomPoolDecks}">
-                            <ItemsControl.ItemTemplate>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="260" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="Namn" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Column="1" Text="{Binding SelectedRandomPoolProfile.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" />
+                            <TextBlock Grid.Column="2" Text="Snabbtangent" Style="{StaticResource FieldLabel}" Margin="18,0,8,0"
+                                       ToolTip="Första trycket spelar slumpmässigt. Nästa tryck tonar ut och följande tryck väljer nästa." />
+                            <StackPanel Grid.Column="3" Orientation="Horizontal">
+                                <Border BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" CornerRadius="7" Padding="10,7" MinWidth="82" Margin="0,4">
+                                    <TextBlock Text="{Binding SelectedRandomPoolProfile.ShortcutDisplay}" Foreground="{StaticResource AccentBrush}" FontFamily="Consolas" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                </Border>
+                                <Button Content="Välj" Style="{StaticResource SecondaryButton}" Margin="8,4,0,4" Click="ChooseRandomPoolShortcut_Click" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="INNEHÅLL I VALD SLUMPGRUPP" Foreground="{StaticResource MutedBrush}" FontSize="9" FontWeight="Bold" Margin="0,4,0,5" />
+                        <TabControl ItemsSource="{Binding SelectedRandomPoolProfile.Decks}" MinHeight="245" MaxHeight="330">
+                            <TabControl.ItemTemplate>
+                                <DataTemplate><TextBlock Text="{Binding Name}" Padding="8,3" /></DataTemplate>
+                            </TabControl.ItemTemplate>
+                            <TabControl.ContentTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="{StaticResource HairlineBrush}" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,8">
-                                        <Expander IsExpanded="False">
-                                            <Expander.Header>
-                                                <CheckBox IsChecked="{Binding IncludeWholeDeck, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                          Content="{Binding Name}" FontWeight="SemiBold"
-                                                          ToolTip="Inkludera alla spelbara jinglar i detta deck, även jinglar som läggs till senare." />
-                                            </Expander.Header>
-                                            <StackPanel Margin="24,8,0,2">
-                                                <TextBlock Text="Enskilda jinglar" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,0,0,5" />
-                                                <ItemsControl ItemsSource="{Binding Jingles}">
-                                                    <ItemsControl.ItemTemplate>
-                                                        <DataTemplate>
-                                                            <CheckBox IsChecked="{Binding IsIncluded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                                      Content="{Binding Title}" Margin="0,3" />
-                                                        </DataTemplate>
-                                                    </ItemsControl.ItemTemplate>
-                                                </ItemsControl>
-                                            </StackPanel>
-                                        </Expander>
-                                    </Border>
+                                    <Grid Margin="10,8">
+                                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                                        <CheckBox IsChecked="{Binding IncludeWholeDeck, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  Content="Inkludera hela detta deck" FontWeight="SemiBold" Margin="0,0,0,8"
+                                                  ToolTip="Tar automatiskt med alla spelbara jinglar i decket, även sådana som läggs till senare." />
+                                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                            <ItemsControl ItemsSource="{Binding Jingles}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox IsChecked="{Binding IsIncluded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                  Content="{Binding Title}" Margin="2,4" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Grid>
                                 </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                            </TabControl.ContentTemplate>
+                        </TabControl>
                         <Border Background="{StaticResource AccentSoftBrush}" CornerRadius="8" Padding="12,9" Margin="0,2,0,0">
-                            <TextBlock Text="Ett markerat deck inkluderar hela decket. Du kan dessutom markera enskilda jinglar från andra deck. Textblock och tomma platser ignoreras automatiskt."
+                            <TextBlock Text="Byt slumpgrupp ovanför för att redigera en annan uppsättning. Deckflikarna ger snabb överblick; markera hela decket eller bara valda jinglar. Textblock och tomma platser ignoreras."
                                        Foreground="{StaticResource AccentBrush}" FontSize="11" TextWrapping="Wrap" />
                         </Border>
                     </StackPanel>

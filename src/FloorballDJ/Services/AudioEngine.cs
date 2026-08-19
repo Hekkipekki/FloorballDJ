@@ -10,6 +10,7 @@ public enum PlaybackAction { Started, FadingOut, PolyphonyLimitReached }
 public sealed class AudioEngine : IDisposable
 {
     private const int MaxConcurrentInstancesPerJingle = 8;
+    private const double MinimumStartRampSeconds = 0.03;
     private sealed class Voice : IDisposable
     {
         private readonly object _fadeGate = new();
@@ -19,8 +20,12 @@ public sealed class AudioEngine : IDisposable
         public required Jingle Jingle { get; init; }
         public required AudioFileReader Reader { get; init; }
         public required WasapiOut Output { get; init; }
+        // Statisk nivå: manuell gain, LUFS-normalisering och mastervolym.
         public required VolumeSampleProvider Volume { get; init; }
         public required DjEffectsSampleProvider Effects { get; init; }
+        // Uppspelningsfadern ligger efter effekterna. Då kan kompressorn inte
+        // hålla kvar signalen precis innan rösten ska nå fullständig tystnad.
+        public required SmoothGainSampleProvider FadeVolume { get; init; }
         public required SmoothGainSampleProvider TalkGain { get; init; }
         public bool Paused { get; set; }
         public bool PauseRequested { get; set; }
@@ -166,7 +171,8 @@ public sealed class AudioEngine : IDisposable
     }
 
     public PlaybackAction Play(Jingle jingle, bool honorJingleLoop = true, double? fadeInSecondsOverride = null,
-        double? fadeOutPreviousSecondsOverride = null, bool releaseTalkDucking = true)
+        double? fadeOutPreviousSecondsOverride = null, bool releaseTalkDucking = true,
+        TimeSpan? initialClipPosition = null)
     {
         if (!File.Exists(jingle.FilePath))
             throw new FileNotFoundException("Ljudfilen kunde inte hittas.", jingle.FilePath);
@@ -206,13 +212,20 @@ public sealed class AudioEngine : IDisposable
             try
             {
                 reader = new AudioFileReader(jingle.FilePath);
-                reader.CurrentTime = TimeSpan.FromSeconds(Math.Max(0, jingle.StartSeconds));
+                var clipStart = TimeSpan.FromSeconds(Math.Max(0, jingle.StartSeconds));
+                var clipEnd = jingle.EndSeconds is double endSeconds
+                    ? TimeSpan.FromSeconds(Math.Max(jingle.StartSeconds, endSeconds))
+                    : reader.TotalTime;
+                var requestedOffset = initialClipPosition ?? TimeSpan.Zero;
+                reader.CurrentTime = clipStart + TimeSpan.FromTicks(
+                    Math.Clamp(requestedOffset.Ticks, 0, Math.Max(0, (clipEnd - clipStart).Ticks)));
                 ISampleProvider source = reader;
                 if (Math.Abs(jingle.PitchSemitones) >= .01)
                     source = new SmbPitchShiftingSampleProvider(source) { PitchFactor = (float)Math.Pow(2, jingle.PitchSemitones / 12) };
                 var volume = new VolumeSampleProvider(source);
                 var effects = new DjEffectsSampleProvider(volume, jingle, _masterLimiterCeilingDbtp, _masterLimiterEnabled);
-                var talkGain = new SmoothGainSampleProvider(effects,
+                var fadeVolume = new SmoothGainSampleProvider(effects, 0);
+                var talkGain = new SmoothGainSampleProvider(fadeVolume,
                     DbToLinear(_useSecondaryDevice || resetTalkForNewPrimary ? 0 : _talkGainDb));
                 var meter = new MeteringSampleProvider(talkGain);
                 output = new WasapiOut(ResolveDevice(), AudioClientShareMode.Shared, true, 50);
@@ -223,6 +236,7 @@ public sealed class AudioEngine : IDisposable
                     Output = output,
                     Volume = volume,
                     Effects = effects,
+                    FadeVolume = fadeVolume,
                     TalkGain = talkGain,
                     LoopEnabled = honorJingleLoop && jingle.Loop,
                     UsesSecondaryDevice = _useSecondaryDevice
@@ -257,8 +271,11 @@ public sealed class AudioEngine : IDisposable
                         instance.PolyphonyHeadroomDb = Math.Min(instance.PolyphonyHeadroomDb, groupHeadroomDb);
                 }
                 _primary = voice;
-                var fadeInSeconds = fadeInSecondsOverride ?? jingle.FadeInOverrideSeconds ?? _fadeInSeconds;
-                voice.Volume.Volume = fadeInSeconds > 0 ? 0 : TargetVolume(voice);
+                var requestedFadeInSeconds = fadeInSecondsOverride ?? jingle.FadeInOverrideSeconds ?? _fadeInSeconds;
+                // Även ett uttryckligt värde på 0 får en ohörbart kort de-click-ramp.
+                // Att öppna en signal mitt i en vågform på full nivå kan annars låta
+                // som ett kort främmande klick från den föregående jinglen.
+                var fadeInSeconds = Math.Max(MinimumStartRampSeconds, requestedFadeInSeconds);
                 output.Play();
                 // Markera de utgående rösterna innan den nya fade-in-kurvan beräknas.
                 // En vanlig crossfade ska inte tolkas som två avsiktligt samtidiga ljud,
@@ -266,7 +283,10 @@ public sealed class AudioEngine : IDisposable
                 // nya låten får ett hörbart nivåhopp i slutet av fade-in.
                 foreach (var oldVoice in previous)
                     _ = FadeOutVoiceAsync(oldVoice, fadeOutPreviousSecondsOverride ?? oldVoice.Jingle.FadeOutOverrideSeconds ?? _fadeOutSeconds);
-                if (fadeInSeconds > 0) _ = FadeInAsync(voice, fadeInSeconds);
+                // Den statiska nivån ska vara färdig innan den separata
+                // uppspelningsfadern börjar röra sig från 0 till 1.
+                ApplyVolume(voice);
+                _ = FadeInAsync(voice, fadeInSeconds);
                 RefreshActiveVolumes();
                 return PlaybackAction.Started;
             }
@@ -313,7 +333,7 @@ public sealed class AudioEngine : IDisposable
             if (voice.Paused || voice.PauseRequested)
             {
                 voice.CancelFade();
-                voice.Volume.Volume = 0;
+                voice.FadeVolume.SetTarget(0, 0);
                 voice.Output.Play();
                 voice.Paused = false;
                 voice.PauseRequested = false;
@@ -336,15 +356,8 @@ public sealed class AudioEngine : IDisposable
         var cancellationToken = voice.BeginFade();
         try
         {
-            float startVolume;
-            try { startVolume = voice.Volume.Volume; } catch (ObjectDisposedException) { return; }
-            var steps = Math.Max(1, (int)(seconds * 100));
-            for (var step = steps - 1; step >= 0; step--)
-            {
-                if (voice.IsDisposed || cancellationToken.IsCancellationRequested) return;
-                try { voice.Volume.Volume = startVolume * step / steps; } catch (ObjectDisposedException) { return; }
-                if (!await DelayFadeStepAsync(cancellationToken)) return;
-            }
+            voice.FadeVolume.SetTarget(0, Math.Clamp(seconds, 0, 30));
+            if (!await WaitForFadeAsync(seconds, cancellationToken, drainOutputBuffer: true)) return;
             lock (_gate)
             {
                 if (voice.IsDisposed || cancellationToken.IsCancellationRequested || !_voices.Contains(voice)) return;
@@ -502,16 +515,8 @@ public sealed class AudioEngine : IDisposable
         var cancellationToken = voice.BeginFade();
         try
         {
-            var steps = Math.Max(1, (int)(seconds * 100));
-            try { voice.Volume.Volume = 0; }
-            catch (ObjectDisposedException) { return; }
-            for (var i = 1; i <= steps && !voice.IsDisposed; i++)
-            {
-                if (cancellationToken.IsCancellationRequested) return;
-                try { voice.Volume.Volume = TargetVolume(voice) * i / steps; }
-                catch (ObjectDisposedException) { return; }
-                if (!await DelayFadeStepAsync(cancellationToken)) return;
-            }
+            voice.FadeVolume.SetTarget(1, Math.Clamp(seconds, 0, 30));
+            await WaitForFadeAsync(seconds, cancellationToken, drainOutputBuffer: false);
         }
         finally { voice.EndFade(cancellationToken); }
     }
@@ -526,17 +531,8 @@ public sealed class AudioEngine : IDisposable
             // Markera avsiktlig toning direkt. Annars kan filen nå sitt naturliga slut
             // under fade-jobbet och felaktigt utlösa PlaybackCompleted en extra gång.
             voice.StopRequested = true;
-            float startVolume;
-            try { startVolume = voice.Volume.Volume; }
-            catch (ObjectDisposedException) { return; }
-            var steps = Math.Max(1, (int)(seconds * 100));
-            for (var step = steps - 1; step >= 0; step--)
-            {
-                if (voice.IsDisposed || cancellationToken.IsCancellationRequested) return;
-                try { voice.Volume.Volume = startVolume * step / steps; }
-                catch (ObjectDisposedException) { return; }
-                if (!await DelayFadeStepAsync(cancellationToken)) return;
-            }
+            voice.FadeVolume.SetTarget(0, Math.Clamp(seconds, 0, 30));
+            if (!await WaitForFadeAsync(seconds, cancellationToken, drainOutputBuffer: true)) return;
 
             lock (_gate)
             {
@@ -550,11 +546,15 @@ public sealed class AudioEngine : IDisposable
         finally { voice.EndFade(cancellationToken); }
     }
 
-    private static async Task<bool> DelayFadeStepAsync(CancellationToken cancellationToken)
+    private static async Task<bool> WaitForFadeAsync(double seconds, CancellationToken cancellationToken, bool drainOutputBuffer)
     {
         try
         {
-            await Task.Delay(10, cancellationToken);
+            // WASAPI använder en 50 ms buffert. Vid fade-out låter vi därför en
+            // helt tyst buffert passera innan Output.Stop, så stoppet aldrig sker
+            // medan den sista hörbara delen fortfarande väntar i enheten.
+            var milliseconds = Math.Clamp(seconds, 0, 30) * 1000 + (drainOutputBuffer ? 60 : 0);
+            await Task.Delay(TimeSpan.FromMilliseconds(milliseconds), cancellationToken);
             return true;
         }
         catch (OperationCanceledException) { return false; }

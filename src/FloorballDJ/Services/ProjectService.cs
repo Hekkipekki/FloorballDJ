@@ -291,6 +291,27 @@ public sealed class ProjectService
         project.Settings.RandomPoolShortcut = ShortcutService.Normalize(project.Settings.RandomPoolShortcut);
         project.Settings.RandomPoolDeckIds ??= [];
         project.Settings.RandomPoolJingleIds ??= [];
+        project.Settings.RandomPoolProfiles ??= [];
+        if (project.Settings.RandomPoolProfiles.Count == 0 &&
+            (!string.IsNullOrWhiteSpace(project.Settings.RandomPoolShortcut) ||
+             project.Settings.RandomPoolDeckIds.Count > 0 || project.Settings.RandomPoolJingleIds.Count > 0))
+        {
+            project.Settings.RandomPoolProfiles.Add(new RandomPoolProfile
+            {
+                Name = "Slumpgrupp 1",
+                Shortcut = project.Settings.RandomPoolShortcut,
+                DeckIds = project.Settings.RandomPoolDeckIds.Distinct().ToList(),
+                JingleIds = project.Settings.RandomPoolJingleIds.Distinct().ToList()
+            });
+        }
+        foreach (var profile in project.Settings.RandomPoolProfiles)
+        {
+            if (profile.Id == Guid.Empty) profile.Id = Guid.NewGuid();
+            profile.Name = string.IsNullOrWhiteSpace(profile.Name) ? "Slumpgrupp" : profile.Name.Trim();
+            profile.Shortcut = ShortcutService.Normalize(profile.Shortcut);
+            profile.DeckIds = profile.DeckIds?.Distinct().ToList() ?? [];
+            profile.JingleIds = profile.JingleIds?.Distinct().ToList() ?? [];
+        }
         while (project.Decks.Count < project.Settings.DeckCount)
             project.Decks.Add(new Deck { Name = $"Deck {project.Decks.Count + 1}" });
 

@@ -3,7 +3,7 @@
 #define MyAppUrl "https://floorballdj.netlify.app"
 
 #ifndef AppVersion
-  #define AppVersion "0.40.0-beta.16"
+  #define AppVersion "0.40.0-beta.17"
 #endif
 #ifndef VersionInfoVersion
   #define VersionInfoVersion "0.40.0.0"

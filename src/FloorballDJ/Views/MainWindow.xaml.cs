@@ -115,7 +115,8 @@ public partial class MainWindow : Window
                 revisions.Show();
                 await Task.Delay(250);
                 revisions.Close();
-                var properties = new JinglePropertiesWindow(new Jingle(), _audio.GetOutputDevices(), ViewModel.Settings.MasterVolumeDb) { Owner = this };
+                var properties = new JinglePropertiesWindow(new Jingle(), _audio.GetOutputDevices(), ViewModel.Settings.MasterVolumeDb,
+                    project: ViewModel.Project) { Owner = this };
                 properties.Show();
                 await Task.Delay(250);
                 properties.Close();
@@ -354,10 +355,8 @@ public partial class MainWindow : Window
             var resume = _spaceResumeJingle;
             var position = _spaceResumePosition;
             ClearSpaceResume();
-            if (ViewModel.AutoplayModeActive && ViewModel.PlaybackQueue.Contains(resume)) ViewModel.PlayQueuedItem(resume);
-            else ViewModel.Play(resume);
-            _audio.Seek(position);
-            _audio.PublishSnapshot();
+            var queuedItem = ViewModel.AutoplayModeActive && ViewModel.PlaybackQueue.Contains(resume);
+            ViewModel.Resume(resume, position, queuedItem);
             return;
         }
         await _audio.PauseOrResumeAsync();
@@ -652,10 +651,12 @@ public partial class MainWindow : Window
 
         if (!e.IsRepeat && Keyboard.FocusedElement is not TextBoxBase and not ComboBox)
         {
-            if (ShortcutService.Matches(ViewModel.Settings.RandomPoolShortcut, e))
+            var randomProfile = (ViewModel.Settings.RandomPoolProfiles ?? [])
+                .FirstOrDefault(profile => ShortcutService.Matches(profile.Shortcut, e));
+            if (randomProfile is not null)
             {
-                var selectedDeckIds = (ViewModel.Settings.RandomPoolDeckIds ?? []).ToHashSet();
-                var selectedJingleIds = (ViewModel.Settings.RandomPoolJingleIds ?? []).ToHashSet();
+                var selectedDeckIds = (randomProfile.DeckIds ?? []).ToHashSet();
+                var selectedJingleIds = (randomProfile.JingleIds ?? []).ToHashSet();
                 var pool = ViewModel.Decks
                     .SelectMany(deck => deck.Jingles.Where(jingle => jingle.HasAudio &&
                         (selectedDeckIds.Contains(deck.Id) || selectedJingleIds.Contains(jingle.Id))))
@@ -741,10 +742,8 @@ public partial class MainWindow : Window
             var resume = _spaceResumeJingle;
             var position = _spaceResumePosition;
             ClearSpaceResume();
-            if (autoplayActive && ViewModel.PlaybackQueue.Contains(resume)) ViewModel.PlayQueuedItem(resume);
-            else ViewModel.Play(resume);
-            _audio.Seek(position);
-            _audio.PublishSnapshot();
+            var queuedItem = autoplayActive && ViewModel.PlaybackQueue.Contains(resume);
+            ViewModel.Resume(resume, position, queuedItem);
         }
         else if (autoplayActive && ViewModel.PlaybackQueue.Count > 0)
         {
@@ -1260,7 +1259,7 @@ public partial class MainWindow : Window
             .OrderBy(category => category, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
         var dialog = new JinglePropertiesWindow(jingle, _audio.GetOutputDevices(), ViewModel.Settings.MasterVolumeDb,
-            categories, RemoveRandomCategory) { Owner = this };
+            categories, RemoveRandomCategory, ViewModel.Project) { Owner = this };
         if (dialog.ShowDialog() == true) { ViewModel.NotifyJingleChanged(jingle); ViewModel.RequestSave(); }
     }
 

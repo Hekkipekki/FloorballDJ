@@ -33,6 +33,16 @@ public sealed class AppSettings
     public string? RandomPoolShortcut { get; set; }
     public List<Guid> RandomPoolDeckIds { get; set; } = [];
     public List<Guid> RandomPoolJingleIds { get; set; } = [];
+    public List<RandomPoolProfile> RandomPoolProfiles { get; set; } = [];
+}
+
+public sealed class RandomPoolProfile
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "Ny slumpgrupp";
+    public string? Shortcut { get; set; }
+    public List<Guid> DeckIds { get; set; } = [];
+    public List<Guid> JingleIds { get; set; } = [];
 }
 
 public sealed class Jingle : INotifyPropertyChanged

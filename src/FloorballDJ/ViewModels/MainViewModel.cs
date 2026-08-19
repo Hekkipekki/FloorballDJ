@@ -141,14 +141,41 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public void PlayPreview(Jingle jingle)
         => PlayCore(jingle, true, true);
 
-    private bool PlayCore(Jingle jingle, bool honorJingleLoop, bool previewOnly, double? transitionFadeInSeconds = null, double? transitionFadeOutSeconds = null)
+    public void Resume(Jingle jingle, TimeSpan clipPosition, bool queuedItem)
+    {
+        if (queuedItem)
+        {
+            var index = PlaybackQueue.IndexOf(jingle);
+            if (index >= 0) _queuePlaybackIndex = index + 1;
+            _activeQueueJingleId = jingle.Id;
+            ActiveQueueItem = jingle;
+        }
+        else
+        {
+            _activeQueueJingleId = null;
+            ActiveQueueItem = null;
+        }
+        _queueTransitionStarted = false;
+
+        // En återupptagning ska alltid vara klickfri och följa den globala
+        // fade-in-inställningen, även om jinglen själv har en override på 0.
+        var safeResumeFadeIn = Math.Max(0.08, Settings.FadeInSeconds);
+        if (!PlayCore(jingle, !queuedItem, false, safeResumeFadeIn, initialClipPosition: clipPosition))
+        {
+            _activeQueueJingleId = null;
+            ActiveQueueItem = null;
+        }
+    }
+
+    private bool PlayCore(Jingle jingle, bool honorJingleLoop, bool previewOnly, double? transitionFadeInSeconds = null,
+        double? transitionFadeOutSeconds = null, TimeSpan? initialClipPosition = null)
     {
         _previewOnlyJingleId = previewOnly ? jingle.Id : null;
         PlaybackAction action;
         try
         {
             action = _audio.Play(jingle, honorJingleLoop, transitionFadeInSeconds, transitionFadeOutSeconds,
-                releaseTalkDucking: !previewOnly);
+                releaseTalkDucking: !previewOnly, initialClipPosition: initialClipPosition);
         }
         catch (Exception ex)
         {
