@@ -3,9 +3,10 @@ window.FLOORBALLDJ_SITE_CONFIG = Object.freeze({
   checkoutUrl: "",
   priceLabel: "Pris kommer",
   downloadsEnabled: true,
-  downloadUrl: "https://github.com/Hekkipekki/FloorballDJ/releases/download/v0.40.0-beta.16/FloorballDJ-Setup.exe",
-  currentVersion: "0.40.0 beta 16"
+  downloadUrl: "https://github.com/Hekkipekki/FloorballDJ/releases/download/v0.40.0-beta.17/FloorballDJ-Setup.exe",
+  currentVersion: "0.40.0 beta 17"
 });
+
 
 
 
