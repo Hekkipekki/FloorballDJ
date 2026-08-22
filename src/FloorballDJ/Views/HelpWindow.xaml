@@ -120,7 +120,8 @@
                         <GroupBox Header="Transportfältet" Style="{StaticResource HelpGroup}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Stopp:" /> stoppar allt direkt. <Run FontWeight="Bold" Text="Fade:" /> tonar ut allt. <Run FontWeight="Bold" Text="Paus/Play:" /> använder globala fade-tider.</TextBlock>
-                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,6,0,0">Klicka i huvudwaveformen för att hoppa i låten. L/R visar korta stereotoppar. Master/Huvudgain är en extra övergripande justering och är inte samma sak som uppmätt LUFS.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,6,0,0">Klicka i huvudwaveformen för att hoppa i låten. L/R visar korta stereotoppar: grönt är normal arbetsnivå, gult betyder att en kort topp närmar sig digital maxnivå och rött är limiter-/klippområdet. Flera gula staplar kan därför förekomma även när två låtar har samma LUFS, eftersom LUFS mäter upplevd medelnivå. Huvudgain ändras direkt i transportfältet.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,6,0,0">Den digitala klockan i titelraden följer datorns lokala tid. Högerklicka på <Run FontWeight="Bold">KÖ</Run> för att rensa hela den aktiva kön eller ta bort en bestämd kommande låt.</TextBlock>
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="PA/Talk" Style="{StaticResource HelpGroup}">
@@ -174,7 +175,7 @@
                         <TextBlock Text="AUTOPLAY OCH KÖER" Style="{StaticResource EyebrowText}" />
                         <TextBlock Text="Musiklistor som spelar vidare" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
                         <GroupBox Header="Bygg kön" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Öppna Autoplay-fliken. Välj Alla eller filtrera på ett deck, sök efter titel och dubbelklicka eller använd vänsterpilen för att lägga till. Alla kan även visa råa filer från vald musikmapp; deckfilter använder jinglarna med deras sparade start/slut och egenskaper.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Öppna Autoplay-fliken. Välj Alla eller filtrera på ett deck, sök efter titel och dubbelklicka eller använd vänsterpilen för att lägga till. Högerpilen vid deckfiltren flyttar till nästa flik när alla inte ryms. Alla kan även visa råa filer från vald musikmapp; deckfilter använder jinglarna med deras sparade start/slut och egenskaper.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Ordning och uppspelning" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Dra rader i kön eller använd upp/ned. Spela nu startar vald rad. Delete eller Ta bort tar bort den valda raden från kön, inte från disken. När en låt tar slut går Autoplay vidare. Loop börjar om från rad 1; Shuffle väljer nästa slumpmässigt.</TextBlock>
@@ -207,7 +208,7 @@
                             <TextBlock Style="{StaticResource HelpBody}">Använd cirka <Run FontWeight="Bold">−16 LUFS</Run>, limiter aktiverad och <Run FontWeight="Bold">−1 eller −2 dBTP</Run>. −2 ger extra marginal för ojämna PA-system. Den verkliga nivån i publiken måste fortfarande ställas med mixer/PA och helst kontrolleras med SPL-mätare.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Analysera eller balansera" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Analysera" /> sparar mätvärden men ändrar inte uppspelningen. <Run FontWeight="Bold" Text="Analysera och balansera" /> aktiverar Auto gain. Plus höjer, minus sänker. Om peak-taket nås får en tyst fil inte höjas hela vägen till målnivån.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Analysera" /> sparar mätvärden men ändrar inte uppspelningen. <Run FontWeight="Bold" Text="Analysera och balansera" /> aktiverar Auto gain. Sökfältet filtrerar på titel, filnamn och deck; markeringarna avgör vilka träffar som bearbetas. Plus höjer, minus sänker. Om peak-taket nås får en tyst fil inte höjas hela vägen till målnivån.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Manuell finjustering och säkerhet" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Manuell gain läggs ovanpå Auto gain och är avsedd för öronmässig finjustering. Säkerhetslimitern fångar toppar. Automatiskt mixutrymme används vid avsiktligt samtidiga ljud, men en vanlig uttonande låt ändrar inte nästa låts gain.</TextBlock>
@@ -233,7 +234,7 @@
                             <TextBlock Style="{StaticResource HelpBody}">Flytta markören och välj Start eller Stopp. Du kan skriva sekunder (78) eller tid (01:18). Plus/minus flyttar 0,1 sekund; håll Shift för 0,01 sekund. Trimma tystnad föreslår hörbara gränser automatiskt.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Uppspelning och snabbtangent" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Välj Solo/Mix/Duck, Loop, egna fade-tider och Välj snabbknapp. Markera Hoppa till om snabbknappen också ska visa jingelns deck. Modifierare som Ctrl, Shift, Alt och Win väntar på ytterligare en tangent. Space är reserverad för uppspelningsflödet.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Välj Solo/Mix/Duck, Loop, egna fade-tider och Välj snabbknapp. Kryssknappen bredvid tar bort en befintlig snabb- eller slumpknapp. Markera Hoppa till om snabbknappen också ska visa jingelns deck. Modifierare som Ctrl, Shift, Alt och Win väntar på ytterligare en tangent. Space är reserverad för uppspelningsflödet.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Ljudmixer" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Normalisering ger jämn grundnivå och manuell gain finjusterar. Bas/Mellan/Diskant formar tonen. Kompressorn dämpar signal över tröskeln; högre ratio ger kraftigare kontroll, Attack bestämmer hur snabbt den reagerar och Release hur snabbt den släpper.</TextBlock>
@@ -253,22 +254,25 @@
                         <TextBlock Text="PROFILER OCH BACKUP" Style="{StaticResource EyebrowText}" />
                         <TextBlock Text="Spara, flytta och återställ arbetet" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
                         <GroupBox Header="Profilmenyn" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Nytt projekt skapar en tom profil. Öppna laddar en .floorballdj.json-profil. Under Senast använda profiler visas de fem senaste giltiga profilerna; en stjärna markerar standardprofilen. Spara/Spara som lagrar layout och inställningar. Importera Snap XML konverterar en Snap Jingle Player-profil och anpassar decks/layout efter innehållet.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Nytt projekt skapar en tom profil. Öppna eller Importera profil laddar en .floorballdj.json-profil. Importera profil kan också konvertera Snap Jingle Player XML och anpassar då decks/layout efter innehållet. Under Senast använda profiler visas de fem senaste giltiga profilerna; en stjärna markerar standardprofilen. För flera identiska varianter öppnar du grundprofilen och använder Spara som med ett nytt namn för varje kopia.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Standardprofil" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Välj en standardprofil under <Run FontWeight="Bold">Verktyg → Inställningar → Profiler</Run> om samma matchprofil alltid ska öppnas vid start. Välj Ingen standard för att återgå till den vanliga autosparningen.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Välj en standardprofil under <Run FontWeight="Bold">Verktyg → Inställningar → Profiler</Run> om samma matchprofil alltid ska öppnas vid start. Dropdownen visar upp till fem senast använda, namngivna profilfiler. Den vanliga interna autosparningen visas inte som en separat profil. Välj Ingen standard för att återgå till autosparningen.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Autosparning och historik" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Ändringar autosparas. Under <Run FontWeight="Bold">Hjälp → Autosparningshistorik</Run> kan du granska och återställa tidigare versioner. Upp till 100 ändrade revisioner sparas per profil. Återställning ersätter den aktuella profilen, så kontrollera datum och innehåll.</TextBlock>
                         </GroupBox>
-                        <GroupBox Header="Två typer av backup" Style="{StaticResource HelpGroup}">
+                        <GroupBox Header="Backup och flytt till en annan dator" Style="{StaticResource HelpGroup}">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Profilbackup – " />sparar profilens data och sökvägar men kopierar inte ljudfilerna.</TextBlock>
-                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0"><Run FontWeight="Bold" Text="Projekt- och mediabackup – " />finns i Kontrollera ljudfiler och skapar en flyttbar mapp med profil plus oförändrade originalkopior i Media. Ingen komprimering eller kvalitetsförlust sker.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Spara som – " />skapar endast en profilfil. Den innehåller deck, knappar, fades, färger, snabbtangenter, slumpgrupper och ljudinställningar, men kopierar inte ljudfilerna.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0"><Run FontWeight="Bold" Text="Komplett flyttbackup – " />finns både under Profil och Kontrollera ljudfiler. Båda knapparna kör exakt samma backupprocess. Den skapar en flyttbar mapp med profil, oförändrade originalkopior av alla refererade ljudfiler, egna typsnitt, sparade färgval och en backupbeskrivning. Ingen omkodning, komprimering eller kvalitetsförlust sker.</TextBlock>
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Flytta till en annan dator" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Skapa projekt- och mediabackup, kopiera hela backupmappen och öppna profilfilen därifrån. För själva programmet ska hela release-/zipmappen packas upp; starta FloorballDJ.exe utan att flytta enskilda DLL-filer.</TextBlock>
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HelpBody}">Kopiera hela backupmappen till den nya datorn och välj <Run FontWeight="Bold">Profil → Återställ flyttbackup</Run>. FloorballDJ kopierar innehållet till en stabil lokal plats, importerar typsnitt och färgval, öppnar profilen och gör den till standard. Välj därefter ljudutgångar för den nya datorn.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0"><Run FontWeight="Bold" Text="Överförs inte: " />licens/provperiod, Windows-specifika ljudenhets-ID:n och extern musik som inte används av någon jingle. Licensen är maskinbunden och aktiveras separat. Saknade filer redovisas tydligt när backupen skapas.</TextBlock>
+                            </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Ljudfiler och egna typsnitt" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Kontrollera ljudfiler visar hittade/saknade filer, söker rekursivt och uppdaterar sökvägar. Egna .ttf/.otf läggs i Fonts-mappen som öppnas från Inställningar; välj Uppdatera efter att filer lagts till.</TextBlock>

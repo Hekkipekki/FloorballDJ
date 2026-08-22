@@ -30,7 +30,7 @@
                         <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
                             <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
-                            <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
+                            <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
                         </Grid.RowDefinitions>
                         <TextBlock Text="Utgångsenhet  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Huvudutgången som publiken hör. Windows standardenhet följer den utgång som är vald i Windows." />
                         <ComboBox x:Name="OutputDeviceCombo" Grid.Column="1" ItemsSource="{Binding Devices}" DisplayMemberPath="Name" SelectedValuePath="Id"
@@ -44,34 +44,27 @@
                                   MaxDropDownHeight="320" Margin="0,5" ToolTip="Alternativ utgång, exempelvis hörlurar för förlyssning" Foreground="#111820" Background="White">
                             <ComboBox.Resources><Style TargetType="ComboBoxItem"><Setter Property="Foreground" Value="#111820" /><Setter Property="Background" Value="White" /></Style></ComboBox.Resources>
                         </ComboBox>
-                        <TextBlock Grid.Row="2" Text="Programvolym  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Övergripande gain för hela FloorballDJ. 0 dB betyder ingen extra ändring, inte att ljudsignalen ligger på digital maxnivå. Börja lågt och kalibrera mot hallens mixerbord eller PA." />
-                        <Grid Grid.Row="2" Grid.Column="1">
-                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="72" /></Grid.ColumnDefinitions>
-                            <Slider Minimum="-60" Maximum="6" Value="{Binding Draft.MasterVolumeDb}" TickFrequency="6" TickPlacement="BottomRight"
-                                    IsSnapToTickEnabled="False" IsMoveToPointEnabled="True" Foreground="#7F93AD" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="1" Text="{Binding Draft.MasterVolumeDb, Converter={StaticResource FlexibleDouble}, Mode=TwoWay}" Margin="10,5,0,5" ToolTip="dB" />
-                        </Grid>
-                        <TextBlock Grid.Row="3" Text="Global fade in  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Hur många sekunder en ny låt normalt tonas in. En enskild jingle kan ha en egen tid som ersätter detta värde." />
-                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Draft.FadeInSeconds, Converter={StaticResource FlexibleDouble}, Mode=TwoWay}" Margin="0,5" ToolTip="Sekunder" />
-                        <TextBlock Grid.Row="4" Text="Global fade ut  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Hur många sekunder den spelande låten normalt tonas ut vid stopp eller byte. En enskild jingle kan ha en egen tid." />
-                        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Draft.FadeOutSeconds, Converter={StaticResource FlexibleDouble}, Mode=TwoWay}" Margin="0,5" ToolTip="Sekunder" />
-                        <TextBlock Grid.Row="5" Text="Standard loudness  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Målnivån som används vid automatisk LUFS-balansering. −16 LUFS är en trygg och tydlig startpunkt för idrottshall. Ett värde närmare 0 låter starkare men ger mindre dynamik och säkerhetsmarginal." />
-                        <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Draft.DefaultLoudnessTargetLufs, Converter={StaticResource FlexibleDouble}, Mode=TwoWay}" Margin="0,5" ToolTip="Rekommenderad start för idrottshall: −16 LUFS. Detta ändrar inte originalfilerna; en fast uppspelningsgain sparas per analyserad jingle." />
-                        <TextBlock Grid.Row="6" Text="Säkerhetslimiter  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Fångar plötsliga toppar som annars kan ge digital överstyrning. Låt normalt denna vara aktiverad. Den ersätter inte korrekt nivåinställning på PA-systemet." />
-                        <CheckBox Grid.Row="6" Grid.Column="1" IsChecked="{Binding Draft.MasterLimiterEnabled}" Content="Skydda utgången mot digital överstyrning" VerticalAlignment="Center" ToolTip="Rekommenderas aktiverad under match och evenemang." />
-                        <TextBlock Grid.Row="7" Text="Limiter-tak  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Högsta tillåtna toppnivå före utgången. −1 dBTP är normal säkerhetsmarginal; −2 dBTP ger extra marginal för idrottshall och enklare PA-system." />
-                        <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding Draft.MasterLimiterCeilingDbtp, Converter={StaticResource FlexibleDouble}, Mode=TwoWay}" Margin="0,5" ToolTip="Ange dBTP. Rekommenderat: −1 normalt eller −2 för extra säkerhetsmarginal i idrottshall." />
-                        <TextBlock Grid.Row="8" Text="Automatiskt mixutrymme  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Skapar säkerhetsmarginal när flera ljud avsiktligt spelas samtidigt, exempelvis Mix eller Duck. En låt som bara tonas ut vid ett normalt byte påverkar inte längre den nya låtens nivå." />
-                        <CheckBox Grid.Row="8" Grid.Column="1" IsChecked="{Binding Draft.AutoMixHeadroomEnabled}" Content="Sänk säkert när flera ljud spelas samtidigt" VerticalAlignment="Center" ToolTip="Låt normalt detta vara aktiverat. Auto gain för en enskild låt hålls fast och ändras inte under vanlig crossfade." />
-                        <TextBlock Grid.Row="9" Text="PA/Talk-dämpning  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Hur mycket musiken sänks när PA/Talk är aktiv. −15 dB brukar lämna tydligt utrymme för tal utan att musiken försvinner helt." />
-                        <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding Draft.TalkDuckLevelDb, Converter={StaticResource FlexibleDouble}, Mode=TwoWay}" Margin="0,5" ToolTip="dB, rekommenderad start: −15" />
+                        <TextBlock Grid.Row="2" Text="Global fade in  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Hur många sekunder en ny låt normalt tonas in. En enskild jingle kan ha en egen tid som ersätter detta värde." />
+                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Draft.FadeInSeconds, Converter={StaticResource FlexibleDouble}, Mode=TwoWay}" Margin="0,5" ToolTip="Sekunder" />
+                        <TextBlock Grid.Row="3" Text="Global fade ut  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Hur många sekunder den spelande låten normalt tonas ut vid stopp eller byte. En enskild jingle kan ha en egen tid." />
+                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Draft.FadeOutSeconds, Converter={StaticResource FlexibleDouble}, Mode=TwoWay}" Margin="0,5" ToolTip="Sekunder" />
+                        <TextBlock Grid.Row="4" Text="Standard loudness  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Målnivån som används vid automatisk LUFS-balansering. −16 LUFS är en trygg och tydlig startpunkt för idrottshall. Ett värde närmare 0 låter starkare men ger mindre dynamik och säkerhetsmarginal." />
+                        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Draft.DefaultLoudnessTargetLufs, Converter={StaticResource FlexibleDouble}, Mode=TwoWay}" Margin="0,5" ToolTip="Rekommenderad start för idrottshall: −16 LUFS. Detta ändrar inte originalfilerna; en fast uppspelningsgain sparas per analyserad jingle." />
+                        <TextBlock Grid.Row="5" Text="Säkerhetslimiter  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Fångar plötsliga toppar som annars kan ge digital överstyrning. Låt normalt denna vara aktiverad. Den ersätter inte korrekt nivåinställning på PA-systemet." />
+                        <CheckBox Grid.Row="5" Grid.Column="1" IsChecked="{Binding Draft.MasterLimiterEnabled}" Content="Skydda utgången mot digital överstyrning" VerticalAlignment="Center" ToolTip="Rekommenderas aktiverad under match och evenemang." />
+                        <TextBlock Grid.Row="6" Text="Limiter-tak  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Högsta tillåtna toppnivå före utgången. −1 dBTP är normal säkerhetsmarginal; −2 dBTP ger extra marginal för idrottshall och enklare PA-system." />
+                        <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Draft.MasterLimiterCeilingDbtp, Converter={StaticResource FlexibleDouble}, Mode=TwoWay}" Margin="0,5" ToolTip="Ange dBTP. Rekommenderat: −1 normalt eller −2 för extra säkerhetsmarginal i idrottshall." />
+                        <TextBlock Grid.Row="7" Text="Automatiskt mixutrymme  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Skapar säkerhetsmarginal när flera ljud avsiktligt spelas samtidigt, exempelvis Mix eller Duck. En låt som bara tonas ut vid ett normalt byte påverkar inte längre den nya låtens nivå." />
+                        <CheckBox Grid.Row="7" Grid.Column="1" IsChecked="{Binding Draft.AutoMixHeadroomEnabled}" Content="Sänk säkert när flera ljud spelas samtidigt" VerticalAlignment="Center" ToolTip="Låt normalt detta vara aktiverat. Auto gain för en enskild låt hålls fast och ändras inte under vanlig crossfade." />
+                        <TextBlock Grid.Row="8" Text="PA/Talk-dämpning  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Hur mycket musiken sänks när PA/Talk är aktiv. −15 dB brukar lämna tydligt utrymme för tal utan att musiken försvinner helt." />
+                        <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding Draft.TalkDuckLevelDb, Converter={StaticResource FlexibleDouble}, Mode=TwoWay}" Margin="0,5" ToolTip="dB, rekommenderad start: −15" />
                     </Grid>
                 </GroupBox>
 
                 <GroupBox Header="Profiler" Style="{StaticResource ModernGroupBox}" Margin="0,0,0,16">
                     <Grid Margin="2,7,2,2">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                         <TextBlock Text="Standardprofil  ⓘ" Style="{StaticResource FieldLabel}"
                                    ToolTip="Profilen som öppnas automatiskt när FloorballDJ startar. Om ingen standardprofil är vald återställs den vanliga autosparningen." />
                         <Grid Grid.Column="1" Margin="0,5">
@@ -83,7 +76,13 @@
                             <Button Grid.Column="2" Content="Ingen standard" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
                                     Click="ClearDefaultProfile_Click" />
                         </Grid>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="10" TextWrapping="Wrap"
+                        <TextBlock Grid.Row="1" Text="Senast använda" Style="{StaticResource FieldLabel}" />
+                        <ComboBox x:Name="RecentProfilesCombo" Grid.Row="1" Grid.Column="1" ItemsSource="{Binding RecentProfiles}" DisplayMemberPath="Name"
+                                  SelectedValuePath="Path" SelectionChanged="RecentProfilesCombo_SelectionChanged" Margin="0,5"
+                                  Foreground="#111820" Background="White" ToolTip="Välj en av de fem senast använda profilerna som standardprofil">
+                            <ComboBox.Resources><Style TargetType="ComboBoxItem"><Setter Property="Foreground" Value="#111820" /><Setter Property="Background" Value="White" /></Style></ComboBox.Resources>
+                        </ComboBox>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="10" TextWrapping="Wrap"
                                    Text="Standardprofilen öppnas först vid start. De fem senast använda profilerna visas under Profil i menyraden." />
                     </Grid>
                 </GroupBox>

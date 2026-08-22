@@ -126,10 +126,16 @@ public partial class ManageAudioFilesWindow : Window
         SetBusy(true, "Kopierar projekt och media…");
         try
         {
-            var directory = await _projects.CreateMediaBackupAsync(_viewModel.Project, BackupFolderBox.Text);
-            StatusText.Text = $"Backup skapad: {directory}";
-            MessageBox.Show(this, $"Projekt och tillgängliga ljudfiler har kopierats till:\n{directory}",
-                "Backup klar", MessageBoxButton.OK, MessageBoxImage.Information);
+            var result = await _projects.CreateMediaBackupAsync(_viewModel.Project, BackupFolderBox.Text);
+            StatusText.Text = $"Backup skapad: {result.Directory}";
+            var warning = result.MissingFiles.Count == 0
+                ? "Alla länkade ljudfiler följde med."
+                : $"Varning: {result.MissingFiles.Count} ljudfiler saknades och kunde inte kopieras.";
+            MessageBox.Show(this,
+                $"Profil, inställningar och media har kopierats till:\n{result.Directory}\n\n" +
+                $"{result.MediaFileCount} ljudfiler och {result.CustomFontCount} egna typsnitt kopierades.\n{warning}",
+                "Backup klar", MessageBoxButton.OK,
+                result.MissingFiles.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {

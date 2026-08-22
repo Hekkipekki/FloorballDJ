@@ -71,9 +71,9 @@
                 </StackPanel>
             </GroupBox>
 
-            <GroupBox Header="Projekt- och mediabackup" Style="{StaticResource ModernGroupBox}">
+            <GroupBox Header="Komplett flyttbackup" Style="{StaticResource ModernGroupBox}">
                 <StackPanel Margin="0,7,0,0">
-                    <TextBlock Text="Skapar en flyttbar kopia av profilen och alla ljudfiler som går att hitta. Kopians länkar skrivs om till den medföljande Media-mappen, så den kan öppnas på en annan dator." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,9" />
+                    <TextBlock Text="Kopierar profilen, alla refererade ljudfiler, egna typsnitt och sparade färgval. Länkarna görs portabla och datorbundna ljudutgångar återställs, så backupen kan importeras på en annan dator via Profil-menyn." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,9" />
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <TextBox x:Name="BackupFolderBox" IsReadOnly="True" />
