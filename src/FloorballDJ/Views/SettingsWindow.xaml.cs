@@ -32,6 +32,8 @@ public partial class SettingsWindow : Window
             Devices = devices,
             Fonts = new ObservableCollection<FontChoice>(FontService.GetFonts()),
             DefaultProfilePath = profilePreferences.GetDefaultProfilePath() ?? "",
+            RecentProfiles = new ObservableCollection<RecentProfileChoice>(profilePreferences.GetRecentProfiles()
+                .Select(path => new RecentProfileChoice(Path.GetFileNameWithoutExtension(path), path))),
             RandomPoolProfiles = profileDrafts
         };
         ViewData.SelectedRandomPoolProfile = profileDrafts[0];
@@ -106,6 +108,13 @@ public partial class SettingsWindow : Window
     {
         ViewData.DefaultProfilePath = "";
         DefaultProfilePathText.Text = "";
+    }
+
+    private void RecentProfilesCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (RecentProfilesCombo.SelectedValue is not string path) return;
+        ViewData.DefaultProfilePath = path;
+        DefaultProfilePathText.Text = path;
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
@@ -263,6 +272,7 @@ public sealed class SettingsViewData : INotifyPropertyChanged
     public required IReadOnlyList<OutputDevice> Devices { get; init; }
     public required ObservableCollection<FontChoice> Fonts { get; init; }
     public required ObservableCollection<RandomPoolProfileDraft> RandomPoolProfiles { get; init; }
+    public required ObservableCollection<RecentProfileChoice> RecentProfiles { get; init; }
     public RandomPoolProfileDraft? SelectedRandomPoolProfile
     {
         get => _selectedRandomPoolProfile;
@@ -272,6 +282,8 @@ public sealed class SettingsViewData : INotifyPropertyChanged
     public string FontFolderPath => FontService.FontsDirectory;
     public event PropertyChangedEventHandler? PropertyChanged;
 }
+
+public sealed record RecentProfileChoice(string Name, string Path);
 
 public sealed class RandomPoolProfileDraft : INotifyPropertyChanged
 {

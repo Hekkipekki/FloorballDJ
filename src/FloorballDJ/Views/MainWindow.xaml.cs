@@ -46,6 +46,8 @@ public partial class MainWindow : Window
         { Interval = TimeSpan.FromSeconds(4) };
     private readonly System.Windows.Threading.DispatcherTimer _inlineSearchDebounceTimer = new()
         { Interval = TimeSpan.FromMilliseconds(220) };
+    private readonly System.Windows.Threading.DispatcherTimer _clockTimer = new()
+        { Interval = TimeSpan.FromSeconds(1) };
     private Jingle? _inlineSearchHighlight;
     private string _lastInlineSearchQuery = "";
     private int _inlineSearchIndex = -1;
@@ -63,6 +65,9 @@ public partial class MainWindow : Window
         _licenses = licenses;
         _profilePreferences = new ProfilePreferencesService(_projects.AppDataDirectory, _projects.DefaultProjectPath);
         InitializeComponent();
+        _clockTimer.Tick += (_, _) => RefreshClock();
+        RefreshClock();
+        _clockTimer.Start();
         _inlineSearchClearTimer.Tick += (_, _) =>
         {
             _inlineSearchClearTimer.Stop();
@@ -82,6 +87,10 @@ public partial class MainWindow : Window
         };
         Loaded += async (_, _) =>
         {
+            // SourceInitialized har nu installerat work-area-hooken. Maximera först
+            // här så titelrad och nederkant alltid hamnar innanför laptopskärmen och
+            // Windows aktivitetsfält, även vid hög DPI eller ändrad skärmuppsättning.
+            WindowState = WindowState.Maximized;
             await ViewModel.InitializeAsync();
             RefreshOutputName();
             if (Environment.GetCommandLineArgs().Contains("--smoke-test", StringComparer.OrdinalIgnoreCase))
@@ -159,6 +168,7 @@ public partial class MainWindow : Window
     {
         if (_closeCommitted)
         {
+            _clockTimer.Stop();
             ViewModel.Dispose();
             return;
         }
@@ -182,6 +192,7 @@ public partial class MainWindow : Window
             }
         }
         ViewModel.Dispose();
+        _clockTimer.Stop();
         _closeCommitted = true;
         Application.Current.Shutdown();
     }
@@ -347,7 +358,49 @@ public partial class MainWindow : Window
         return null;
     }
 
-    private void Stop_Click(object sender, RoutedEventArgs e) => _audio.StopAll();
+    private async void Stop_Click(object sender, RoutedEventArgs e)
+    {
+        ClearSpaceResume();
+        await _audio.StopAllDeClickedAsync();
+    }
+
+    private void RefreshClock()
+    {
+        if (GlobalClockText is null) return;
+        var now = DateTime.Now;
+        GlobalClockText.Text = now.ToString("HH:mm:ss", CultureInfo.CurrentCulture);
+        GlobalClockText.ToolTip = now.ToString("dddd d MMMM yyyy", CultureInfo.CurrentCulture);
+    }
+
+    private void QueueContextMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        QueueContextMenu.Items.Clear();
+        var queue = ViewModel.AutoplayModeActive ? ViewModel.PlaybackQueue.ToArray() : ViewModel.DeckPlaybackQueue.ToArray();
+        if (queue.Length == 0)
+        {
+            QueueContextMenu.Items.Add(new MenuItem { Header = "Kön är tom", IsEnabled = false });
+            return;
+        }
+
+        var clear = new MenuItem { Header = "Rensa alla kommande" };
+        clear.Click += (_, _) =>
+        {
+            if (ViewModel.AutoplayModeActive) ViewModel.ReplaceQueue([]);
+            else ViewModel.ClearDeckQueue();
+        };
+        QueueContextMenu.Items.Add(clear);
+        QueueContextMenu.Items.Add(new Separator());
+        foreach (var queued in queue)
+        {
+            var item = new MenuItem { Header = $"Ta bort: {queued.Title}" };
+            item.Click += (_, _) =>
+            {
+                if (ViewModel.AutoplayModeActive) ViewModel.RemoveFromQueue(queued);
+                else ViewModel.RemoveFromDeckQueue(queued);
+            };
+            QueueContextMenu.Items.Add(item);
+        }
+    }
     private async void Pause_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.IsSpaceResumePending && _spaceResumeJingle is not null && DateTimeOffset.Now <= _spaceResumeExpires)
@@ -1533,10 +1586,19 @@ public partial class MainWindow : Window
         return path;
     }
 
-    private void ImportXml_Click(object sender, RoutedEventArgs e)
+    private async void ImportXml_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog { Filter = "Snap Jingle Player XML|*.xml|Alla filer|*.*" };
+        var dialog = new OpenFileDialog
+        {
+            Title = "Importera FloorballDJ- eller Snap-profil",
+            Filter = "Profiler|*.floorballdj.json;*.xml|FloorballDJ-profil|*.floorballdj.json|Snap Jingle Player XML|*.xml|Alla filer|*.*"
+        };
         if (dialog.ShowDialog(this) != true) return;
+        if (dialog.FileName.EndsWith(".floorballdj.json", StringComparison.OrdinalIgnoreCase))
+        {
+            await OpenProfileAsync(dialog.FileName);
+            return;
+        }
         try
         {
             ViewModel.ImportLegacyXml(dialog.FileName);
@@ -1552,8 +1614,52 @@ public partial class MainWindow : Window
 
     private async void Backup_Click(object sender, RoutedEventArgs e)
     {
-        var path = await ViewModel.BackupAsync();
-        MessageBox.Show(this, $"Backup skapad:\n{path}", "Backup klar", MessageBoxButton.OK, MessageBoxImage.Information);
+        var dialog = new OpenFolderDialog { Title = "Välj var den kompletta flyttbackupen ska skapas" };
+        if (dialog.ShowDialog(this) != true) return;
+        if (!await SaveSafelyAsync()) return;
+        try
+        {
+            var result = await _projects.CreateMediaBackupAsync(ViewModel.Project, dialog.FolderName);
+            var warning = result.MissingFiles.Count == 0
+                ? "Alla länkade ljudfiler följde med."
+                : $"Varning: {result.MissingFiles.Count} ljudfiler saknades och kunde inte kopieras.";
+            MessageBox.Show(this,
+                $"Flyttbackupen är klar:\n{result.Directory}\n\n" +
+                $"{result.MediaFileCount} ljudfiler och {result.CustomFontCount} egna typsnitt kopierades.\n{warning}\n\n" +
+                "Kopiera hela mappen till den andra datorn och välj Profil → Återställ flyttbackup.",
+                "Komplett backup klar", MessageBoxButton.OK,
+                result.MissingFiles.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Backupen misslyckades", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async void RestoreBackup_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog { Title = "Välj FloorballDJ-backupmappen" };
+        if (dialog.ShowDialog(this) != true) return;
+        try
+        {
+            var result = await _projects.RestorePortableBackupAsync(dialog.FolderName);
+            await OpenProfileAsync(result.ProfilePath);
+            _profilePreferences.SetDefaultProfile(result.ProfilePath);
+            RefreshRecentProfilesMenu();
+            var warning = result.MissingMediaCount == 0
+                ? "Alla medföljande ljudfiler är redo."
+                : $"{result.MissingMediaCount} ljudfiler saknas fortfarande och behöver länkas om.";
+            MessageBox.Show(this,
+                $"Backupen har återställts och är nu standardprofil.\n\n" +
+                $"{result.CustomFontCount} egna typsnitt och {result.ColorPresetCount} sparade färgval importerades.\n" +
+                $"{warning}\n\nVälj ljudutgångar på den här datorn under Verktyg → Inställningar.",
+                "Flyttbackup återställd", MessageBoxButton.OK,
+                result.MissingMediaCount == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Backupen kunde inte återställas", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void Settings_Click(object sender, RoutedEventArgs e)
@@ -1584,7 +1690,9 @@ public partial class MainWindow : Window
         ViewModel.ConfigureAudio();
     }
 
-    private void About_Click(object sender, RoutedEventArgs e) => MessageBox.Show(this, "FloorballDJ 0.1\nModern jingle cart för sportevenemang.\n\nFörsta fungerande grundversionen.", "Om FloorballDJ");
+    private void About_Click(object sender, RoutedEventArgs e) => MessageBox.Show(this,
+        "FloorballDJ\nModern jingle- och musikspelare för sportevenemang.\n\nSkapad av Daniel Norberg – IBK Dalen",
+        "Om FloorballDJ", MessageBoxButton.OK, MessageBoxImage.Information);
     private void Help_Click(object sender, RoutedEventArgs e) => new HelpWindow { Owner = this }.ShowDialog();
     private async void CheckForUpdates_Click(object sender, RoutedEventArgs e)
     {

@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Data;
 using FloorballDJ.Models;
 using FloorballDJ.Services;
 using FloorballDJ.ViewModels;
@@ -14,6 +15,7 @@ public partial class LoudnessBatchWindow : Window
     private readonly MainViewModel _viewModel;
     private readonly AudioAnalysisService _analysis = new();
     private CancellationTokenSource? _cancellation;
+    private readonly ICollectionView _itemsView;
     public ObservableCollection<LoudnessBatchItem> Items { get; } = [];
 
     public LoudnessBatchWindow(MainViewModel viewModel)
@@ -31,6 +33,8 @@ public partial class LoudnessBatchWindow : Window
                 Items.Add(item);
             }
         DataContext = this;
+        _itemsView = CollectionViewSource.GetDefaultView(Items);
+        _itemsView.Filter = MatchesSearch;
         UpdateSummary();
         Closed += (_, _) => _cancellation?.Cancel();
     }
@@ -40,6 +44,24 @@ public partial class LoudnessBatchWindow : Window
     private void CancelAnalysis_Click(object sender, RoutedEventArgs e) => _cancellation?.Cancel();
     private void SelectAll_Click(object sender, RoutedEventArgs e) { foreach (var item in Items) item.IsSelected = true; }
     private void SelectNone_Click(object sender, RoutedEventArgs e) { foreach (var item in Items) item.IsSelected = false; }
+
+    private void SearchBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        _itemsView.Refresh();
+        UpdateSearchSummary();
+    }
+
+    private bool MatchesSearch(object value)
+    {
+        if (value is not LoudnessBatchItem item) return false;
+        var query = SearchBox.Text.Trim();
+        return query.Length == 0 || item.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
+               item.Deck.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
+               Path.GetFileName(item.Jingle.FilePath).Contains(query, StringComparison.CurrentCultureIgnoreCase);
+    }
+
+    private void UpdateSearchSummary() => SearchSummaryText.Text =
+        string.IsNullOrWhiteSpace(SearchBox.Text) ? "" : $"{_itemsView.Cast<object>().Count()} träffar";
 
     private async Task RunAsync(bool enableNormalization)
     {

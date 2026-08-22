@@ -4,7 +4,7 @@
         Title="Balansera ljudbibliotek" Width="1050" Height="700" MinWidth="820" MinHeight="520" WindowStartupLocation="CenterOwner"
         ToolTipService.InitialShowDelay="250" ToolTipService.ShowDuration="30000">
     <Grid Margin="22,16">
-        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <StackPanel>
             <TextBlock Text="LOUDNESS OCH SÄKER NIVÅ" Style="{StaticResource EyebrowText}"/>
             <TextBlock Text="Analysera och balansera ljudbibliotek" Style="{StaticResource SectionTitle}" FontSize="27"/>
@@ -23,7 +23,14 @@
                 </StackPanel>
             </Grid>
         </Border>
-        <ListView x:Name="FilesList" Grid.Row="2" ItemsSource="{Binding Items}" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource HairlineBrush}">
+        <Grid Grid.Row="2" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBox x:Name="SearchBox" Height="36" Padding="12,5" TextChanged="SearchBox_TextChanged"
+                     ToolTip="Sök på låttitel, filnamn eller deck" />
+            <TextBlock Grid.Column="1" x:Name="SearchSummaryText" VerticalAlignment="Center" Margin="12,0,3,0"
+                       Foreground="{StaticResource MutedBrush}" />
+        </Grid>
+        <ListView x:Name="FilesList" Grid.Row="3" ItemsSource="{Binding Items}" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource HairlineBrush}">
             <ListView.View><GridView>
                 <GridViewColumn Header="Välj" Width="58">
                     <GridViewColumn.CellTemplate><DataTemplate><CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" HorizontalAlignment="Center" VerticalAlignment="Center" /></DataTemplate></GridViewColumn.CellTemplate>
@@ -36,7 +43,7 @@
                 <GridViewColumn Header="Status" DisplayMemberBinding="{Binding Status}" Width="230"/>
             </GridView></ListView.View>
         </ListView>
-        <Grid Grid.Row="3" Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <Grid Grid.Row="4" Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel><ProgressBar x:Name="Progress" Height="7" Minimum="0" Maximum="1"/><TextBlock x:Name="ProgressText" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/></StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="18,0,0,0">
                 <Button x:Name="SelectAllButton" Content="Markera alla" Style="{StaticResource SecondaryButton}" Click="SelectAll_Click" />

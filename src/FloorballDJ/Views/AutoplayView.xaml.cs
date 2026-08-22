@@ -149,6 +149,14 @@ public partial class AutoplayView : UserControl
         TransitionSecondsBox.Text = ViewModel.QueueTransitionSeconds.ToString("0.#", CultureInfo.CurrentCulture);
     private void DeckFilterTabs_SelectionChanged(object sender, SelectionChangedEventArgs e) => ApplyFilter();
 
+    private void DeckFilterNext_Click(object sender, RoutedEventArgs e)
+    {
+        if (_filters.Count == 0) return;
+        var next = (DeckFilterTabs.SelectedIndex + 1) % _filters.Count;
+        DeckFilterTabs.SelectedIndex = next;
+        DeckFilterTabs.ScrollIntoView(_filters[next]);
+    }
+
     private void PreviewToggle_Changed(object sender, RoutedEventArgs e)
     {
         if (DataContext is not MainViewModel viewModel) return;

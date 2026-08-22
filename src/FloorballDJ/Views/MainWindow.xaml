@@ -6,7 +6,7 @@
         xmlns:models="clr-namespace:FloorballDJ.Models"
         xmlns:views="clr-namespace:FloorballDJ.Views"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="FloorballDJ" Icon="/FloorballDJ;component/Assets/FloorballDJ-AppIcon.png" MinWidth="1120" MinHeight="700"
+        Title="FloorballDJ" Icon="/FloorballDJ;component/Assets/FloorballDJ-AppIcon.png" MinWidth="900" MinHeight="600"
         Width="1520" Height="920" WindowStartupLocation="CenterScreen" WindowStyle="None" PreviewKeyDown="MainWindow_PreviewKeyDown">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="46" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" />
@@ -227,8 +227,9 @@
                         <MenuItem Header="Spara" Click="Save_Click" InputGestureText="Ctrl+S" />
                         <MenuItem Header="Spara som…" Click="SaveAs_Click" />
                         <Separator />
-                        <MenuItem Header="Importera Snap XML…" Click="ImportXml_Click" />
-                        <MenuItem Header="Skapa backup" Click="Backup_Click" />
+                        <MenuItem Header="Importera profil…" Click="ImportXml_Click" />
+                        <MenuItem Header="Skapa komplett flyttbackup…" Click="Backup_Click" />
+                        <MenuItem Header="Återställ flyttbackup…" Click="RestoreBackup_Click" />
                         <Separator />
                         <MenuItem Header="Avsluta" Click="Exit_Click" />
                     </MenuItem>
@@ -248,6 +249,11 @@
                     </MenuItem>
                 </Menu>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Border Background="#142338" BorderBrush="#30425B" BorderThickness="1" CornerRadius="6" Padding="11,5" Margin="0,0,8,0"
+                            ToolTip="Datorns lokala klocka">
+                        <TextBlock x:Name="GlobalClockText" Text="00:00:00" FontFamily="Cascadia Mono" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="{StaticResource AccentBrush}" />
+                    </Border>
                     <Button Content="&#xE713;" Style="{StaticResource WindowButton}" ToolTip="Inställningar" Click="Settings_Click" />
                     <Button Content="&#xE921;" Style="{StaticResource WindowButton}" ToolTip="Minimera" Click="Minimize_Click" />
                     <Button Content="&#xE922;" Style="{StaticResource WindowButton}" ToolTip="Maximera eller återställ" Click="Maximize_Click" />
@@ -319,8 +325,11 @@
                             </Style>
                         </Button.Style>
                     </Button>
-                    <Border Background="#142338" BorderBrush="#30425B" BorderThickness="1" CornerRadius="5" Height="42" Margin="6,0,0,0"
+                    <Border x:Name="QueueTransportBorder" Background="#142338" BorderBrush="#30425B" BorderThickness="1" CornerRadius="5" Height="42" Margin="6,0,0,0"
                             Padding="11,0" VerticalAlignment="Center" ToolTip="Antal jinglar i den aktiva kön">
+                        <Border.ContextMenu>
+                            <ContextMenu x:Name="QueueContextMenu" Opened="QueueContextMenu_Opened" />
+                        </Border.ContextMenu>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="KÖ" Foreground="{StaticResource MutedBrush}" FontSize="9" FontWeight="Bold" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding QueuedCount}" Foreground="{StaticResource AccentBrush}" FontSize="16" FontWeight="Bold" Margin="7,0,0,0" VerticalAlignment="Center" />

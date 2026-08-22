@@ -432,6 +432,13 @@ public partial class JinglePropertiesWindow : Window
 
     private void UpdateShortcutText() => ShortcutText.Text = _shortcut ?? "<Ingen>";
 
+    private void ClearShortcut_Click(object sender, RoutedEventArgs e)
+    {
+        _shortcut = null;
+        ShortcutSwitchesDeckCheck.IsChecked = false;
+        UpdateShortcutText();
+    }
+
     private void ChooseCategoryShortcut_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new ShortcutCaptureWindow(_categoryShortcut) { Owner = this };
@@ -443,6 +450,12 @@ public partial class JinglePropertiesWindow : Window
     }
 
     private void UpdateCategoryShortcutText() => CategoryShortcutText.Text = _categoryShortcut ?? "<Ingen>";
+
+    private void ClearCategoryShortcut_Click(object sender, RoutedEventArgs e)
+    {
+        _categoryShortcut = null;
+        UpdateCategoryShortcutText();
+    }
 
     private bool ConfirmShortcutReplacement(string? shortcut, bool assigningCategory)
     {

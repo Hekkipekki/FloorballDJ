@@ -262,13 +262,13 @@ public sealed class AudioEngine : IDisposable
                     var polyphonyGroup = _voices.Where(candidate => !candidate.IsDisposed && !candidate.StopRequested &&
                         candidate.UsesSecondaryDevice == voice.UsesSecondaryDevice && candidate.Jingle.AllowMultipleClicks &&
                         (candidate.Jingle.Id == jingle.Id || string.Equals(candidate.Jingle.FilePath, jingle.FilePath, StringComparison.OrdinalIgnoreCase))).ToArray();
-                    // Samma signal kan summeras nästan helt i fas. Reservera därför
-                    // 20*log10(n) dB i stället för vanlig mix-headroom. Behåll den
-                    // mest konservativa nivån tills varje instans är klar, så att en
-                    // avslutad kopia inte orsakar ett plötsligt volymhopp i de andra.
-                    var groupHeadroomDb = -20 * Math.Log10(Math.Max(1, polyphonyGroup.Length));
-                    foreach (var instance in polyphonyGroup)
-                        instance.PolyphonyHeadroomDb = Math.Min(instance.PolyphonyHeadroomDb, groupHeadroomDb);
+                    // En ny kopia får egen säkerhetsmarginal, men redan spelande
+                    // kopior ändras aldrig i efterhand. Tidigare sänktes hela gruppen
+                    // på nytt vid varje klick, vilket lät som att effekten blev svagare
+                    // och svagare. Masterlimitern fångar fortfarande extrema toppar.
+                    voice.PolyphonyHeadroomDb = _autoMixHeadroomEnabled
+                        ? -20 * Math.Log10(Math.Max(1, polyphonyGroup.Length))
+                        : 0;
                 }
                 _primary = voice;
                 var requestedFadeInSeconds = fadeInSecondsOverride ?? jingle.FadeInOverrideSeconds ?? _fadeInSeconds;
@@ -427,6 +427,8 @@ public sealed class AudioEngine : IDisposable
         }
         if (notify) PublishSnapshot();
     }
+
+    public Task StopAllDeClickedAsync() => FadeOutAllAsync(MinimumStartRampSeconds);
 
     public void PublishSnapshot()
     {

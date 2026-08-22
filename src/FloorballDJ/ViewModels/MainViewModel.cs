@@ -257,6 +257,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         UpdateQueuePositions();
     }
 
+    public void RemoveFromDeckQueue(Jingle jingle)
+    {
+        var existing = DeckPlaybackQueue.FirstOrDefault(item => item.Id == jingle.Id ||
+            string.Equals(item.FilePath, jingle.FilePath, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null) DeckPlaybackQueue.Remove(existing);
+        UpdateQueuePositions();
+    }
+
     public void AddToQueue(Jingle jingle)
     {
         if (PlaybackQueue.Any(item => item.Id == jingle.Id && string.Equals(item.FilePath, jingle.FilePath, StringComparison.OrdinalIgnoreCase))) return;

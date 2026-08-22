@@ -97,10 +97,17 @@
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                     <TextBlock Text="TILLGÄNGLIGA LÅTAR OCH JINGLAR" Style="{StaticResource EyebrowText}" Margin="2,0,0,7" />
-                    <ListBox x:Name="DeckFilterTabs" Grid.Row="1" Height="38" SelectionChanged="DeckFilterTabs_SelectionChanged" ItemContainerStyle="{StaticResource FilterTab}" ScrollViewer.HorizontalScrollBarVisibility="Auto">
-                        <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListBox.ItemsPanel>
-                        <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}" FontWeight="SemiBold" /></DataTemplate></ListBox.ItemTemplate>
-                    </ListBox>
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <ListBox x:Name="DeckFilterTabs" Height="38" SelectionChanged="DeckFilterTabs_SelectionChanged" ItemContainerStyle="{StaticResource FilterTab}"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                            <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                            <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}" FontWeight="SemiBold" /></DataTemplate></ListBox.ItemTemplate>
+                        </ListBox>
+                        <Button Grid.Column="1" Content="&#xE76C;" FontFamily="Segoe Fluent Icons" Style="{StaticResource SecondaryButton}"
+                                Width="39" Height="38" Padding="0" Margin="6,0,0,0" Click="DeckFilterNext_Click"
+                                ToolTip="Visa nästa deckflik" />
+                    </Grid>
                     <TextBox x:Name="SearchBox" Grid.Row="2" Margin="0,7" TextChanged="SearchBox_TextChanged" ToolTip="Sök titel" />
                     <ListBox x:Name="AvailableList" Grid.Row="3" MouseDoubleClick="AvailableList_MouseDoubleClick" PreviewMouseLeftButtonDown="AvailableList_PreviewMouseLeftButtonDown">
                         <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="5,7" /></DataTemplate></ListBox.ItemTemplate>
