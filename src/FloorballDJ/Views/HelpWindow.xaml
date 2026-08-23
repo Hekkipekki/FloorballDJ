@@ -73,11 +73,13 @@
                         <ListBoxItem><TextBlock Text="03  Decks och jinglar" FontWeight="SemiBold" /></ListBoxItem>
                         <ListBoxItem><TextBlock Text="04  Autoplay och köer" FontWeight="SemiBold" /></ListBoxItem>
                         <ListBoxItem><TextBlock Text="05  Ljud och balansering" FontWeight="SemiBold" /></ListBoxItem>
-                        <ListBoxItem><TextBlock Text="06  Jingle-egenskaper" FontWeight="SemiBold" /></ListBoxItem>
-                        <ListBoxItem><TextBlock Text="07  Profiler och backup" FontWeight="SemiBold" /></ListBoxItem>
-                        <ListBoxItem><TextBlock Text="08  Kortkommandon" FontWeight="SemiBold" /></ListBoxItem>
-                        <ListBoxItem><TextBlock Text="09  Licens" FontWeight="SemiBold" /></ListBoxItem>
-                        <ListBoxItem><TextBlock Text="10  Felsökning" FontWeight="SemiBold" /></ListBoxItem>
+                        <ListBoxItem><TextBlock Text="06  Jinglebyggaren" FontWeight="SemiBold" /></ListBoxItem>
+                        <ListBoxItem><TextBlock Text="07  Jingle-egenskaper" FontWeight="SemiBold" /></ListBoxItem>
+                        <ListBoxItem><TextBlock Text="08  Team Deck" FontWeight="SemiBold" /></ListBoxItem>
+                        <ListBoxItem><TextBlock Text="09  Profiler och backup" FontWeight="SemiBold" /></ListBoxItem>
+                        <ListBoxItem><TextBlock Text="10  Kortkommandon" FontWeight="SemiBold" /></ListBoxItem>
+                        <ListBoxItem><TextBlock Text="11  Licens och uppdatering" FontWeight="SemiBold" /></ListBoxItem>
+                        <ListBoxItem><TextBlock Text="12  Felsökning" FontWeight="SemiBold" /></ListBoxItem>
                     </ListBox>
                 </StackPanel>
             </Border>
@@ -157,8 +159,11 @@
                         <GroupBox Header="Deckflikar" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Högerklicka på en deckflik för att byta namn, lägga till, ta bort eller ändra rader/kolumner. Scrolla över flikarna för att byta deck. Om du minskar layouten kan jinglar döljas men finnas kvar i profilen.</TextBlock>
                         </GroupBox>
+                        <GroupBox Header="Team Deck" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Öppna <Run FontWeight="Bold">Verktyg → Team Deck</Run> för att skapa ett eller flera lag i den aktuella profilen. Välj lagnamn, snabbtangent och lagets standardjingle, och lägg sedan till spelare med varsin övergångsjingle. När snabbtangenten trycks spelas standardjingeln och en separat stream deck-liknande spelarvy öppnas. Klicka på en spelare för att spela spelarens ljud med profilens vanliga fade-regler. Team Deck följer profilen och en komplett flyttbackup.</TextBlock>
+                        </GroupBox>
                         <GroupBox Header="Sökning och slumpkategorier" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold">Ctrl+F</Run> söker över alla deck och växlar till samt markerar bästa träffen. Tryck <Run FontWeight="Bold">Enter</Run> för att spela den markerade träffen, pil ned eller Tab för nästa träff och Esc för att stänga sökningen. Dra en deckflik till en annan flik för att ändra deckordningen. Under <Run FontWeight="Bold">Verktyg → Inställningar → Slumpmässig låtspelare</Run> kan du skapa flera namngivna slumpgrupper, exempelvis Mål och Utvisning. Varje grupp får egen snabbtangent och kan innehålla hela deck eller enskilda jinglar. Första trycket spelar slumpmässigt, andra tonar ut och tredje väljer nästa. Jingle-egenskaper har dessutom separata slumpkategorier för situationsspecifika grupper.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold">Ctrl+F</Run> söker över alla deck och växlar till samt markerar bästa träffen. Tryck <Run FontWeight="Bold">Enter</Run> för att spela den markerade träffen, pil ned eller Tab för nästa träff och Esc för att stänga sökningen. Dra en deckflik till en annan flik för att ändra deckordningen. Under <Run FontWeight="Bold">Verktyg → Slumpmässig låtspelare</Run> finns en separat arbetsvy där du kan skapa flera namngivna slumpgrupper, exempelvis Mål och Utvisning. Sök och markera hela deck eller enskilda jinglar och följ poolens innehåll i översikten till höger. Varje grupp får egen snabbtangent. Första trycket spelar slumpmässigt, andra tonar ut och tredje väljer nästa. Jingle-egenskaper har dessutom separata slumpkategorier för situationsspecifika grupper.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Kö och färger" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Ctrl+klick" /> på en jingle lägger till eller tar bort den från deck-kön; siffersymbolen visar ordningen. I färgväljaren kan du använda HEX, visuellt färgfält, snabbval och namngivna sparade färgkombinationer.</TextBlock>
@@ -178,7 +183,10 @@
                             <TextBlock Style="{StaticResource HelpBody}">Öppna Autoplay-fliken. Välj Alla eller filtrera på ett deck, sök efter titel och dubbelklicka eller använd vänsterpilen för att lägga till. Högerpilen vid deckfiltren flyttar till nästa flik när alla inte ryms. Alla kan även visa råa filer från vald musikmapp; deckfilter använder jinglarna med deras sparade start/slut och egenskaper.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Ordning och uppspelning" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Dra rader i kön eller använd upp/ned. Spela nu startar vald rad. Delete eller Ta bort tar bort den valda raden från kön, inte från disken. När en låt tar slut går Autoplay vidare. Loop börjar om från rad 1; Shuffle väljer nästa slumpmässigt.</TextBlock>
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HelpBody}">Dra rader i kön eller använd upp/ned. Spela nu startar vald rad. Delete eller Ta bort tar bort den valda raden från kön, inte från disken. När en låt tar slut går Autoplay vidare. Loop börjar om från rad 1; Shuffle väljer nästa slumpmässigt.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,8,0,0">Under Verktyg &gt; Inställningar &gt; Autoplay kan du skapa flera namngivna Autoplay-listor. Varje post har egen sparad spellista, snabbtangent och fast volymändring. Tangenten öppnar Autoplay, laddar rätt lista och startar första låten automatiskt. Ett negativt värde som −8 dB passar när periodpausens musik ska ligga tydligt lägre.</TextBlock>
+                            </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Övergång" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Övergångstiden delas så att ungefär 75 % används för uttoning och 25 % för intoning. Börja runt 4 sekunder och anpassa efter materialet. Auto gain för varje analyserad låt är fast under hela övergången.</TextBlock>
@@ -213,8 +221,8 @@
                         <GroupBox Header="Manuell finjustering och säkerhet" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Manuell gain läggs ovanpå Auto gain och är avsedd för öronmässig finjustering. Säkerhetslimitern fångar toppar. Automatiskt mixutrymme används vid avsiktligt samtidiga ljud, men en vanlig uttonande låt ändrar inte nästa låts gain.</TextBlock>
                         </GroupBox>
-                        <GroupBox Header="Kombinera jinglar" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Under <Run FontWeight="Bold">Verktyg → Bygg egen jingle</Run> kombinerar du två eller fler ljud från decken eller valfria råfiler. Varje ljud får en egen flik. Klicka i vågformen för att flytta markören och, under uppspelning, hoppa direkt till den punkten. Den orange linjen visar var nästa ljud börjar. <Run FontWeight="Bold">Crossfade</Run> tonar ljuden samtidigt, <Run FontWeight="Bold">Fade out → fade in</Run> växlar utan överlappning och <Run FontWeight="Bold">Mixljud</Run> lägger nästa ljud ovanpå det första. Varje flik har en egen nivå i dB. Använd Förhandslyssna hela mixen innan export. Mallarna ger bra startvärden för mållåt, utvisning och mjuk musikövergång. Resultatet blir en ny förlustfri PCM-WAV; originalfilerna ändras aldrig.</TextBlock>
+                        <GroupBox Header="Jinglebyggaren" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Välj <Run FontWeight="Bold">06 Jinglebyggaren</Run> i menyn till vänster för en steg-för-steg-guide till mållåtar, övergångar, parallella ljudeffekter och export.</TextBlock>
                         </GroupBox>
                         <Border Background="#18FFC15A" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" CornerRadius="8" Padding="13">
                             <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Observera: " />analysrutorna visar källans analys före manuell gain, EQ och kompressor. Ändrar du dessa påverkas den verkliga utgången; analysera om efter större ljudändringar.</TextBlock>
@@ -222,7 +230,47 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- 06 Egenskaper -->
+                <!-- 06 Jinglebyggaren -->
+                <ScrollViewer x:Name="JingleBuilderPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,0,10,0">
+                        <TextBlock Text="JINGLEBYGGAREN" Style="{StaticResource EyebrowText}" />
+                        <TextBlock Text="Skapa mållåtar och egna ljudsekvenser" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <GroupBox Header="Öppna och välj ljud" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Öppna <Run FontWeight="Bold">Verktyg → Bygg egen jingle</Run>. De första ljuden kan hämtas från profilens decks. Välj <Run FontWeight="Bold">Öppna rå ljudfil</Run> om materialet inte redan finns som jingle. <Run FontWeight="Bold">Lägg till ljud</Run> skapar fler delar och flikarna högst upp växlar mellan dem. Pilarna ändrar ordningen.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Arbeta med markören" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Klicka i vågformen för att hoppa eller håll vänster musknapp och dra åt vänster/höger. Håll <Run FontWeight="Bold">Ctrl</Run> medan du drar för finare rörelse. Play-knappen spelar valt ljud från markören; Paus och Stopp påverkar bara förhandslyssningen i byggaren.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Start, slut och nästa ljud" Style="{StaticResource HelpGroup}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Start/Slut – " />trimma vilken del av det valda ljudet som ska användas. Flytta markören och tryck på målsymbolen. Markera Använd slut när en särskild slutpunkt behövs.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0"><Run FontWeight="Bold" Text="Start för nästa ljud – " />den orange linjen. Den bestämmer när ljud 2, 3 och följande delar börjar i förhållande till föregående ljud.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0">Tider kan också skrivas manuellt. Tryck Enter för att använda värdet.</TextBlock>
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="Tre typer av övergång" Style="{StaticResource HelpGroup}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Crossfade – " />vid den orange linjen tonas föregående ljud ut samtidigt som nästa tonas in. Bra för en mjuk musikalisk övergång.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0"><Run FontWeight="Bold" Text="Fade out → fade in – " />första ljudet tonas ut helt innan nästa ljud startar. Delarna överlappar inte.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0"><Run FontWeight="Bold" Text="Mixljud – " />nästa ljud läggs ovanpå det föregående, som fortsätter på oförändrad nivå. Använd för exempelvis siren, goal horn eller publikljud ovanpå en mållåt. Endast det nya lagret tonas in.</TextBlock>
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="Flera samtidiga lager" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">För en mållåt med flera effekter: använd huvudlåten som ljud 1 eller 2 och välj <Run FontWeight="Bold">Mixljud</Run> för siren, klapp eller andra lager. Markera <Run FontWeight="Bold">Starta nästa ljud samtidigt</Run> när lagren ska börja på samma tidsposition. Varje ljudflik har egen nivå i dB så att effekterna inte överröstar huvudlåten.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Mallar och förhandslyssning" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Mallarna Mållåt, Utvisning och Mjuk musikövergång fyller i lämpliga startvärden för övergångarna. Välj Egen för full kontroll. Använd <Run FontWeight="Bold">Förhandslyssna hela mixen</Run> för att höra samtliga delar i rätt ordning innan filen skapas.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Skapa och lägg till" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">När du väljer <Run FontWeight="Bold">Skapa och lägg till</Run> föreslår FloorballDJ mappen <Run FontWeight="Bold">Skapade jinglar</Run>. Ange filnamn och spara. Resultatet är en ny okomprimerad PCM-WAV som läggs till i profilen; källfilerna ändras aldrig.</TextBlock>
+                        </GroupBox>
+                        <Border Background="#18FFC15A" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" CornerRadius="8" Padding="13">
+                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Nivåtips: " />flera samtidiga ljud summeras. Börja med att sänka effektlagren några dB och kontrollera hela mixen i förhandslyssningen innan den används i hallen.</TextBlock>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 07 Egenskaper -->
                 <ScrollViewer x:Name="PropertiesPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="JINGLE-EGENSKAPER" Style="{StaticResource EyebrowText}" />
@@ -248,7 +296,36 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- 07 Profiler -->
+                <!-- 08 Team Deck -->
+                <ScrollViewer x:Name="TeamDeckPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,0,10,0">
+                        <TextBlock Text="TEAM DECK" Style="{StaticResource EyebrowText}" />
+                        <TextBlock Text="Standardjingle först – spelarövergång sedan" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <GroupBox Header="Vad Team Deck gör" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Team Deck är en profilbunden snabbvy för ett lag. En gemensam snabbtangent startar lagets standardjingle, vanligtvis en goal horn eller mållåt, och öppnar därefter en stream deck-liknande vy med en knapp för varje spelare. Standardjingeln startar alltid direkt med 0 sekunders hörbar fade in.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Skapa ett lag" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Öppna <Run FontWeight="Bold">Verktyg → Team Deck</Run> och välj Nytt lag. Ange lagnamn, välj snabbtangent och välj standardjingle bland profilens befintliga ljud. Du kan skapa flera Team Deck i samma profil, exempelvis hemmalag och bortalag, men varje lag behöver en unik snabbtangent.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Lägg till spelare" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Välj Lägg till spelare och fyll i nummer och namn. Knappen Sök öppnar en sökbar lista där du kan hitta ljud efter titel, filnamn eller deck. Startposition anger var i spelarens ljudfil uppspelningen ska börja; värdet är unikt för Team Deck och ändrar inte originaljingeln. En spelare utan vald jingle visas men spelar inget ljud.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Övergångspunkt och fades" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Övergångspunkten räknas från standardjingelns klippta start och anger när den valda spelarjingeln ska börja. Auto startar övergången nära standardjingelns slut. Fade out lagjingle styr hur snabbt standardljudet tonas bort och Fade in spelare hur snabbt spelarens ljud når full nivå. En bra start för sporthall är 1,5 sekunder fade out och 0,75 sekunder fade in.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Använd under match" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Tryck lagets snabbtangent. Standardjingeln startar direkt och spelarvyn öppnas. Klicka på målskyttens knapp medan standardjingeln spelar; en turkos ram visar vem som väntar. Du kan byta spelare genom att klicka på en annan knapp eller avmarkera genom att klicka på samma igen. Vid övergångspunkten crossfadas den valda spelarjingeln automatiskt in från spelarens sparade startposition. Dra en spelarbricka till en annan plats i rutnätet för att spara en ny ordning.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Förhandsvisa och spara" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Förhandsvisa visar hur spelarknapparna kommer att se ut och låter dig testa kopplingarna. Spara Team Deck skriver inställningarna till den öppna profilen. Team Deck, spelarnamn, snabbtangent och alla jinglekopplingar följer med profilen och en komplett flyttbackup.</TextBlock>
+                        </GroupBox>
+                        <Border Background="#1836E0B4" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" CornerRadius="8" Padding="13">
+                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Förbered före match: " />testa standardjingeln • kontrollera varje spelares ljud • säkerställ att inga snabbtangenter ersatts • skapa flyttbackup.</TextBlock>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 09 Profiler -->
                 <ScrollViewer x:Name="ProfilesPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="PROFILER OCH BACKUP" Style="{StaticResource EyebrowText}" />
@@ -280,7 +357,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- 08 Kortkommandon -->
+                <!-- 10 Kortkommandon -->
                 <ScrollViewer x:Name="ShortcutsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="KORTKOMMANDON" Style="{StaticResource EyebrowText}" />
@@ -316,7 +393,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- 09 Licens -->
+                <!-- 11 Licens -->
                 <ScrollViewer x:Name="LicensingPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="LICENS OCH PROVPERIOD" Style="{StaticResource EyebrowText}" />
@@ -342,7 +419,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- 10 Felsökning -->
+                <!-- 12 Felsökning -->
                 <ScrollViewer x:Name="TroubleshootingPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="FELSÖKNING" Style="{StaticResource EyebrowText}" />

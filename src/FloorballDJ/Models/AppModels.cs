@@ -23,6 +23,10 @@ public sealed class AppSettings
     public double FadeInSeconds { get; set; } = 1.5;
     public double FadeOutSeconds { get; set; } = 2.5;
     public double AutoplayTransitionSeconds { get; set; } = 4;
+    public string? AutoplayDefaultPlaylistPath { get; set; }
+    public string? AutoplayShortcut { get; set; }
+    public double AutoplayDefaultPlaylistVolumeDb { get; set; }
+    public List<AutoplayProfile> AutoplayProfiles { get; set; } = [];
     public double DuckLevelDb { get; set; } = -12;
     public double TalkDuckLevelDb { get; set; } = -15;
     public double DefaultLoudnessTargetLufs { get; set; } = -16;
@@ -34,6 +38,16 @@ public sealed class AppSettings
     public List<Guid> RandomPoolDeckIds { get; set; } = [];
     public List<Guid> RandomPoolJingleIds { get; set; } = [];
     public List<RandomPoolProfile> RandomPoolProfiles { get; set; } = [];
+    public List<TeamDeckProfile> TeamDeckProfiles { get; set; } = [];
+}
+
+public sealed class AutoplayProfile
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "Ny Autoplay-lista";
+    public string? PlaylistPath { get; set; }
+    public string? Shortcut { get; set; }
+    public double VolumeDb { get; set; }
 }
 
 public sealed class RandomPoolProfile
@@ -43,6 +57,33 @@ public sealed class RandomPoolProfile
     public string? Shortcut { get; set; }
     public List<Guid> DeckIds { get; set; } = [];
     public List<Guid> JingleIds { get; set; } = [];
+}
+
+public sealed class TeamDeckProfile
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "Nytt lag";
+    public string? Shortcut { get; set; }
+    public Guid? DefaultJingleId { get; set; }
+    // Position relativt standardjingelns klippta start där spelarövergången börjar.
+    // Null väljer automatiskt standardjingelns slut minus fade out-tiden.
+    public double? TransitionAtSeconds { get; set; }
+    public double DefaultFadeOutSeconds { get; set; } = 1.5;
+    public double PlayerFadeInSeconds { get; set; } = 0.75;
+    public List<TeamDeckPlayer> Players { get; set; } = [];
+}
+
+public sealed class TeamDeckPlayer
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Number { get; set; } = "";
+    public string Name { get; set; } = "Ny spelare";
+    public Guid? JingleId { get; set; }
+    // Null betyder att den valda jingelns vanliga startposition används.
+    // Ett värde här är en Team Deck-specifik, absolut position i ljudfilen.
+    public double? StartSecondsOverride { get; set; }
+    public string ButtonColor { get; set; } = "#17304A";
+    public string TextColor { get; set; } = "#F3F7FC";
 }
 
 public sealed class Jingle : INotifyPropertyChanged

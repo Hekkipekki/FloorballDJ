@@ -23,6 +23,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private bool _autoplayModeActive;
     private bool _isSpaceResumePending;
     private int _queuePlaybackIndex;
+    private double _playbackQueueGainOffsetDb;
     private Guid? _activeQueueJingleId;
     private Jingle? _activeQueueItem;
     private bool _queueTransitionStarted;
@@ -125,6 +126,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     public void Play(Jingle jingle)
+        => Play(jingle, null);
+
+    public void Play(Jingle jingle, double? playbackStartSecondsOverride)
+        => Play(jingle, playbackStartSecondsOverride, null, null);
+
+    public void Play(Jingle jingle, double? playbackStartSecondsOverride,
+        double? fadeInSecondsOverride, double? fadeOutPreviousSecondsOverride)
     {
         _activeQueueJingleId = null;
         _queueTransitionStarted = false;
@@ -135,7 +143,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             DeckPlaybackQueue.Remove(queued);
             UpdateQueuePositions();
         }
-        PlayCore(jingle, true, false);
+        PlayCore(jingle, true, false, transitionFadeInSeconds: fadeInSecondsOverride,
+            transitionFadeOutSeconds: fadeOutPreviousSecondsOverride,
+            playbackStartSecondsOverride: playbackStartSecondsOverride);
     }
 
     public void PlayPreview(Jingle jingle)
@@ -160,7 +170,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         // En återupptagning ska alltid vara klickfri och följa den globala
         // fade-in-inställningen, även om jinglen själv har en override på 0.
         var safeResumeFadeIn = Math.Max(0.08, Settings.FadeInSeconds);
-        if (!PlayCore(jingle, !queuedItem, false, safeResumeFadeIn, initialClipPosition: clipPosition))
+        if (!PlayCore(jingle, !queuedItem, false, safeResumeFadeIn, initialClipPosition: clipPosition,
+                playbackGainOffsetDb: queuedItem ? _playbackQueueGainOffsetDb : 0))
         {
             _activeQueueJingleId = null;
             ActiveQueueItem = null;
@@ -168,14 +179,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     private bool PlayCore(Jingle jingle, bool honorJingleLoop, bool previewOnly, double? transitionFadeInSeconds = null,
-        double? transitionFadeOutSeconds = null, TimeSpan? initialClipPosition = null)
+        double? transitionFadeOutSeconds = null, TimeSpan? initialClipPosition = null,
+        double? playbackStartSecondsOverride = null, double playbackGainOffsetDb = 0)
     {
         _previewOnlyJingleId = previewOnly ? jingle.Id : null;
         PlaybackAction action;
         try
         {
             action = _audio.Play(jingle, honorJingleLoop, transitionFadeInSeconds, transitionFadeOutSeconds,
-                releaseTalkDucking: !previewOnly, initialClipPosition: initialClipPosition);
+                releaseTalkDucking: !previewOnly, initialClipPosition: initialClipPosition,
+                playbackStartSecondsOverride: playbackStartSecondsOverride,
+                playbackGainOffsetDb: playbackGainOffsetDb);
         }
         catch (Exception ex)
         {
@@ -299,7 +313,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             _queueTransitionStarted = false;
             if (PlayCore(next, false, false,
                     crossfade ? QueueTransitionSeconds * 0.25d : null,
-                    crossfade ? QueueTransitionSeconds * 0.75d : null))
+                    crossfade ? QueueTransitionSeconds * 0.75d : null,
+                    playbackGainOffsetDb: _playbackQueueGainOffsetDb))
                 return true;
         }
         _activeQueueJingleId = null;
@@ -314,7 +329,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _activeQueueJingleId = item.Id;
         ActiveQueueItem = item;
         _queueTransitionStarted = false;
-        if (!PlayCore(item, false, false))
+        if (!PlayCore(item, false, false, playbackGainOffsetDb: _playbackQueueGainOffsetDb))
         {
             _activeQueueJingleId = null;
             ActiveQueueItem = null;
@@ -331,10 +346,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         PlayNextQueued(true);
     }
 
-    public void ReplaceQueue(IEnumerable<Jingle> items)
+    public void ReplaceQueue(IEnumerable<Jingle> items, double gainOffsetDb = 0)
     {
         foreach (var item in PlaybackQueue) item.AutoplayQueuePosition = 0;
         PlaybackQueue.Clear();
+        _playbackQueueGainOffsetDb = Math.Clamp(gainOffsetDb, -60, 12);
         foreach (var item in items) PlaybackQueue.Add(item);
         _queuePlaybackIndex = 0;
         _activeQueueJingleId = null;

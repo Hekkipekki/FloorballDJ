@@ -87,64 +87,47 @@
                     </Grid>
                 </GroupBox>
 
-                <GroupBox Header="Slumpmässig låtspelare" Style="{StaticResource ModernGroupBox}" Margin="0,0,0,16">
+                <GroupBox Header="Autoplay" Style="{StaticResource ModernGroupBox}" Margin="0,0,0,16">
                     <StackPanel Margin="2,7,2,2">
-                        <TextBlock Text="Skapa flera namngivna slumpgrupper, exempelvis Mål och Utvisning. Varje grupp har egen snabbtangent och eget innehåll."
-                                   Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,10" />
                         <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="260" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                            <TextBlock Text="Slumpgrupp" Style="{StaticResource FieldLabel}" />
-                            <ComboBox Grid.Column="1" ItemsSource="{Binding RandomPoolProfiles}" DisplayMemberPath="Name"
-                                      SelectedItem="{Binding SelectedRandomPoolProfile, Mode=TwoWay}" Margin="0,4"
+                            <TextBlock Text="Autoplay-lista" Style="{StaticResource FieldLabel}" />
+                            <ComboBox Grid.Column="1" ItemsSource="{Binding AutoplayProfiles}" DisplayMemberPath="Name"
+                                      SelectedItem="{Binding SelectedAutoplayProfile, Mode=TwoWay}" Margin="0,4"
                                       Foreground="#111820" Background="White">
                                 <ComboBox.Resources><Style TargetType="ComboBoxItem"><Setter Property="Foreground" Value="#111820" /><Setter Property="Background" Value="White" /></Style></ComboBox.Resources>
                             </ComboBox>
-                            <Button Grid.Column="2" Content="+ Ny" Style="{StaticResource SecondaryButton}" Margin="8,4,0,4" Click="AddRandomPoolProfile_Click" />
-                            <Button Grid.Column="3" Content="Ta bort" Style="{StaticResource SecondaryButton}" Margin="8,4,0,4" Click="RemoveRandomPoolProfile_Click" />
+                            <Button Grid.Column="2" Content="+ Ny" Style="{StaticResource SecondaryButton}" Margin="8,4,0,4" Click="AddAutoplayProfile_Click" />
+                            <Button Grid.Column="3" Content="Ta bort" Style="{StaticResource SecondaryButton}" Margin="8,4,0,4" Click="RemoveAutoplayProfile_Click" />
                         </Grid>
                         <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="260" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                             <TextBlock Text="Namn" Style="{StaticResource FieldLabel}" />
-                            <TextBox Grid.Column="1" Text="{Binding SelectedRandomPoolProfile.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" />
-                            <TextBlock Grid.Column="2" Text="Snabbtangent" Style="{StaticResource FieldLabel}" Margin="18,0,8,0"
-                                       ToolTip="Första trycket spelar slumpmässigt. Nästa tryck tonar ut och följande tryck väljer nästa." />
+                            <TextBox Grid.Column="1" Text="{Binding SelectedAutoplayProfile.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" />
+                            <TextBlock Grid.Column="2" Text="Snabbtangent" Style="{StaticResource FieldLabel}" Margin="18,0,8,0" />
                             <StackPanel Grid.Column="3" Orientation="Horizontal">
                                 <Border BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" CornerRadius="7" Padding="10,7" MinWidth="82" Margin="0,4">
-                                    <TextBlock Text="{Binding SelectedRandomPoolProfile.ShortcutDisplay}" Foreground="{StaticResource AccentBrush}" FontFamily="Consolas" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                    <TextBlock Text="{Binding SelectedAutoplayProfile.ShortcutDisplay}" Foreground="{StaticResource AccentBrush}" FontFamily="Consolas" FontWeight="SemiBold" HorizontalAlignment="Center" />
                                 </Border>
-                                <Button Content="Välj" Style="{StaticResource SecondaryButton}" Margin="8,4,0,4" Click="ChooseRandomPoolShortcut_Click" />
+                                <Button Content="Välj" Style="{StaticResource SecondaryButton}" Margin="8,4,0,4" Click="ChooseAutoplayShortcut_Click" />
+                                <Button Content="×" Style="{StaticResource SecondaryButton}" Margin="8,4,0,4" Padding="10,5" ToolTip="Ta bort snabbtangent" Click="ClearAutoplayShortcut_Click" />
                             </StackPanel>
                         </Grid>
-                        <TextBlock Text="INNEHÅLL I VALD SLUMPGRUPP" Foreground="{StaticResource MutedBrush}" FontSize="9" FontWeight="Bold" Margin="0,4,0,5" />
-                        <TabControl ItemsSource="{Binding SelectedRandomPoolProfile.Decks}" MinHeight="245" MaxHeight="330">
-                            <TabControl.ItemTemplate>
-                                <DataTemplate><TextBlock Text="{Binding Name}" Padding="8,3" /></DataTemplate>
-                            </TabControl.ItemTemplate>
-                            <TabControl.ContentTemplate>
-                                <DataTemplate>
-                                    <Grid Margin="10,8">
-                                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                                        <CheckBox IsChecked="{Binding IncludeWholeDeck, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                  Content="Inkludera hela detta deck" FontWeight="SemiBold" Margin="0,0,0,8"
-                                                  ToolTip="Tar automatiskt med alla spelbara jinglar i decket, även sådana som läggs till senare." />
-                                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                                            <ItemsControl ItemsSource="{Binding Jingles}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <CheckBox IsChecked="{Binding IsIncluded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                                  Content="{Binding Title}" Margin="2,4" />
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </ScrollViewer>
-                                    </Grid>
-                                </DataTemplate>
-                            </TabControl.ContentTemplate>
-                        </TabControl>
-                        <Border Background="{StaticResource AccentSoftBrush}" CornerRadius="8" Padding="12,9" Margin="0,2,0,0">
-                            <TextBlock Text="Byt slumpgrupp ovanför för att redigera en annan uppsättning. Deckflikarna ger snabb överblick; markera hela decket eller bara valda jinglar. Textblock och tomma platser ignoreras."
-                                       Foreground="{StaticResource AccentBrush}" FontSize="11" TextWrapping="Wrap" />
-                        </Border>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="190" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" /><ColumnDefinition Width="82" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Spellista  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Spellistan som laddas när den valda snabbtangenten används." />
+                            <TextBox Grid.Column="1" Text="{Binding SelectedAutoplayProfile.PlaylistPath}" IsReadOnly="True" Margin="0,4" />
+                            <Button Grid.Column="2" Content="Välj…" Style="{StaticResource SecondaryButton}" Margin="8,4,0,4" Click="ChooseAutoplayPlaylist_Click" />
+                            <Button Grid.Column="3" Content="×" Style="{StaticResource SecondaryButton}" Margin="8,4,0,4" Padding="10,5" ToolTip="Ta bort spellistan" Click="ClearAutoplayPlaylist_Click" />
+                            <TextBlock Grid.Column="4" Text="Volym (dB)  ⓘ" Style="{StaticResource FieldLabel}" Margin="18,0,8,0"
+                                       ToolTip="0 dB är oförändrat. Ett negativt värde, exempelvis −8 dB, ger lugnare pausmusik utan att ändra originalfilerna." />
+                            <TextBox Grid.Column="5" Text="{Binding SelectedAutoplayProfile.VolumeDb, Converter={StaticResource FlexibleDouble}, Mode=TwoWay}" Margin="0,4" TextAlignment="Center" />
+                        </Grid>
+                        <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="10" TextWrapping="Wrap"
+                                   Text="Varje Autoplay-lista har egen spellista, snabbtangent och volym. Tangenten öppnar Autoplay, ersätter kön och startar första låten automatiskt." />
                     </StackPanel>
                 </GroupBox>
 

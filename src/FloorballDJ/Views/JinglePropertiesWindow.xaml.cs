@@ -468,16 +468,24 @@ public partial class JinglePropertiesWindow : Window
                 (string.Equals(ShortcutService.Normalize(jingle.Shortcut), shortcut, StringComparison.OrdinalIgnoreCase) ||
                  string.Equals(ShortcutService.Normalize(jingle.CategoryShortcut), shortcut, StringComparison.OrdinalIgnoreCase)))
             .ToArray();
+        var teamDecks = (_project.Settings.TeamDeckProfiles ?? [])
+            .Where(team => string.Equals(ShortcutService.Normalize(team.Shortcut), shortcut, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
         var conflictsWithOtherField = string.Equals(
             ShortcutService.Normalize(assigningCategory ? _shortcut : _categoryShortcut), shortcut, StringComparison.OrdinalIgnoreCase);
-        if (globalProfiles.Length == 0 && conflictingJingles.Length == 0 && !conflictsWithOtherField) return true;
+        var autoplayProfiles = (_project.Settings.AutoplayProfiles ?? [])
+            .Where(profile => string.Equals(ShortcutService.Normalize(profile.Shortcut), shortcut, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        if (globalProfiles.Length == 0 && conflictingJingles.Length == 0 && teamDecks.Length == 0 && !conflictsWithOtherField && autoplayProfiles.Length == 0) return true;
 
         var owners = globalProfiles.Select(profile => $"slumpgruppen ‘{profile.Name}’")
             .Concat(conflictingJingles.Select(jingle =>
                 string.Equals(ShortcutService.Normalize(jingle.Shortcut), shortcut, StringComparison.OrdinalIgnoreCase)
                     ? $"jinglen ‘{jingle.Title}’"
                     : $"slumpkategorin för ‘{jingle.Title}’"))
+            .Concat(teamDecks.Select(team => $"Team Deck ‘{team.Name}’"))
             .Concat(conflictsWithOtherField ? [assigningCategory ? "jinglens vanliga snabbtangent" : "jinglens slumpknapp"] : [])
+            .Concat(autoplayProfiles.Select(profile => $"Autoplay-listan ‘{profile.Name}’"))
             .Distinct().Take(6);
         if (MessageBox.Show(this,
                 $"Snabbtangenten {shortcut} används redan av {string.Join(", ", owners)}.\n\nVill du ersätta den gamla kopplingen?",
@@ -501,6 +509,12 @@ public partial class JinglePropertiesWindow : Window
             .Cast<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (activeReplacements.Count == 0) return;
         foreach (var profile in _project.Settings.RandomPoolProfiles ?? [])
+            if (activeReplacements.Contains(ShortcutService.Normalize(profile.Shortcut) ?? "")) profile.Shortcut = null;
+        foreach (var team in _project.Settings.TeamDeckProfiles ?? [])
+            if (activeReplacements.Contains(ShortcutService.Normalize(team.Shortcut) ?? "")) team.Shortcut = null;
+        if (activeReplacements.Contains(ShortcutService.Normalize(_project.Settings.AutoplayShortcut) ?? ""))
+            _project.Settings.AutoplayShortcut = null;
+        foreach (var profile in _project.Settings.AutoplayProfiles ?? [])
             if (activeReplacements.Contains(ShortcutService.Normalize(profile.Shortcut) ?? "")) profile.Shortcut = null;
         foreach (var jingle in _project.Decks.SelectMany(deck => deck.Jingles).Where(jingle => jingle != _target))
         {

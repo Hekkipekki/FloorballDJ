@@ -1,0 +1,259 @@
+<Window x:Class="FloorballDJ.Views.RandomPlayerSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Slumpmässig låtspelare" Width="1460" Height="860" MinWidth="1040" MinHeight="680"
+        WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <Style x:Key="ProfileListItem" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Card" Background="#101C2D" BorderBrush="{StaticResource HairlineBrush}"
+                                BorderThickness="1" CornerRadius="9" Padding="13,11">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Card" Property="BorderBrush" Value="#50718F" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Card" Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PoolJingleCheck" TargetType="CheckBox">
+            <Setter Property="Margin" Value="0,0,8,8" />
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="Background" Value="#101C2D" />
+            <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="ToolTip" Value="Markera för att ta med jingeln i den valda slumpgruppen" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="22,18,22,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="SLUMPMÄSSIG LÅTSPELARE" Style="{StaticResource EyebrowText}" />
+                <TextBlock Text="Bygg situationsstyrda låtpooler" Style="{StaticResource SectionTitle}" />
+                <TextBlock Text="Skapa separata grupper för exempelvis mål, utvisning eller publik. Varje grupp sparas i profilen och får egen snabbtangent."
+                           Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0" />
+            </StackPanel>
+            <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="{StaticResource AccentSoftBrush}"
+                    BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" CornerRadius="16" Padding="12,6">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE8B0;" FontFamily="Segoe Fluent Icons" Foreground="{StaticResource AccentBrush}" Margin="0,0,7,0" />
+                    <TextBlock x:Name="HeaderSummaryText" Text="0 grupper • 0 valda ljud" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="290" />
+            </Grid.ColumnDefinitions>
+
+            <Border Style="{StaticResource CardBorder}" Padding="14">
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <StackPanel Margin="2,0,2,12">
+                        <TextBlock Text="SLUMPGRUPPER" Style="{StaticResource FieldLabel}" />
+                        <TextBlock Text="En grupp per situation" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" />
+                    </StackPanel>
+                    <ListBox x:Name="ProfilesList" Grid.Row="1" ItemsSource="{Binding Profiles}"
+                             SelectedItem="{Binding SelectedProfile, Mode=TwoWay}" ItemContainerStyle="{StaticResource ProfileListItem}"
+                             SelectionChanged="ProfilesList_SelectionChanged" Background="Transparent" BorderThickness="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" />
+                                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
+                                        <TextBlock Text="{Binding ShortcutDisplay}" FontFamily="Cascadia Mono" Foreground="{StaticResource AccentBrush}" FontSize="11" />
+                                        <TextBlock Text="  •  " Foreground="{StaticResource MutedBrush}" />
+                                        <TextBlock Text="{Binding SelectionSummary}" Foreground="{StaticResource MutedBrush}" FontSize="11" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <Grid Grid.Row="2" Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <Button Content="+ Ny grupp" Style="{StaticResource PrimaryButton}" Click="AddProfile_Click" />
+                        <Button Grid.Column="1" Content="&#xE8C8;" FontFamily="Segoe Fluent Icons" Style="{StaticResource SecondaryButton}"
+                                Width="40" MinWidth="40" Padding="0" Margin="7,0,0,0" ToolTip="Duplicera vald grupp" Click="DuplicateProfile_Click" />
+                        <Button Grid.Column="2" Content="&#xE74D;" FontFamily="Segoe Fluent Icons" Style="{StaticResource SecondaryButton}"
+                                Width="40" MinWidth="40" Padding="0" Margin="7,0,0,0" ToolTip="Ta bort vald grupp" Click="RemoveProfile_Click" />
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Column="2" DataContext="{Binding SelectedProfile}">
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+
+                <Border Style="{StaticResource CardBorder}" Padding="16" Margin="0,0,0,12">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="20" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="GRUPPNAMN" Style="{StaticResource FieldLabel}" Margin="0,0,0,5" />
+                            <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinWidth="300" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="SNABBTANGENT" Style="{StaticResource FieldLabel}" Margin="0,0,0,5" />
+                            <StackPanel Orientation="Horizontal">
+                                <Border Background="{StaticResource AccentSoftBrush}" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1"
+                                        CornerRadius="6" MinWidth="86" Height="38" Padding="10,0">
+                                    <TextBlock Text="{Binding ShortcutDisplay}" Foreground="{StaticResource AccentBrush}" FontWeight="Bold"
+                                               FontFamily="Cascadia Mono" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                </Border>
+                                <Button Content="Välj" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="ChooseShortcut_Click" />
+                                <Button Content="×" Style="{StaticResource SecondaryButton}" Width="38" MinWidth="38" Padding="0" Margin="6,0,0,0"
+                                        ToolTip="Ta bort snabbtangent" Click="ClearShortcut_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,12">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <Grid>
+                            <TextBox x:Name="SearchBox" Padding="34,8,10,8" TextChanged="SearchBox_TextChanged"
+                                     ToolTip="Sök i hela profilen. Bästa träffen öppnar automatiskt rätt deck." />
+                            <TextBlock Text="&#xE721;" FontFamily="Segoe Fluent Icons" Foreground="{StaticResource AccentBrush}"
+                                       Margin="11,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" IsHitTestVisible="False" />
+                        </Grid>
+                        <Button Grid.Column="1" Content="Markera träffar" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="SelectVisible_Click" />
+                        <Button Grid.Column="2" Content="Rensa deck" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="ClearSelectedDeck_Click" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="6">
+                    <TabControl x:Name="DeckTabs" ItemsSource="{Binding Decks}" SelectionChanged="DeckTabs_SelectionChanged">
+                        <TabControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="4,1">
+                                    <TextBlock Text="{Binding Name}" />
+                                    <Border Background="#17273B" CornerRadius="9" Padding="6,1" Margin="7,0,0,0">
+                                        <TextBlock Text="{Binding SelectedCount}" FontSize="10" Foreground="{StaticResource AccentBrush}" />
+                                    </Border>
+                                </StackPanel>
+                            </DataTemplate>
+                        </TabControl.ItemTemplate>
+                        <TabControl.ContentTemplate>
+                            <DataTemplate>
+                                <Grid Margin="10,8">
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                                    <Border Background="#101C2D" CornerRadius="7" Padding="12,9" Margin="0,0,0,10">
+                                        <Grid>
+                                            <StackPanel>
+                                                <CheckBox IsChecked="{Binding IncludeWholeDeck, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                          Content="Använd hela decket" FontWeight="SemiBold" Click="PoolSelection_Click" />
+                                                <TextBlock Text="Nya spelbara jinglar som senare läggs till i decket inkluderas automatiskt."
+                                                           Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="22,3,0,0" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding MatchSummary}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource MutedBrush}" />
+                                        </Grid>
+                                    </Border>
+                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl ItemsSource="{Binding Jingles}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><WrapPanel IsItemsHost="True" /></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Style="{StaticResource PoolJingleCheck}" Width="260"
+                                                              IsChecked="{Binding IsIncluded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibility}}"
+                                                              Click="PoolSelection_Click">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}" />
+                                                            <TextBlock Grid.Column="1" Text="{Binding DurationDisplay}" Foreground="{StaticResource MutedBrush}" FontFamily="Cascadia Mono" FontSize="10" Margin="8,0,0,0" />
+                                                        </Grid>
+                                                    </CheckBox>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Grid>
+                            </DataTemplate>
+                        </TabControl.ContentTemplate>
+                    </TabControl>
+                </Border>
+            </Grid>
+
+            <Border Grid.Column="4" Style="{StaticResource CardBorder}" Padding="15">
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="POOLÖVERSIKT" Style="{StaticResource FieldLabel}" />
+                        <TextBlock Text="Det här kan väljas slumpmässigt" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" />
+                    </StackPanel>
+                    <Grid Grid.Row="1" Margin="0,14,0,12">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Border Background="{StaticResource AccentSoftBrush}" CornerRadius="8" Padding="11">
+                            <StackPanel><TextBlock x:Name="SelectedSoundsText" Text="0" FontSize="23" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" />
+                                <TextBlock Text="spelbara ljud" Foreground="{StaticResource MutedBrush}" FontSize="10" /></StackPanel>
+                        </Border>
+                        <Border Grid.Column="2" Background="#101C2D" CornerRadius="8" Padding="11">
+                            <StackPanel><TextBlock x:Name="SelectedDecksText" Text="0" FontSize="23" FontWeight="SemiBold" />
+                                <TextBlock Text="berörda deck" Foreground="{StaticResource MutedBrush}" FontSize="10" /></StackPanel>
+                        </Border>
+                    </Grid>
+                    <ListBox x:Name="PoolItemsList" Grid.Row="2" ItemsSource="{Binding PoolItems}" BorderThickness="0" Background="Transparent">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="2,5">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}" />
+                                        <TextBlock Text="{Binding DeckName}" Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{Binding SourceLabel}" Foreground="{StaticResource AccentBrush}" FontSize="9" VerticalAlignment="Center" Margin="7,0,0,0" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <Border Grid.Row="3" Background="#101C2D" CornerRadius="8" Padding="12" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="SÅ FUNGERAR TANGENTEN" Style="{StaticResource FieldLabel}" FontSize="9" />
+                            <TextBlock Text="1:a trycket spelar ett slumpvalt ljud. 2:a trycket tonar ut det. 3:e trycket väljer ett nytt ljud."
+                                       Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="0,16,0,0">
+            <TextBlock Text="Tomma deck, textblock och saknade ljudfiler används aldrig i poolen." Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Avbryt" Style="{StaticResource SecondaryButton}" MinWidth="104" Margin="0,0,8,0" IsCancel="True" />
+                <Button Content="Spara slumpgrupper" Style="{StaticResource PrimaryButton}" MinWidth="165" Click="Save_Click" IsDefault="True" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

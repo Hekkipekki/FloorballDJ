@@ -54,6 +54,7 @@ public partial class MainWindow : Window
     private string? _activeRandomShortcut;
     private Guid? _activeRandomJingleId;
     private bool _randomShortcutAwaitingNext;
+    private TeamDeckWindow? _activeTeamDeckWindow;
     private MainViewModel ViewModel => (MainViewModel)DataContext;
 
     public MainWindow() : this(new LicenseService())
@@ -158,6 +159,25 @@ public partial class MainWindow : Window
                 merge.Show();
                 await Task.Delay(180);
                 merge.Close();
+                var teamSettings = new TeamDeckSettingsWindow(ViewModel.Project) { Owner = this };
+                teamSettings.Show();
+                await Task.Delay(180);
+                teamSettings.Close();
+                var randomPlayer = new RandomPlayerSettingsWindow(ViewModel.Project) { Owner = this };
+                randomPlayer.Show();
+                await Task.Delay(180);
+                randomPlayer.Close();
+                var teamPreview = new TeamDeckWindow(new TeamDeckProfile
+                {
+                    Name = "Testlag",
+                    Players = [new TeamDeckPlayer { Number = "19", Name = "Testspelare" }]
+                }, ViewModel.Project, (_, _, _, _) => { }) { Owner = this };
+                teamPreview.Show();
+                await Task.Delay(180);
+                teamPreview.Close();
+                // Smoke-testet ska aldrig gå igenom den vanliga asynkrona
+                // autosparningsdialogen när alla fönster har verifierats.
+                _closeCommitted = true;
                 Close();
             }
         };
@@ -366,10 +386,12 @@ public partial class MainWindow : Window
 
     private void RefreshClock()
     {
-        if (GlobalClockText is null) return;
+        if (GlobalClockText is null || GlobalClockSecondsText is null) return;
         var now = DateTime.Now;
-        GlobalClockText.Text = now.ToString("HH:mm:ss", CultureInfo.CurrentCulture);
-        GlobalClockText.ToolTip = now.ToString("dddd d MMMM yyyy", CultureInfo.CurrentCulture);
+        GlobalClockText.Text = now.ToString("HH:mm", CultureInfo.CurrentCulture);
+        GlobalClockSecondsText.Text = now.ToString(":ss", CultureInfo.CurrentCulture);
+        if (GlobalClock is not null)
+            GlobalClock.ToolTip = now.ToString("dddd d MMMM yyyy", CultureInfo.CurrentCulture);
     }
 
     private void QueueContextMenu_Opened(object sender, RoutedEventArgs e)
@@ -704,6 +726,47 @@ public partial class MainWindow : Window
 
         if (!e.IsRepeat && Keyboard.FocusedElement is not TextBoxBase and not ComboBox)
         {
+            var autoplayProfile = (ViewModel.Settings.AutoplayProfiles ?? [])
+                .FirstOrDefault(profile => ShortcutService.Matches(profile.Shortcut, e));
+            if (autoplayProfile is not null)
+            {
+                e.Handled = true;
+                ClearSpaceResume();
+                await ActivateAutoplayAsync();
+                try
+                {
+                    if (!EmbeddedAutoplay.LoadDefaultPlaylistAndStart(autoplayProfile.PlaylistPath ?? "", autoplayProfile.VolumeDb))
+                        MessageBox.Show(this,
+                            $"Spellistan för ‘{autoplayProfile.Name}’ saknas, är tom eller innehåller inga ljudfiler som går att hitta. Välj den igen under Verktyg > Inställningar > Autoplay.",
+                            "Kunde inte starta Autoplay", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, ex.Message, "Kunde inte starta Autoplay", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+                return;
+            }
+
+            var team = (ViewModel.Settings.TeamDeckProfiles ?? [])
+                .FirstOrDefault(profile => ShortcutService.Matches(profile.Shortcut, e));
+            if (team is not null)
+            {
+                e.Handled = true;
+                ClearSpaceResume();
+                var defaultJingle = team.DefaultJingleId is Guid defaultId
+                    ? ViewModel.Decks.SelectMany(deck => deck.Jingles).FirstOrDefault(jingle => jingle.Id == defaultId && jingle.HasAudio)
+                    : null;
+                if (defaultJingle is not null)
+                {
+                    // Team Decks förvalda måljingle ska alltid börja direkt,
+                    // oberoende av global eller jingle-specifik fade in.
+                    try { ViewModel.Play(defaultJingle, null, 0, null); }
+                    catch (Exception ex) { MessageBox.Show(this, ex.Message, "Kunde inte spela standardjingeln", MessageBoxButton.OK, MessageBoxImage.Warning); }
+                }
+                ShowTeamDeck(team);
+                return;
+            }
+
             var randomProfile = (ViewModel.Settings.RandomPoolProfiles ?? [])
                 .FirstOrDefault(profile => ShortcutService.Matches(profile.Shortcut, e));
             if (randomProfile is not null)
@@ -711,7 +774,7 @@ public partial class MainWindow : Window
                 var selectedDeckIds = (randomProfile.DeckIds ?? []).ToHashSet();
                 var selectedJingleIds = (randomProfile.JingleIds ?? []).ToHashSet();
                 var pool = ViewModel.Decks
-                    .SelectMany(deck => deck.Jingles.Where(jingle => jingle.HasAudio &&
+                    .SelectMany(deck => deck.Jingles.Where(jingle => jingle.HasAudio && File.Exists(jingle.FilePath) &&
                         (selectedDeckIds.Contains(deck.Id) || selectedJingleIds.Contains(jingle.Id))))
                     .DistinctBy(jingle => jingle.Id)
                     .ToArray();
@@ -1185,6 +1248,11 @@ public partial class MainWindow : Window
 
     private async void Autoplay_Click(object sender, RoutedEventArgs e)
     {
+        await ActivateAutoplayAsync();
+    }
+
+    private async Task ActivateAutoplayAsync()
+    {
         DeckTabsControl.SelectedIndex = -1;
         EmbeddedAutoplay.Visibility = Visibility.Visible;
         ViewModel.SetAutoplayMode(true);
@@ -1542,6 +1610,7 @@ public partial class MainWindow : Window
         try
         {
             _audio.StopAll();
+            CloseTeamDeck();
             ViewModel.ReplaceQueue([]);
             ViewModel.SetAutoplayMode(false);
             EmbeddedAutoplay.Visibility = Visibility.Collapsed;
@@ -1570,6 +1639,7 @@ public partial class MainWindow : Window
         if (MessageBox.Show(this, "Skapa ett nytt tomt projekt? Det nuvarande projektet autosparas först.", "Nytt projekt", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         if (!await SaveSafelyAsync()) return;
         _audio.StopAll();
+        CloseTeamDeck();
         ViewModel.ReplaceQueue([]);
         ViewModel.SetAutoplayMode(false);
         ViewModel.SetSecondaryOutput(false);
@@ -1601,6 +1671,7 @@ public partial class MainWindow : Window
         }
         try
         {
+            CloseTeamDeck();
             ViewModel.ImportLegacyXml(dialog.FileName);
             var slots = ViewModel.Decks.Sum(deck => deck.Rows * deck.Columns);
             var jingles = ViewModel.Decks.Sum(deck => deck.Jingles.Count(jingle => jingle.HasAudio));
@@ -1625,7 +1696,8 @@ public partial class MainWindow : Window
                 : $"Varning: {result.MissingFiles.Count} ljudfiler saknades och kunde inte kopieras.";
             MessageBox.Show(this,
                 $"Flyttbackupen är klar:\n{result.Directory}\n\n" +
-                $"{result.MediaFileCount} ljudfiler och {result.CustomFontCount} egna typsnitt kopierades.\n{warning}\n\n" +
+                $"{result.MediaFileCount} ljudfiler, {result.CustomFontCount} egna typsnitt och " +
+                $"{result.RandomPoolProfileCount} profilbundna slumpgrupper och {result.TeamDeckProfileCount} Team Deck kopierades.\n{warning}\n\n" +
                 "Kopiera hela mappen till den andra datorn och välj Profil → Återställ flyttbackup.",
                 "Komplett backup klar", MessageBoxButton.OK,
                 result.MissingFiles.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
@@ -1652,6 +1724,7 @@ public partial class MainWindow : Window
             MessageBox.Show(this,
                 $"Backupen har återställts och är nu standardprofil.\n\n" +
                 $"{result.CustomFontCount} egna typsnitt och {result.ColorPresetCount} sparade färgval importerades.\n" +
+                $"{result.RandomPoolProfileCount} slumpgrupper och {result.TeamDeckProfileCount} Team Deck återställdes för den här profilen.\n" +
                 $"{warning}\n\nVälj ljudutgångar på den här datorn under Verktyg → Inställningar.",
                 "Flyttbackup återställd", MessageBoxButton.OK,
                 result.MissingMediaCount == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
@@ -1669,6 +1742,53 @@ public partial class MainWindow : Window
         ViewModel.ConfigureAudio();
         RefreshOutputName();
         ViewModel.RequestSave();
+    }
+
+    private void RandomPlayerSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new RandomPlayerSettingsWindow(ViewModel.Project) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+        _activeRandomShortcut = null;
+        _activeRandomJingleId = null;
+        _randomShortcutAwaitingNext = false;
+        ViewModel.RequestSave();
+    }
+
+    private void TeamDeckSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new TeamDeckSettingsWindow(ViewModel.Project,
+            (jingle, startSecondsOverride, fadeIn, fadeOut) => ViewModel.Play(jingle, startSecondsOverride, fadeIn, fadeOut),
+            () => ViewModel.NowPlaying) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+        _activeTeamDeckWindow?.Close();
+        _activeTeamDeckWindow = null;
+        ViewModel.RequestSave();
+    }
+
+    private void ShowTeamDeck(TeamDeckProfile team)
+    {
+        if (_activeTeamDeckWindow is { IsVisible: true } active && active.TeamId == team.Id)
+        {
+            active.Activate();
+            return;
+        }
+        _activeTeamDeckWindow?.Close();
+        var window = new TeamDeckWindow(team, ViewModel.Project, (jingle, startSecondsOverride, fadeIn, fadeOut) =>
+        {
+            ClearSpaceResume();
+            try { ViewModel.Play(jingle, startSecondsOverride, fadeIn, fadeOut); }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Kunde inte spela spelarjingeln", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        }, ViewModel.RequestSave, () => ViewModel.NowPlaying) { Owner = this };
+        window.Closed += (_, _) => { if (ReferenceEquals(_activeTeamDeckWindow, window)) _activeTeamDeckWindow = null; };
+        _activeTeamDeckWindow = window;
+        window.Show();
+        window.Activate();
+    }
+
+    private void CloseTeamDeck()
+    {
+        _activeTeamDeckWindow?.Close();
+        _activeTeamDeckWindow = null;
     }
 
     private void PlayerWaveform_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

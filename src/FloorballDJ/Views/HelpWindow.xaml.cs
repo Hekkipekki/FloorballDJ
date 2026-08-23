@@ -13,7 +13,8 @@ public partial class HelpWindow : Window
         InitializeComponent();
         WindowPlacementService.MaximizeOnOwnerMonitor(this);
         _pages = [QuickStartPage, PlaybackPage, DecksPage, AutoplayPage, AudioPage,
-            PropertiesPage, ProfilesPage, ShortcutsPage, LicensingPage, TroubleshootingPage];
+            JingleBuilderPage, PropertiesPage, TeamDeckPage, ProfilesPage, ShortcutsPage,
+            LicensingPage, TroubleshootingPage];
         HelpNavigation.SelectedIndex = 0;
     }
 

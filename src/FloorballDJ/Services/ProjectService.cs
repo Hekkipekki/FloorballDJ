@@ -171,6 +171,10 @@ public sealed class ProjectService
         var json = JsonSerializer.Serialize(project, JsonOptions);
         var copy = JsonSerializer.Deserialize<FloorballProject>(json, JsonOptions)
             ?? throw new InvalidDataException("Projektet kunde inte kopieras.");
+        // Slumpgrupper är profilinställningar. Normalisera den fristående kopian före
+        // export så även äldre profiler migreras och aldrig hämtar grupper från någon
+        // annan profil på den nya datorn.
+        EnsureLayout(copy);
         var usedDeckFolderNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var copiedMediaCount = 0;
         var missingFiles = new List<string>();
@@ -252,6 +256,8 @@ public sealed class ProjectService
             ProjectName = project.Name,
             MediaFileCount = copiedMediaCount,
             CustomFontCount = fontsIncluded,
+            RandomPoolProfileCount = copy.Settings.RandomPoolProfiles.Count,
+            TeamDeckProfileCount = copy.Settings.TeamDeckProfiles.Count,
             IncludesColorPresets = presetsIncluded,
             MissingFiles = missingFiles
         };
@@ -264,10 +270,11 @@ public sealed class ProjectService
             $"FloorballDJ flyttbackup\r\nSkapad: {manifest.CreatedAt:yyyy-MM-dd HH:mm:ss zzz}\r\nProfil: {project.Name}\r\n\r\n" +
             "På den andra datorn:\r\n1. Installera och starta FloorballDJ.\r\n2. Välj Profil > Återställ flyttbackup.\r\n3. Välj den här mappen.\r\n4. Välj datorns ljudutgångar under Verktyg > Inställningar.\r\n\r\n" +
             "Licens/provperiod är maskinbunden och följer inte med. Ljudfilerna är rena filkopior utan omkodning.\r\n\r\n" +
+            $"Slumpgrupper i den här profilen: {copy.Settings.RandomPoolProfiles.Count}. Team Deck: {copy.Settings.TeamDeckProfiles.Count}. De är profilbundna och följer med denna profil.\r\n\r\n" +
             missingSummary);
 
         return new PortableBackupResult(directory, Path.Combine(directory, profileFileName), copiedMediaCount,
-            fontsIncluded, presetsIncluded, missingFiles);
+            fontsIncluded, copy.Settings.RandomPoolProfiles.Count, copy.Settings.TeamDeckProfiles.Count, presetsIncluded, missingFiles);
     }
 
     public async Task<PortableRestoreResult> RestorePortableBackupAsync(string backupDirectory)
@@ -314,11 +321,13 @@ public sealed class ProjectService
             Path.Combine(destinationDirectory, "Inställningar", "color-presets.json"));
 
         var restoredProject = await LoadAsync(profilePath);
+        EnsureLayout(restoredProject);
         restoredProject.Settings.OutputDeviceId = null;
         restoredProject.Settings.SecondaryOutputDeviceId = null;
         await SaveAsync(restoredProject, profilePath);
         var missingCount = restoredProject.Decks.SelectMany(deck => deck.Jingles).Count(jingle => jingle.IsMissing);
-        return new PortableRestoreResult(profilePath, destinationDirectory, fontsImported, presetsImported, missingCount);
+        return new PortableRestoreResult(profilePath, destinationDirectory, fontsImported, presetsImported,
+            restoredProject.Settings.RandomPoolProfiles.Count, restoredProject.Settings.TeamDeckProfiles.Count, missingCount);
     }
 
     private static string SafeChildPath(string parentDirectory, string relativePath)
@@ -448,6 +457,28 @@ public sealed class ProjectService
     public static void EnsureLayout(FloorballProject project)
     {
         project.Settings.RandomPoolShortcut = ShortcutService.Normalize(project.Settings.RandomPoolShortcut);
+        project.Settings.AutoplayShortcut = ShortcutService.Normalize(project.Settings.AutoplayShortcut);
+        project.Settings.AutoplayProfiles ??= [];
+        if (project.Settings.AutoplayProfiles.Count == 0 &&
+            (!string.IsNullOrWhiteSpace(project.Settings.AutoplayDefaultPlaylistPath) ||
+             !string.IsNullOrWhiteSpace(project.Settings.AutoplayShortcut)))
+        {
+            project.Settings.AutoplayProfiles.Add(new AutoplayProfile
+            {
+                Name = "Standard",
+                PlaylistPath = project.Settings.AutoplayDefaultPlaylistPath,
+                Shortcut = project.Settings.AutoplayShortcut,
+                VolumeDb = project.Settings.AutoplayDefaultPlaylistVolumeDb
+            });
+        }
+        foreach (var profile in project.Settings.AutoplayProfiles)
+        {
+            if (profile.Id == Guid.Empty) profile.Id = Guid.NewGuid();
+            profile.Name = string.IsNullOrWhiteSpace(profile.Name) ? "Autoplay" : profile.Name.Trim();
+            profile.PlaylistPath = string.IsNullOrWhiteSpace(profile.PlaylistPath) ? null : profile.PlaylistPath;
+            profile.Shortcut = ShortcutService.Normalize(profile.Shortcut);
+            profile.VolumeDb = Math.Clamp(profile.VolumeDb, -60, 12);
+        }
         project.Settings.RandomPoolDeckIds ??= [];
         project.Settings.RandomPoolJingleIds ??= [];
         project.Settings.RandomPoolProfiles ??= [];
@@ -470,6 +501,26 @@ public sealed class ProjectService
             profile.Shortcut = ShortcutService.Normalize(profile.Shortcut);
             profile.DeckIds = profile.DeckIds?.Distinct().ToList() ?? [];
             profile.JingleIds = profile.JingleIds?.Distinct().ToList() ?? [];
+        }
+        project.Settings.TeamDeckProfiles ??= [];
+        foreach (var team in project.Settings.TeamDeckProfiles)
+        {
+            if (team.Id == Guid.Empty) team.Id = Guid.NewGuid();
+            team.Name = string.IsNullOrWhiteSpace(team.Name) ? "Team Deck" : team.Name.Trim();
+            team.Shortcut = ShortcutService.Normalize(team.Shortcut);
+            if (team.TransitionAtSeconds is < 0) team.TransitionAtSeconds = 0;
+            team.DefaultFadeOutSeconds = Math.Clamp(team.DefaultFadeOutSeconds, 0, 30);
+            team.PlayerFadeInSeconds = Math.Clamp(team.PlayerFadeInSeconds, 0, 30);
+            team.Players ??= [];
+            foreach (var player in team.Players)
+            {
+                if (player.Id == Guid.Empty) player.Id = Guid.NewGuid();
+                player.Name = string.IsNullOrWhiteSpace(player.Name) ? "Spelare" : player.Name.Trim();
+                player.Number = player.Number?.Trim() ?? "";
+                if (player.StartSecondsOverride is < 0) player.StartSecondsOverride = 0;
+                player.ButtonColor = string.IsNullOrWhiteSpace(player.ButtonColor) ? "#17304A" : player.ButtonColor;
+                player.TextColor = string.IsNullOrWhiteSpace(player.TextColor) ? "#F3F7FC" : player.TextColor;
+            }
         }
         while (project.Decks.Count < project.Settings.DeckCount)
             project.Decks.Add(new Deck { Name = $"Deck {project.Decks.Count + 1}" });
@@ -502,18 +553,20 @@ public sealed record ProjectRevision(string Path, DateTime Timestamp, string Pro
 
 public sealed class PortableBackupManifest
 {
-    public int FormatVersion { get; set; } = 1;
+    public int FormatVersion { get; set; } = 2;
     public DateTimeOffset CreatedAt { get; set; }
     public string ProfileFile { get; set; } = "";
     public string ProjectName { get; set; } = "FloorballDJ-profil";
     public int MediaFileCount { get; set; }
     public int CustomFontCount { get; set; }
+    public int RandomPoolProfileCount { get; set; }
+    public int TeamDeckProfileCount { get; set; }
     public bool IncludesColorPresets { get; set; }
     public List<string> MissingFiles { get; set; } = [];
 }
 
 public sealed record PortableBackupResult(string Directory, string ProfilePath, int MediaFileCount,
-    int CustomFontCount, bool IncludesColorPresets, IReadOnlyList<string> MissingFiles);
+    int CustomFontCount, int RandomPoolProfileCount, int TeamDeckProfileCount, bool IncludesColorPresets, IReadOnlyList<string> MissingFiles);
 
 public sealed record PortableRestoreResult(string ProfilePath, string Directory, int CustomFontCount,
-    int ColorPresetCount, int MissingMediaCount);
+    int ColorPresetCount, int RandomPoolProfileCount, int TeamDeckProfileCount, int MissingMediaCount);
