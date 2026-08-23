@@ -27,6 +27,7 @@ public sealed class AudioEngine : IDisposable
         // hålla kvar signalen precis innan rösten ska nå fullständig tystnad.
         public required SmoothGainSampleProvider FadeVolume { get; init; }
         public required SmoothGainSampleProvider TalkGain { get; init; }
+        public double PlaybackStartSeconds { get; init; }
         public bool Paused { get; set; }
         public bool PauseRequested { get; set; }
         public float PeakLeft { get; set; }
@@ -37,6 +38,7 @@ public sealed class AudioEngine : IDisposable
         public bool LoopEnabled { get; init; }
         public bool UsesSecondaryDevice { get; init; }
         public double PolyphonyHeadroomDb { get; set; }
+        public double PlaybackGainOffsetDb { get; init; }
         public bool IsVolumeTransitioning => _isVolumeTransitioning;
         public CancellationToken BeginFade()
         {
@@ -172,7 +174,8 @@ public sealed class AudioEngine : IDisposable
 
     public PlaybackAction Play(Jingle jingle, bool honorJingleLoop = true, double? fadeInSecondsOverride = null,
         double? fadeOutPreviousSecondsOverride = null, bool releaseTalkDucking = true,
-        TimeSpan? initialClipPosition = null)
+        TimeSpan? initialClipPosition = null, double? playbackStartSecondsOverride = null,
+        double playbackGainOffsetDb = 0)
     {
         if (!File.Exists(jingle.FilePath))
             throw new FileNotFoundException("Ljudfilen kunde inte hittas.", jingle.FilePath);
@@ -212,10 +215,12 @@ public sealed class AudioEngine : IDisposable
             try
             {
                 reader = new AudioFileReader(jingle.FilePath);
-                var clipStart = TimeSpan.FromSeconds(Math.Max(0, jingle.StartSeconds));
+                var playbackStartSeconds = Math.Max(0, playbackStartSecondsOverride ?? jingle.StartSeconds);
+                var clipStart = TimeSpan.FromSeconds(playbackStartSeconds);
                 var clipEnd = jingle.EndSeconds is double endSeconds
-                    ? TimeSpan.FromSeconds(Math.Max(jingle.StartSeconds, endSeconds))
+                    ? TimeSpan.FromSeconds(Math.Max(playbackStartSeconds, endSeconds))
                     : reader.TotalTime;
+                if (clipStart > reader.TotalTime) clipStart = reader.TotalTime;
                 var requestedOffset = initialClipPosition ?? TimeSpan.Zero;
                 reader.CurrentTime = clipStart + TimeSpan.FromTicks(
                     Math.Clamp(requestedOffset.Ticks, 0, Math.Max(0, (clipEnd - clipStart).Ticks)));
@@ -238,8 +243,10 @@ public sealed class AudioEngine : IDisposable
                     Effects = effects,
                     FadeVolume = fadeVolume,
                     TalkGain = talkGain,
+                    PlaybackStartSeconds = clipStart.TotalSeconds,
                     LoopEnabled = honorJingleLoop && jingle.Loop,
-                    UsesSecondaryDevice = _useSecondaryDevice
+                    UsesSecondaryDevice = _useSecondaryDevice,
+                    PlaybackGainOffsetDb = Math.Clamp(playbackGainOffsetDb, -60, 12)
                 };
                 createdVoice = voice;
                 meter.StreamVolume += (_, e) =>
@@ -375,7 +382,7 @@ public sealed class AudioEngine : IDisposable
         lock (_gate)
             if (_primary is not null)
             {
-                var start = TimeSpan.FromSeconds(Math.Max(0, _primary.Jingle.StartSeconds));
+                var start = TimeSpan.FromSeconds(_primary.PlaybackStartSeconds);
                 var end = _primary.Jingle.EndSeconds is double seconds
                     ? TimeSpan.FromSeconds(seconds) : _primary.Reader.TotalTime;
                 _primary.Reader.CurrentTime = start + TimeSpan.FromTicks(
@@ -388,7 +395,7 @@ public sealed class AudioEngine : IDisposable
         lock (_gate)
         {
             if (_primary is null) return null;
-            var start = TimeSpan.FromSeconds(Math.Max(0, _primary.Jingle.StartSeconds));
+            var start = TimeSpan.FromSeconds(_primary.PlaybackStartSeconds);
             return _primary.Reader.CurrentTime > start ? _primary.Reader.CurrentTime - start : TimeSpan.Zero;
         }
     }
@@ -441,7 +448,7 @@ public sealed class AudioEngine : IDisposable
             {
                 if (voice.Jingle.EndSeconds is not double endSeconds || voice.Reader.CurrentTime.TotalSeconds < endSeconds) continue;
                 if (voice.LoopEnabled)
-                    voice.Reader.CurrentTime = TimeSpan.FromSeconds(voice.Jingle.StartSeconds);
+                    voice.Reader.CurrentTime = TimeSpan.FromSeconds(voice.PlaybackStartSeconds);
                 else
                 {
                     voice.NaturalEndRequested = true;
@@ -452,7 +459,7 @@ public sealed class AudioEngine : IDisposable
                 snapshot = new(null, "Redo för nästa jingle", "", TimeSpan.Zero, TimeSpan.Zero, -60, -60, false, false);
             else
             {
-                var start = TimeSpan.FromSeconds(Math.Max(0, _primary.Jingle.StartSeconds));
+                var start = TimeSpan.FromSeconds(_primary.PlaybackStartSeconds);
                 var end = _primary.Jingle.EndSeconds is double seconds
                     ? TimeSpan.FromSeconds(seconds) : _primary.Reader.TotalTime;
                 var duration = end > start ? end - start : TimeSpan.Zero;
@@ -482,7 +489,7 @@ public sealed class AudioEngine : IDisposable
         {
             if (error is null && !voice.StopRequested && voice.LoopEnabled && !voice.IsDisposed)
             {
-                voice.Reader.CurrentTime = TimeSpan.FromSeconds(voice.Jingle.StartSeconds);
+                voice.Reader.CurrentTime = TimeSpan.FromSeconds(voice.PlaybackStartSeconds);
                 voice.Output.Play();
                 return;
             }
@@ -566,7 +573,7 @@ public sealed class AudioEngine : IDisposable
     private float TargetVolume(Voice voice)
     {
         var gainDb = voice.Jingle.GainDb + (voice.Jingle.NormalizationEnabled ? voice.Jingle.NormalizationGainDb : 0) +
-            _masterDb + voice.PolyphonyHeadroomDb;
+            _masterDb + voice.PolyphonyHeadroomDb + voice.PlaybackGainOffsetDb;
         // Röster som redan tonas ut är en del av en crossfade, inte en bestående mix.
         // Genom att utesluta dem hålls den nya röstens gain konstant under hela starten.
         var activeOnDevice = _voices.Where(candidate => !candidate.IsDisposed && !candidate.StopRequested && !candidate.NaturalEndRequested &&

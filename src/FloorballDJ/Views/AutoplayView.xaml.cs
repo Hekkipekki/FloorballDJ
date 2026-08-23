@@ -294,15 +294,26 @@ public partial class AutoplayView : UserControl
     {
         var dialog = new OpenFileDialog { Filter = "FloorballDJ-spellista|*.fdjplaylist.json|JSON|*.json" };
         if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
-        try
-        {
-            var entries = JsonSerializer.Deserialize<List<PlaylistEntry>>(File.ReadAllText(dialog.FileName)) ?? [];
-            var all = SelectedSource().Concat(_folderItems).ToList();
-            ViewModel.ReplaceQueue(entries.Where(entry => File.Exists(entry.FilePath)).Select(entry =>
-                all.FirstOrDefault(item => string.Equals(item.FilePath, entry.FilePath, StringComparison.OrdinalIgnoreCase)) ??
-                new Jingle { Title = entry.Title, FilePath = entry.FilePath, PlayMode = JinglePlayMode.Solo }));
-        }
+        try { LoadPlaylist(dialog.FileName, false); }
         catch (Exception ex) { MessageBox.Show(Window.GetWindow(this), ex.Message, "Kunde inte läsa spellistan", MessageBoxButton.OK, MessageBoxImage.Warning); }
+    }
+
+    public bool LoadDefaultPlaylistAndStart(string path, double volumeDb)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return false;
+        return LoadPlaylist(path, true, volumeDb);
+    }
+
+    private bool LoadPlaylist(string path, bool startPlayback, double queueGainOffsetDb = 0)
+    {
+        var entries = JsonSerializer.Deserialize<List<PlaylistEntry>>(File.ReadAllText(path)) ?? [];
+        var all = ViewModel.Decks.SelectMany(deck => deck.Jingles).Where(jingle => jingle.HasAudio)
+            .Concat(_folderItems).ToList();
+        var items = entries.Where(entry => File.Exists(entry.FilePath)).Select(entry =>
+            all.FirstOrDefault(item => string.Equals(item.FilePath, entry.FilePath, StringComparison.OrdinalIgnoreCase)) ??
+            new Jingle { Title = entry.Title, FilePath = entry.FilePath, PlayMode = JinglePlayMode.Solo }).ToArray();
+        ViewModel.ReplaceQueue(items, queueGainOffsetDb);
+        return items.Length > 0 && (!startPlayback || ViewModel.PlayNextQueued());
     }
 
     private sealed record DeckFilter(string Name, Deck? Deck);

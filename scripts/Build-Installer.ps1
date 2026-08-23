@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [Parameter()][ValidateNotNullOrEmpty()][string]$Version = "0.40.0-beta.18",
+    [Parameter()][ValidateNotNullOrEmpty()][string]$Version = "0.40.0-beta.19",
     [Parameter()][ValidateSet("Debug", "Release")][string]$Configuration = "Release",
     [Parameter()][ValidateNotNullOrEmpty()][string]$Runtime = "win-x64",
     [Parameter()][switch]$Sign,

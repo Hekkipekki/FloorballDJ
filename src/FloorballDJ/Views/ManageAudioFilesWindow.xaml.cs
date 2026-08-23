@@ -133,7 +133,8 @@ public partial class ManageAudioFilesWindow : Window
                 : $"Varning: {result.MissingFiles.Count} ljudfiler saknades och kunde inte kopieras.";
             MessageBox.Show(this,
                 $"Profil, inställningar och media har kopierats till:\n{result.Directory}\n\n" +
-                $"{result.MediaFileCount} ljudfiler och {result.CustomFontCount} egna typsnitt kopierades.\n{warning}",
+                $"{result.MediaFileCount} ljudfiler, {result.CustomFontCount} egna typsnitt och " +
+                $"{result.RandomPoolProfileCount} profilbundna slumpgrupper och {result.TeamDeckProfileCount} Team Deck kopierades.\n{warning}",
                 "Backup klar", MessageBoxButton.OK,
                 result.MissingFiles.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
         }

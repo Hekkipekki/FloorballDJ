@@ -235,6 +235,9 @@
                     </MenuItem>
                     <MenuItem Header="_Verktyg">
                         <MenuItem Header="Inställningar…" Click="Settings_Click" />
+                        <MenuItem Header="Slumpmässig låtspelare…" Click="RandomPlayerSettings_Click" />
+                        <MenuItem Header="Team Deck…" Click="TeamDeckSettings_Click" />
+                        <Separator />
                         <MenuItem Header="Analysera och balansera ljud…" Click="Loudness_Click" />
                         <MenuItem Header="Bygg egen jingle…" Click="MergeJingles_Click" />
                         <MenuItem Header="Kontrollera ljudfiler…" Click="FindMissing_Click" />
@@ -249,10 +252,20 @@
                     </MenuItem>
                 </Menu>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Border Background="#142338" BorderBrush="#30425B" BorderThickness="1" CornerRadius="6" Padding="11,5" Margin="0,0,8,0"
-                            ToolTip="Datorns lokala klocka">
-                        <TextBlock x:Name="GlobalClockText" Text="00:00:00" FontFamily="Cascadia Mono" FontSize="14" FontWeight="SemiBold"
-                                   Foreground="{StaticResource AccentBrush}" />
+                    <Border x:Name="GlobalClock" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="1,0,0,0"
+                            Padding="14,0,14,0" Margin="0,0,3,0" ToolTip="Datorns lokala datum och tid">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="&#xE823;" FontFamily="Segoe Fluent Icons" FontSize="12"
+                                       Foreground="{StaticResource AccentBrush}" Opacity="0.78"
+                                       VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock x:Name="GlobalClockText" Text="00:00" FontFamily="Segoe UI Variable Display" FontSize="15"
+                                           FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                                <TextBlock x:Name="GlobalClockSecondsText" Text=":00" FontFamily="Segoe UI Variable Text" FontSize="10"
+                                           FontWeight="Medium" Foreground="{StaticResource MutedBrush}"
+                                           VerticalAlignment="Center" Margin="2,2,0,0" />
+                            </StackPanel>
+                        </StackPanel>
                     </Border>
                     <Button Content="&#xE713;" Style="{StaticResource WindowButton}" ToolTip="Inställningar" Click="Settings_Click" />
                     <Button Content="&#xE921;" Style="{StaticResource WindowButton}" ToolTip="Minimera" Click="Minimize_Click" />
