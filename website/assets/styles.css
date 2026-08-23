@@ -154,6 +154,8 @@ h1 em, .closing-cta h2 em { color: transparent; font-style: normal; -webkit-text
 .showcase-grid { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .showcase-grid .app-frame { position: relative; padding: 8px; }
 .showcase-grid img { width: 100%; aspect-ratio: 16 / 8.4; object-fit: cover; object-position: top; border-radius: 10px; }
+.showcase-grid .app-frame-wide { grid-column: 1 / -1; }
+.showcase-grid .app-frame-wide img { aspect-ratio: 16 / 7.1; }
 .window-label { position: absolute; z-index: 2; top: 20px; left: 20px; padding: 7px 11px; border-radius: 7px; background: rgba(3,9,19,.8); border: 1px solid var(--line); color: var(--mint); font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; }
 .app-frame figcaption { padding: 18px 14px 10px; display: flex; flex-direction: column; }
 .app-frame figcaption strong { font-size: 1rem; }.app-frame figcaption span { color: var(--muted); font-size: .82rem; }
