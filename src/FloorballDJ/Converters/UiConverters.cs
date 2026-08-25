@@ -123,10 +123,28 @@ public sealed class TakeSlotsConverter : IMultiValueConverter
         if (values.Length < 3 || values[0] is not IList source || values[1] is not int rows || values[2] is not int columns)
             return Array.Empty<object>();
         var slots = Math.Max(0, rows * columns);
+        var page = values.Length > 3 && values[3] is int activePage ? Math.Max(0, activePage) : 0;
+        var first = page * slots;
+        var last = first + slots;
         return new ListCollectionView(source)
         {
-            Filter = item => item is Jingle jingle && jingle.Position < slots
+            Filter = item => item is Jingle jingle && jingle.Position >= first && jingle.Position < last
         };
     }
     public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) => targetTypes.Select(_ => Binding.DoNothing).ToArray();
+}
+
+public sealed class PageSelectedConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture) =>
+        values.Length >= 2 && values[0] is int pageNumber && values[1] is int activePage && pageNumber == activePage + 1;
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) =>
+        targetTypes.Select(_ => Binding.DoNothing).ToArray();
+}
+
+public sealed class MultiplePagesVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+        value is int count && count > 1 ? Visibility.Visible : Visibility.Collapsed;
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
 }

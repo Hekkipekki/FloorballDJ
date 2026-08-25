@@ -93,6 +93,9 @@ public partial class MainWindow : Window
             // Windows aktivitetsfält, även vid hög DPI eller ändrad skärmuppsättning.
             WindowState = WindowState.Maximized;
             await ViewModel.InitializeAsync();
+            // En ny programkörning är alltid en ny matchsession. Tidigare
+            // sessionmarkeringar är endast runtime-data och börjar därför tomma.
+            ViewModel.Settings.TrackSession = true;
             RefreshOutputName();
             if (Environment.GetCommandLineArgs().Contains("--smoke-test", StringComparer.OrdinalIgnoreCase))
             {
@@ -601,8 +604,7 @@ public partial class MainWindow : Window
         ClearInlineSearchHighlight();
         EmbeddedAutoplay.Visibility = Visibility.Collapsed;
         ViewModel.SetAutoplayMode(false);
-        ViewModel.SelectedDeck = match.Deck;
-        DeckTabsControl.SelectedItem = match.Deck;
+        ShowJinglePage(match.Deck, match.Jingle);
         match.Jingle.IsSearchMatch = true;
         _inlineSearchHighlight = match.Jingle;
         // Behåll markeringen så länge söktexten finns kvar. Det gör att Enter alltid
@@ -810,8 +812,7 @@ public partial class MainWindow : Window
                     {
                         EmbeddedAutoplay.Visibility = Visibility.Collapsed;
                         ViewModel.SetAutoplayMode(false);
-                        ViewModel.SelectedDeck = shortcutDeck;
-                        DeckTabsControl.SelectedItem = shortcutDeck;
+                        ShowJinglePage(shortcutDeck, shortcutJingle);
                     }
                 }
                 try { ViewModel.Play(shortcutJingle); }
@@ -878,7 +879,7 @@ public partial class MainWindow : Window
         if (candidates.Count == 0) return false;
         e.Handled = true;
         ClearSpaceResume();
-        var candidateArray = candidates.ToArray();
+        var candidateArray = candidates.DistinctBy(candidate => candidate.Id).ToArray();
         var pressedRandomShortcut = RandomShortcutToken(e);
         var activeRandom = _activeRandomJingleId is Guid activeId
             ? candidateArray.FirstOrDefault(candidate => candidate.Id == activeId)
@@ -893,9 +894,17 @@ public partial class MainWindow : Window
             return true;
         }
 
-        var nextCandidates = candidateArray.Length > 1 && sameRandomShortcut && _activeRandomJingleId is Guid previousId
-            ? candidateArray.Where(candidate => candidate.Id != previousId).ToArray()
+        // Under en aktiv session ska slumpval i första hand gå igenom allt
+        // ospelat i poolen. När hela poolen är spelad får alla delta igen.
+        var preferredCandidates = ViewModel.Settings.TrackSession
+            ? candidateArray.Where(candidate => candidate.SessionPlayCount == 0).ToArray()
             : candidateArray;
+        if (preferredCandidates.Length == 0) preferredCandidates = candidateArray;
+
+        var nextCandidates = preferredCandidates.Length > 1 && sameRandomShortcut && _activeRandomJingleId is Guid previousId
+            ? preferredCandidates.Where(candidate => candidate.Id != previousId).ToArray()
+            : preferredCandidates;
+        if (nextCandidates.Length == 0) nextCandidates = preferredCandidates;
         var selected = nextCandidates[Random.Shared.Next(nextCandidates.Length)];
         _activeRandomShortcut = pressedRandomShortcut;
         _activeRandomJingleId = selected.Id;
@@ -993,6 +1002,23 @@ public partial class MainWindow : Window
     {
         ViewModel.SetAutoplayMode(false);
         EmbeddedAutoplay.Visibility = Visibility.Collapsed;
+
+        // När pekaren ligger över en deckflik med flera sidor används hjulet
+        // för sidbyte inom det decket. På ensidiga deck behålls det tidigare
+        // beteendet där hjulet går mellan deckflikarna.
+        var hoveredTab = FindAncestor<TabItem>(e.OriginalSource as DependencyObject);
+        if (hoveredTab?.Content is Deck { PageCount: > 1 } pagedDeck)
+        {
+            hoveredTab.IsSelected = true;
+            ViewModel.SelectedDeck = pagedDeck;
+            pagedDeck.ActivePage = e.Delta < 0
+                ? (pagedDeck.ActivePage + 1) % pagedDeck.PageCount
+                : (pagedDeck.ActivePage - 1 + pagedDeck.PageCount) % pagedDeck.PageCount;
+            ViewModel.Status = $"{pagedDeck.Name} · sida {pagedDeck.ActivePage + 1} av {pagedDeck.PageCount}";
+            e.Handled = true;
+            return;
+        }
+
         if (DeckTabsControl.Items.Count < 2) return;
         var current = Math.Max(0, DeckTabsControl.SelectedIndex);
         DeckTabsControl.SelectedIndex = e.Delta < 0
@@ -1013,6 +1039,12 @@ public partial class MainWindow : Window
         menu.Items.Add(CreateDeckMenuItem("Ta bort deck", deck, RemoveDeck_Click));
         menu.Items.Add(new Separator());
         menu.Items.Add(CreateDeckMenuItem("Ändra rader och kolumner…", deck, ChangeDeckLayout_Click));
+        var pagesMenu = new MenuItem { Header = "Sidor" };
+        pagesMenu.Items.Add(CreateDeckMenuItem("Lägg till sida", deck, AddDeckPage_Click));
+        var removePage = CreateDeckMenuItem("Ta bort sista sidan", deck, RemoveLastDeckPage_Click);
+        removePage.IsEnabled = deck.PageCount > 1;
+        pagesMenu.Items.Add(removePage);
+        menu.Items.Add(pagesMenu);
         menu.Items.Add(CreateDeckMenuItem("Ställ in fade in/ut…", deck, ChangeDeckFades_Click));
         tab.ContextMenu = menu;
         menu.PlacementTarget = tab;
@@ -1085,11 +1117,13 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog() != true) return;
         var hiddenAudio = ProjectService.CountHiddenAudioAfterResize(deck, dialog.Rows, dialog.Columns);
         if (hiddenAudio > 0 && MessageBox.Show(this,
-                $"Den nya layouten har inte plats för {hiddenAudio} jinglar. De finns kvar dolda och visas igen om decket förstoras. Fortsätta?",
-                "Dolda jinglar", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+                $"Även med maximalt {ProjectService.MaximumDeckPages} sidor saknar den nya layouten plats för {hiddenAudio} jinglar. De finns kvar dolda och visas igen om decket förstoras. Fortsätta?",
+                "Deckets sidgräns nås", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        var previousPages = deck.PageCount;
         ProjectService.ResizeDeckLayout(deck, dialog.Rows, dialog.Columns);
         ViewModel.ApplyLayout();
-        ViewModel.Status = $"{deck.Name}: {deck.Rows} rader × {deck.Columns} kolumner";
+        var pageChange = deck.PageCount > previousPages ? $" · skapade {deck.PageCount - previousPages} nya sidor" : "";
+        ViewModel.Status = $"{deck.Name}: {deck.Rows} rader × {deck.Columns} kolumner{pageChange}";
         await SaveSafelyAsync();
     }
 
@@ -1108,6 +1142,104 @@ public partial class MainWindow : Window
         }
         ViewModel.NotifyJingleChanged();
         ViewModel.Status = $"{deck.Name}: uppdaterade fade in/ut för {changed} jinglar";
+        await SaveSafelyAsync();
+    }
+
+    private async void AddDeckPage_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetContextDeck(sender) is not { } deck) return;
+        if (deck.PageCount >= ProjectService.MaximumDeckPages)
+        {
+            MessageBox.Show(this, $"Ett deck kan innehålla högst {ProjectService.MaximumDeckPages} sidor.",
+                "Kan inte lägga till sida", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        deck.PageCount++;
+        ViewModel.ApplyLayout();
+        deck.ActivePage = deck.PageCount - 1;
+        ViewModel.NotifyJingleChanged();
+        ViewModel.Status = $"{deck.Name}: lade till sida {deck.PageCount}";
+        await SaveSafelyAsync();
+    }
+
+    private async void RemoveLastDeckPage_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetContextDeck(sender) is not { PageCount: > 1 } deck) return;
+        var slots = Math.Max(1, deck.Rows * deck.Columns);
+        var first = (deck.PageCount - 1) * slots;
+        var lastPage = deck.Jingles.Skip(first).Take(slots).ToArray();
+        if (lastPage.Any(jingle => jingle.HasContent))
+        {
+            MessageBox.Show(this, "Sista sidan innehåller jinglar eller textblock. Flytta eller töm dem innan sidan tas bort.",
+                "Sidan används", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var removeCount = Math.Min(slots, Math.Max(0, deck.Jingles.Count - first));
+        for (var index = 0; index < removeCount; index++)
+            deck.Jingles.RemoveAt(deck.Jingles.Count - 1);
+        deck.PageCount--;
+        deck.ActivePage = Math.Min(deck.ActivePage, deck.PageCount - 1);
+        ViewModel.NotifyJingleChanged();
+        ViewModel.Status = $"{deck.Name}: tog bort sista sidan";
+        await SaveSafelyAsync();
+    }
+
+    private void DeckPage_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ToggleButton { DataContext: int pageNumber, Tag: Deck deck }) return;
+        deck.ActivePage = pageNumber - 1;
+        ViewModel.SelectedDeck = deck;
+        ViewModel.SetAutoplayMode(false);
+        EmbeddedAutoplay.Visibility = Visibility.Collapsed;
+        ViewModel.Status = $"{deck.Name} · sida {pageNumber} av {deck.PageCount}";
+    }
+
+    private void DeckPage_DragOver(object sender, DragEventArgs e)
+    {
+        if (sender is not ToggleButton { DataContext: int pageNumber, Tag: Deck deck } button) return;
+        var source = e.Data.GetData(typeof(Jingle)) as Jingle;
+        var slots = Math.Max(1, deck.Rows * deck.Columns);
+        var first = (pageNumber - 1) * slots;
+        var hasEmptyTarget = deck.Jingles.Skip(first).Take(slots).Any(jingle => !jingle.HasContent);
+        e.Effects = source is not null && deck.Jingles.Contains(source) && hasEmptyTarget
+            ? DragDropEffects.Move : DragDropEffects.None;
+        button.BorderBrush = e.Effects == DragDropEffects.Move
+            ? (Brush)FindResource("AccentBrush") : (Brush)FindResource("DangerBrush");
+        button.BorderThickness = new Thickness(2);
+        e.Handled = true;
+    }
+
+    private void DeckPage_DragLeave(object sender, DragEventArgs e)
+    {
+        if (sender is not ToggleButton button) return;
+        var point = e.GetPosition(button);
+        if (point.X >= 0 && point.Y >= 0 && point.X <= button.ActualWidth && point.Y <= button.ActualHeight) return;
+        button.ClearValue(Border.BorderBrushProperty);
+        button.ClearValue(Border.BorderThicknessProperty);
+    }
+
+    private async void DeckPage_Drop(object sender, DragEventArgs e)
+    {
+        if (sender is not ToggleButton { DataContext: int pageNumber, Tag: Deck deck } button) return;
+        button.ClearValue(Border.BorderBrushProperty);
+        button.ClearValue(Border.BorderThicknessProperty);
+        var source = e.Data.GetData(typeof(Jingle)) as Jingle;
+        if (source is null || !deck.Jingles.Contains(source)) return;
+        var slots = Math.Max(1, deck.Rows * deck.Columns);
+        var first = (pageNumber - 1) * slots;
+        var target = deck.Jingles.Skip(first).Take(slots).FirstOrDefault(jingle => !jingle.HasContent);
+        if (target is null || ReferenceEquals(source, target)) return;
+        var sourceIndex = deck.Jingles.IndexOf(source);
+        var targetIndex = deck.Jingles.IndexOf(target);
+        target.Position = sourceIndex;
+        source.Position = targetIndex;
+        deck.Jingles[sourceIndex] = target;
+        deck.Jingles[targetIndex] = source;
+        deck.ActivePage = pageNumber - 1;
+        ViewModel.NotifyJingleChanged();
+        ViewModel.Status = $"Flyttade {source.Title} till {deck.Name} · sida {pageNumber}";
+        _suppressNextClick = true;
+        e.Handled = true;
         await SaveSafelyAsync();
     }
 
@@ -1287,13 +1419,21 @@ public partial class MainWindow : Window
         var cursor = Math.Max(0, deck.Jingles.IndexOf(startJingle));
         var added = 0;
         var addedRows = 0;
+        var addedPages = 0;
         foreach (var path in files)
         {
             var slotIndex = FindAvailableSlot(deck, cursor);
-            while (slotIndex < 0 && deck.Rows < ProjectService.MaximumDeckRows)
+            while (slotIndex < 0 && deck.PageCount == 1 && deck.Rows < ProjectService.MaximumDeckRows)
             {
                 deck.Rows++;
                 addedRows++;
+                ViewModel.ApplyLayout();
+                slotIndex = FindAvailableSlot(deck, cursor);
+            }
+            if (slotIndex < 0 && deck.PageCount < ProjectService.MaximumDeckPages)
+            {
+                deck.PageCount++;
+                addedPages++;
                 ViewModel.ApplyLayout();
                 slotIndex = FindAvailableSlot(deck, cursor);
             }
@@ -1307,22 +1447,26 @@ public partial class MainWindow : Window
             catch { jingle.DurationSeconds = 0; }
             added++;
             cursor = slotIndex + 1;
+            deck.ActivePage = Math.Clamp(slotIndex / Math.Max(1, deck.Rows * deck.Columns), 0, deck.PageCount - 1);
         }
 
         ViewModel.NotifyJingleChanged();
         ViewModel.Status = addedRows > 0
             ? $"Lade till {added} ljudfiler och utökade {deck.Name} med {addedRows} rader"
-            : $"Lade till {added} ljudfiler i {deck.Name}";
+            : addedPages > 0
+                ? $"Lade till {added} ljudfiler och skapade {addedPages} nya sidor i {deck.Name}"
+                : $"Lade till {added} ljudfiler i {deck.Name}";
         await SaveSafelyAsync();
         if (added < files.Length)
-            MessageBox.Show(this, $"{files.Length - added} ljudfiler kunde inte läggas till eftersom decket nådde säkerhetsgränsen på {ProjectService.MaximumDeckRows} rader.",
+            MessageBox.Show(this, $"{files.Length - added} ljudfiler kunde inte läggas till eftersom decket nådde gränsen för rader och sidor.",
                 "Decket är fullt", MessageBoxButton.OK, MessageBoxImage.Warning);
         return added;
     }
 
     private static int FindAvailableSlot(Deck deck, int startIndex)
     {
-        var capacity = Math.Min(deck.Jingles.Count, deck.Rows * Math.Max(1, deck.Columns));
+        var capacity = Math.Min(deck.Jingles.Count,
+            deck.Rows * Math.Max(1, deck.Columns) * Math.Max(1, deck.PageCount));
         if (capacity <= 0) return -1;
         var start = Math.Clamp(startIndex, 0, capacity);
         for (var index = start; index < capacity; index++)
@@ -1417,8 +1561,10 @@ public partial class MainWindow : Window
 
         if (entireRow)
         {
-            var row = jingle.Position / Math.Max(1, deck.Columns);
-            var first = row * deck.Columns;
+            var pageSlots = Math.Max(1, deck.Rows * deck.Columns);
+            var page = Math.Max(0, jingle.Position / pageSlots);
+            var row = Math.Max(0, (jingle.Position % pageSlots) / Math.Max(1, deck.Columns));
+            var first = page * pageSlots + row * deck.Columns;
             var last = Math.Min(deck.Jingles.Count, first + deck.Columns);
             for (var index = first; index < last; index++)
             {
@@ -1434,8 +1580,19 @@ public partial class MainWindow : Window
             jingle.TextColor = dialog.TextColor;
             ViewModel.NotifyJingleChanged(jingle);
         }
-        ViewModel.Status = entireRow ? $"Uppdaterade rad {jingle.Position / Math.Max(1, deck.Columns) + 1}" : $"Uppdaterade {jingle.Title}";
+        var localRow = (jingle.Position % Math.Max(1, deck.Rows * deck.Columns)) / Math.Max(1, deck.Columns) + 1;
+        ViewModel.Status = entireRow ? $"Uppdaterade sida {deck.ActivePage + 1}, rad {localRow}" : $"Uppdaterade {jingle.Title}";
         ViewModel.RequestSave();
+    }
+
+    private void ShowJinglePage(Deck deck, Jingle jingle)
+    {
+        var position = deck.Jingles.IndexOf(jingle);
+        var slotsPerPage = Math.Max(1, deck.Rows * deck.Columns);
+        if (position >= 0)
+            deck.ActivePage = Math.Clamp(position / slotsPerPage, 0, Math.Max(0, deck.PageCount - 1));
+        ViewModel.SelectedDeck = deck;
+        DeckTabsControl.SelectedItem = deck;
     }
 
     private void CopyJingle_Click(object sender, RoutedEventArgs e)
@@ -1904,6 +2061,15 @@ public partial class MainWindow : Window
         target.IntegratedLufs = source.IntegratedLufs; target.TruePeakDbtp = source.TruePeakDbtp; target.LoudnessRangeLu = source.LoudnessRangeLu;
         target.MaxMomentaryLufs = source.MaxMomentaryLufs; target.NormalizationGainDb = source.NormalizationGainDb;
         target.AnalysisFileSize = source.AnalysisFileSize; target.AnalysisFileWriteUtcTicks = source.AnalysisFileWriteUtcTicks;
+        target.DetectedBpm = source.DetectedBpm; target.BeatConfidence = source.BeatConfidence;
+        target.DetectedKey = source.DetectedKey; target.DetectedScale = source.DetectedScale; target.CamelotCode = source.CamelotCode;
+        target.KeyConfidence = source.KeyConfidence; target.MusicalEnergy = source.MusicalEnergy;
+        target.SuggestedTransitionSeconds = source.SuggestedTransitionSeconds;
+        target.SuggestedTransitionFadeSeconds = source.SuggestedTransitionFadeSeconds;
+        target.MusicAnalysisFileSize = source.MusicAnalysisFileSize;
+        target.MusicAnalysisFileWriteUtcTicks = source.MusicAnalysisFileWriteUtcTicks;
+        target.MusicAnalysisStartSeconds = source.MusicAnalysisStartSeconds;
+        target.MusicAnalysisEndSeconds = source.MusicAnalysisEndSeconds;
         target.EqLowDb = source.EqLowDb; target.EqMidDb = source.EqMidDb; target.EqHighDb = source.EqHighDb;
         target.CompressorEnabled = source.CompressorEnabled; target.CompressorThresholdDb = source.CompressorThresholdDb; target.CompressorRatio = source.CompressorRatio;
         target.CompressorAttackMs = source.CompressorAttackMs; target.CompressorReleaseMs = source.CompressorReleaseMs;

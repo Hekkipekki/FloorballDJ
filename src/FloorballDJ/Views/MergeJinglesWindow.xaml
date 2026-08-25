@@ -27,8 +27,14 @@
         <Grid>
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <Button x:Name="JingleModeButton" Content="Jingle / sekvens" Style="{StaticResource PrimaryButton}" IsEnabled="False"
+                            ToolTip="Korta mållåtar, utvisningsljud och sekvenser med effekter."/>
+                    <Button x:Name="LongMixModeButton" Content="Lång mix" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
+                            Click="OpenLongMix_Click" ToolTip="Uppvärmningsmixar och längre musiksekvenser med analys av flera låtar."/>
+                </StackPanel>
                 <TextBlock Text="JINGLEBYGGARE" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" FontSize="11" />
-                <TextBlock Text="Skapa mållåtar och egna ljudsekvenser" FontSize="24" FontWeight="SemiBold" Margin="0,3,0,0" />
+                <TextBlock x:Name="BuilderTitle" Text="Skapa mållåtar och egna ljudsekvenser" FontSize="24" FontWeight="SemiBold" Margin="0,3,0,0" />
                 <TextBlock Text="Lägg till två eller fler ljud, trimma dem och ställ övergången mellan varje del. Originalfilerna ändras aldrig."
                            Foreground="{StaticResource MutedBrush}" Margin="0,3,0,0" />
             </StackPanel>
@@ -150,6 +156,42 @@
                                      KeyDown="ClipVolumeBox_KeyDown" LostKeyboardFocus="ClipVolumeBox_LostKeyboardFocus" ToolTip="Extra nivå i dB, från −24 till +12."/>
                         </Grid>
                     </StackPanel>
+                </GroupBox>
+
+                <GroupBox x:Name="MixAssistGroup" Header="Mixhjälp · analys och rekommenderad övergång"
+                          Style="{StaticResource ModernGroupBox}" Margin="0,0,0,10">
+                    <Grid Margin="5,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.15*"/><ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="1.15*"/><ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width=".8*"/><ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Background="#101E30" BorderBrush="#263B55" BorderThickness="1" CornerRadius="6" Padding="11,9">
+                            <StackPanel>
+                                <TextBlock x:Name="CurrentAnalysisHeading" Text="LJUD 1" Style="{StaticResource EyebrowText}"/>
+                                <TextBlock x:Name="CurrentAnalysisText" Text="Inte analyserat" FontFamily="Cascadia Mono" FontWeight="SemiBold" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="2" Background="#101E30" BorderBrush="#263B55" BorderThickness="1" CornerRadius="6" Padding="11,9">
+                            <StackPanel>
+                                <TextBlock x:Name="NextAnalysisHeading" Text="LJUD 2" Style="{StaticResource EyebrowText}"/>
+                                <TextBlock x:Name="NextAnalysisText" Text="Inte analyserat" FontFamily="Cascadia Mono" FontWeight="SemiBold" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="4" Background="#12312F" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" CornerRadius="6" Padding="11,9">
+                            <StackPanel>
+                                <TextBlock Text="MATCHNING" Style="{StaticResource EyebrowText}"/>
+                                <TextBlock x:Name="CompatibilityScoreText" Text="–" Foreground="{StaticResource AccentBrush}" FontFamily="Cascadia Mono" FontWeight="Bold" FontSize="20" Margin="0,2,0,0"/>
+                                <TextBlock x:Name="CompatibilitySummaryText" Text="Analysera paret för ett förslag" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <StackPanel Grid.Column="5" Margin="12,0,0,0" VerticalAlignment="Center">
+                            <Button x:Name="AnalyzePairButton" Content="Analysera ljudparet" Style="{StaticResource SecondaryButton}" MinWidth="165" Click="AnalyzePair_Click"
+                                    ToolTip="Analyserar BPM, takt, tonart, Camelot-kod och energi lokalt. Originalfilerna ändras aldrig."/>
+                            <Button x:Name="ApplyMixSuggestionButton" Content="Använd övergångsförslag" Style="{StaticResource PrimaryButton}" MinWidth="165" Margin="0,7,0,0"
+                                    IsEnabled="False" Click="ApplyMixSuggestion_Click" ToolTip="Flyttar övergångspunkten till ett föreslaget taktslag och ställer en musikalisk fade-längd."/>
+                        </StackPanel>
+                    </Grid>
                 </GroupBox>
 
                 <GroupBox x:Name="TransitionGroup" Header="Övergång till nästa ljud" Style="{StaticResource ModernGroupBox}" Margin="0,0,0,10">

@@ -140,7 +140,7 @@
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Session och förlyssning" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Session" /> markerar spelade jinglar med en grön punkt; när Session stängs av rensas markeringarna. <Run FontWeight="Bold" Text="Förlyssning" /> gör att nya ljud spelas via Utgångsenhet 2. När läget stängs av stoppas förlyssningsljudet innan huvudutgången återaktiveras.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Session" /> startar automatiskt varje gång FloorballDJ öppnas och markerar spelade jinglar med en grön punkt. Slumpgrupper, globala slumpknappar och Autoplays Shuffle prioriterar jinglar som ännu inte har spelats; när alla i den aktuella poolen är spelade används hela poolen igen. När Session stängs av rensas markeringarna. <Run FontWeight="Bold" Text="Förlyssning" /> gör att nya ljud spelas via Utgångsenhet 2. När läget stängs av stoppas förlyssningsljudet innan huvudutgången återaktiveras.</TextBlock>
                         </GroupBox>
                     </StackPanel>
                 </ScrollViewer>
@@ -157,7 +157,7 @@
                             <TextBlock Style="{StaticResource HelpBody}">Öppna egenskaper, ladda/byta ljud, ändra knapp- och textfärg, använda färg på en hel rad, kopiera/klistra in, välja Solo/Mix/Duck eller ta bort jingeln. Att ta bort jingeln raderar inte ljudfilen från disken.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Deckflikar" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Högerklicka på en deckflik för att byta namn, lägga till, ta bort eller ändra rader/kolumner. Scrolla över flikarna för att byta deck. Om du minskar layouten kan jinglar döljas men finnas kvar i profilen.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Högerklicka på en deckflik för att byta namn, lägga till, ta bort, ändra rader/kolumner eller skapa flera sidor. Om rader eller kolumner minskas flyttas jinglar som inte längre får plats vidare och FloorballDJ skapar automatiskt fler sidor vid behov. Ett deck med flera sidor visar en kompakt rad med 1, 2, 3 under namnet. Klicka på ett nummer eller scrolla över deckfliken för att byta sida. Du kan också dra en jingle till ett sidnummer för att flytta den till sidans första lediga plats. Sökning och snabbtangenten Hoppa till öppnar automatiskt rätt deck och sida. På deck med en enda sida fortsätter mushjulet att växla mellan deckflikarna.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Team Deck" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Öppna <Run FontWeight="Bold">Verktyg → Team Deck</Run> för att skapa ett eller flera lag i den aktuella profilen. Välj lagnamn, snabbtangent och lagets standardjingle, och lägg sedan till spelare med varsin övergångsjingle. När snabbtangenten trycks spelas standardjingeln och en separat stream deck-liknande spelarvy öppnas. Klicka på en spelare för att spela spelarens ljud med profilens vanliga fade-regler. Team Deck följer profilen och en komplett flyttbackup.</TextBlock>
@@ -247,6 +247,12 @@
                                 <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0"><Run FontWeight="Bold" Text="Start för nästa ljud – " />den orange linjen. Den bestämmer när ljud 2, 3 och följande delar börjar i förhållande till föregående ljud.</TextBlock>
                                 <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0">Tider kan också skrivas manuellt. Tryck Enter för att använda värdet.</TextBlock>
                             </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="Mixhjälp: BPM, tonart och energi" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Välj två ljud och tryck på <Run FontWeight="Bold">Analysera ljudparet</Run>. Analysen körs lokalt på datorn och visar tempo (BPM), musikalisk tonart med Camelot-kod och energinivå. Matchpoängen väger samman rytm, harmonik och energi. <Run FontWeight="Bold">Använd övergångsförslag</Run> placerar en taktnära crossfade och fyller i en föreslagen längd. Resultatet är ett hjälpmedel – förhandslyssna alltid, särskilt med tal, sirener och korta effekter. Analysen sparas i profilen och räknas om när filen eller klippgränserna ändras; originalfilen påverkas aldrig.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Lång mix och analys av flera låtar" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Välj <Run FontWeight="Bold">Lång mix</Run> högst upp för uppvärmningsmixar och längre musikpass. Filtrera på ett deck eller sök i hela profilen, markera minst två låtar och välj <Run FontWeight="Bold">Analysera valda</Run>. Ange önskad total mixlängd samt minsta och längsta tid per låt. <Run FontWeight="Bold">Föreslå spelordning</Run> provar möjliga startlåtar, bygger en följd med jämna BPM-, Camelot- och energiövergångar och flyttar varje byte till närmaste musikaliska 16-taktsfras. Öppna därefter ordningen i långmixredigeraren för att lyssna, flytta markörer och finjustera varje crossfade.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Tre typer av övergång" Style="{StaticResource HelpGroup}">
                             <StackPanel>

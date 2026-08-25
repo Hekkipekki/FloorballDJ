@@ -29,6 +29,11 @@ jingle.Title = "Testjingle";
 jingle.FilePath = sourceAudio;
 jingle.StartSeconds = 1.5;
 jingle.EndSeconds = 4.25;
+project.Decks[0].PageCount = 2;
+ProjectService.EnsureLayout(project);
+var pageTwoText = project.Decks[0].Jingles[project.Decks[0].Rows * project.Decks[0].Columns];
+pageTwoText.IsTextBlock = true;
+pageTwoText.Title = "Sida två";
 project.Settings.RandomPoolProfiles =
 [
     new RandomPoolProfile
@@ -68,6 +73,9 @@ Assert(portable.Settings.OutputDeviceId is null && portable.Settings.SecondaryOu
     "Maskinspecifika ljudutgångar följde med.");
 Assert(portable.Settings.FadeInSeconds == 1.25 && portable.Settings.FadeOutSeconds == 3.5,
     "Profilens ljudinställningar bevarades inte.");
+Assert(portable.Decks[0].PageCount == 2 &&
+       portable.Decks[0].Jingles[portable.Decks[0].Rows * portable.Decks[0].Columns].Title == "Sida två",
+    "Deckets sidor bevarades inte i backupen.");
 Assert(portable.Settings.RandomPoolProfiles.Count == 1 &&
        portable.Settings.RandomPoolProfiles[0].Name == "IBF Mål" &&
        portable.Settings.RandomPoolProfiles[0].Shortcut == "Shift+2" &&
@@ -123,6 +131,26 @@ Assert(reloadedFirst.Settings.RandomPoolProfiles.Single().Name == "IBF Mål",
 Assert(reloadedSecond.Settings.RandomPoolProfiles.Single().Name == "Scandic Utvisning" &&
        reloadedSecond.Settings.RandomPoolProfiles.Single().Shortcut == "Ctrl+7",
     "Scandic-profilen fick fel slumpgrupp.");
+
+var pagedDeck = new Deck { Rows = 2, Columns = 3, PageCount = 2 };
+for (var index = 0; index < 12; index++) pagedDeck.Jingles.Add(new Jingle { Position = index });
+pagedDeck.Jingles[6].IsTextBlock = true;
+pagedDeck.Jingles[6].Title = "Första rutan på sida två";
+ProjectService.ResizeDeckLayout(pagedDeck, 3, 2);
+Assert(pagedDeck.PageCount == 2 && pagedDeck.Jingles[6].Title == "Första rutan på sida två",
+    "Layoutändring flyttade innehåll mellan decksidor.");
+
+var shrinkingDeck = new Deck { Rows = 2, Columns = 3, PageCount = 1 };
+for (var index = 0; index < 6; index++)
+    shrinkingDeck.Jingles.Add(new Jingle
+    {
+        Position = index,
+        IsTextBlock = true,
+        Title = $"Jingle {index + 1}"
+    });
+ProjectService.ResizeDeckLayout(shrinkingDeck, 1, 3);
+Assert(shrinkingDeck.PageCount == 2 && shrinkingDeck.Jingles.Take(6).All(jingle => jingle.HasContent),
+    "Minskad layout skapade inte en ny sida för jinglar som inte längre fick plats.");
 
 Console.WriteLine("Portable backup smoke test passed.");
 return;

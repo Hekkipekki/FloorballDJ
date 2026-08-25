@@ -33,7 +33,7 @@ public sealed class AppSettings
     public bool MasterLimiterEnabled { get; set; } = true;
     public double MasterLimiterCeilingDbtp { get; set; } = -1;
     public bool AutoMixHeadroomEnabled { get; set; } = true;
-    public bool TrackSession { get; set; }
+    public bool TrackSession { get; set; } = true;
     public string? RandomPoolShortcut { get; set; }
     public List<Guid> RandomPoolDeckIds { get; set; } = [];
     public List<Guid> RandomPoolJingleIds { get; set; } = [];
@@ -130,6 +130,19 @@ public sealed class Jingle : INotifyPropertyChanged
     private double _compressorRatio = 3;
     private double _compressorAttackMs = 10;
     private double _compressorReleaseMs = 120;
+    private double? _detectedBpm;
+    private double? _beatConfidence;
+    private string? _detectedKey;
+    private string? _detectedScale;
+    private string? _camelotCode;
+    private double? _keyConfidence;
+    private double? _musicalEnergy;
+    private double? _suggestedTransitionSeconds;
+    private double? _suggestedTransitionFadeSeconds;
+    private long _musicAnalysisFileSize;
+    private long _musicAnalysisFileWriteUtcTicks;
+    private double _musicAnalysisStartSeconds;
+    private double _musicAnalysisEndSeconds;
     private bool _isSearchMatch;
 
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -173,12 +186,42 @@ public sealed class Jingle : INotifyPropertyChanged
     public double CompressorRatio { get => _compressorRatio; set => Set(ref _compressorRatio, value); }
     public double CompressorAttackMs { get => _compressorAttackMs; set => Set(ref _compressorAttackMs, value); }
     public double CompressorReleaseMs { get => _compressorReleaseMs; set => Set(ref _compressorReleaseMs, value); }
+    public double? DetectedBpm { get => _detectedBpm; set => Set(ref _detectedBpm, value); }
+    public double? BeatConfidence { get => _beatConfidence; set => Set(ref _beatConfidence, value); }
+    public string? DetectedKey { get => _detectedKey; set => Set(ref _detectedKey, value); }
+    public string? DetectedScale { get => _detectedScale; set => Set(ref _detectedScale, value); }
+    public string? CamelotCode { get => _camelotCode; set => Set(ref _camelotCode, value); }
+    public double? KeyConfidence { get => _keyConfidence; set => Set(ref _keyConfidence, value); }
+    public double? MusicalEnergy { get => _musicalEnergy; set => Set(ref _musicalEnergy, value); }
+    public double? SuggestedTransitionSeconds { get => _suggestedTransitionSeconds; set => Set(ref _suggestedTransitionSeconds, value); }
+    public double? SuggestedTransitionFadeSeconds { get => _suggestedTransitionFadeSeconds; set => Set(ref _suggestedTransitionFadeSeconds, value); }
+    public long MusicAnalysisFileSize { get => _musicAnalysisFileSize; set { if (Set(ref _musicAnalysisFileSize, value)) Raise(nameof(HasFreshMusicAnalysis)); } }
+    public long MusicAnalysisFileWriteUtcTicks { get => _musicAnalysisFileWriteUtcTicks; set { if (Set(ref _musicAnalysisFileWriteUtcTicks, value)) Raise(nameof(HasFreshMusicAnalysis)); } }
+    public double MusicAnalysisStartSeconds { get => _musicAnalysisStartSeconds; set { if (Set(ref _musicAnalysisStartSeconds, value)) Raise(nameof(HasFreshMusicAnalysis)); } }
+    public double MusicAnalysisEndSeconds { get => _musicAnalysisEndSeconds; set { if (Set(ref _musicAnalysisEndSeconds, value)) Raise(nameof(HasFreshMusicAnalysis)); } }
     [JsonIgnore] public bool HasFreshLoudnessAnalysis
     {
         get
         {
             if (!HasAudio || IntegratedLufs is null || TruePeakDbtp is null) return false;
             try { var file = new FileInfo(FilePath); return file.Length == AnalysisFileSize && file.LastWriteTimeUtc.Ticks == AnalysisFileWriteUtcTicks; }
+            catch { return false; }
+        }
+    }
+    [JsonIgnore] public bool HasFreshMusicAnalysis
+    {
+        get
+        {
+            if (!HasAudio || DetectedBpm is null || MusicalEnergy is null || SuggestedTransitionSeconds is null) return false;
+            try
+            {
+                var file = new FileInfo(FilePath);
+                var expectedEnd = EndSeconds ?? DurationSeconds;
+                return file.Length == MusicAnalysisFileSize &&
+                       file.LastWriteTimeUtc.Ticks == MusicAnalysisFileWriteUtcTicks &&
+                       Math.Abs(StartSeconds - MusicAnalysisStartSeconds) < .001 &&
+                       Math.Abs(expectedEnd - MusicAnalysisEndSeconds) < .001;
+            }
             catch { return false; }
         }
     }
@@ -205,11 +248,43 @@ public sealed class Deck : INotifyPropertyChanged
     private string _name = "Deck";
     private int _rows;
     private int _columns;
+    private int _pageCount = 1;
+    private int _activePage;
 
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get => _name; set { if (_name == value) return; _name = value; Raise(); } }
     public int Rows { get => _rows; set { if (_rows == value) return; _rows = value; Raise(); } }
     public int Columns { get => _columns; set { if (_columns == value) return; _columns = value; Raise(); } }
+    public int PageCount
+    {
+        get => _pageCount;
+        set
+        {
+            var normalized = Math.Max(1, value);
+            if (_pageCount == normalized) return;
+            _pageCount = normalized;
+            if (_activePage >= _pageCount) _activePage = _pageCount - 1;
+            Raise();
+            Raise(nameof(ActivePage));
+            Raise(nameof(PageNumbers));
+            Raise(nameof(HasMultiplePages));
+        }
+    }
+    public int ActivePage
+    {
+        get => _activePage;
+        set
+        {
+            var normalized = Math.Clamp(value, 0, Math.Max(0, PageCount - 1));
+            if (_activePage == normalized) return;
+            _activePage = normalized;
+            Raise();
+        }
+    }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IReadOnlyList<int> PageNumbers => Enumerable.Range(1, PageCount).ToArray();
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasMultiplePages => PageCount > 1;
     public ObservableCollection<Jingle> Jingles { get; set; } = [];
 
     public event PropertyChangedEventHandler? PropertyChanged;

@@ -33,6 +33,7 @@ public partial class MergeJinglesWindow : Window
         public double FadeOut { get; set; } = 1.5;
         public double FadeIn { get; set; } = .75;
         public double VolumeDb { get; set; }
+        public MusicAnalysis? MusicAnalysis { get; set; }
         public JingleMergeService.TransitionMode TransitionMode { get; set; } = JingleMergeService.TransitionMode.Crossfade;
         public string TabTitle { get => _tabTitle; set { _tabTitle = value; OnPropertyChanged(); } }
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -42,6 +43,8 @@ public partial class MergeJinglesWindow : Window
 
     private readonly MainViewModel _viewModel;
     private readonly JingleMergeService _merge = new();
+    private readonly MusicAnalysisService _musicAnalysis = new();
+    private readonly CancellationTokenSource _analysisCancellation = new();
     private readonly ObservableCollection<MergeChoice> _choices;
     private readonly DispatcherTimer _previewTimer;
     private readonly Stopwatch _previewClock = new();
@@ -61,7 +64,13 @@ public partial class MergeJinglesWindow : Window
 
     public ObservableCollection<ClipEditor> Clips { get; } = [];
 
-    public MergeJinglesWindow(MainViewModel viewModel)
+    public MergeJinglesWindow(MainViewModel viewModel) : this(viewModel, null, false)
+    {
+    }
+
+    public MergeJinglesWindow(MainViewModel viewModel, IEnumerable<Jingle>? initialJingles, bool longMix,
+        IReadOnlyDictionary<Guid, double>? plannedTransitions = null,
+        IReadOnlyDictionary<Guid, double>? plannedEnds = null)
     {
         InitializeComponent();
         WindowPlacementService.MaximizeOnOwnerMonitor(this);
@@ -72,16 +81,64 @@ public partial class MergeJinglesWindow : Window
             .Select(jingle => new MergeChoice(deck, jingle, $"{deck.Name}  ·  {jingle.Title}"))));
         SourceCombo.ItemsSource = _choices;
 
-        if (_choices.Count > 0) Clips.Add(CreateClip(_choices[0]));
-        if (_choices.Count > 1) Clips.Add(CreateClip(_choices[1]));
-        else if (_choices.Count > 0) Clips.Add(CreateClip(_choices[0]));
+        var initialChoices = initialJingles?
+            .Select(jingle => _choices.FirstOrDefault(choice => ReferenceEquals(choice.Jingle, jingle) || choice.Jingle.Id == jingle.Id))
+            .Where(choice => choice is not null)
+            .Cast<MergeChoice>()
+            .DistinctBy(choice => choice.Jingle.Id)
+            .ToList();
+        if (initialChoices is { Count: > 0 })
+        {
+            foreach (var choice in initialChoices) Clips.Add(CreateClip(choice));
+        }
+        else
+        {
+            if (_choices.Count > 0) Clips.Add(CreateClip(_choices[0]));
+            if (_choices.Count > 1) Clips.Add(CreateClip(_choices[1]));
+            else if (_choices.Count > 0) Clips.Add(CreateClip(_choices[0]));
+        }
         RefreshTabTitles();
 
         _previewTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(16) };
         _previewTimer.Tick += PreviewTimer_Tick;
-        Closed += (_, _) => DisposePreview();
-        TemplateCombo.SelectedIndex = 0;
+        Closed += (_, _) => { _analysisCancellation.Cancel(); _analysisCancellation.Dispose(); DisposePreview(); };
+        TemplateCombo.SelectedIndex = longMix ? 2 : 0;
+        if (longMix)
+        {
+            Title = "Redigera lång mix";
+            BuilderTitle.Text = "Finjustera uppvärmningsmix och längre musiksekvens";
+            JingleModeButton.Style = (Style)FindResource("SecondaryButton");
+            JingleModeButton.IsEnabled = true;
+            LongMixModeButton.Style = (Style)FindResource("PrimaryButton");
+            LongMixModeButton.IsEnabled = false;
+            foreach (var clip in Clips.Take(Math.Max(0, Clips.Count - 1)))
+            {
+                if (clip.MusicAnalysis is not { } analysis) continue;
+                var transition = plannedTransitions is not null && plannedTransitions.TryGetValue(clip.Choice.Jingle.Id, out var planned)
+                    ? planned
+                    : analysis.SuggestedTransitionSeconds;
+                clip.TransitionStart = Math.Clamp(transition, clip.Start, clip.End);
+                clip.FadeOut = clip.FadeIn = Math.Clamp(analysis.SuggestedFadeSeconds, .5, 6);
+            }
+            foreach (var clip in Clips)
+            {
+                if (plannedEnds is null || !plannedEnds.TryGetValue(clip.Choice.Jingle.Id, out var plannedEnd)) continue;
+                clip.End = Math.Clamp(plannedEnd, clip.Start, clip.End);
+                clip.UseEnd = true;
+                clip.TransitionStart = Math.Clamp(clip.TransitionStart, clip.Start, clip.End);
+            }
+        }
         if (Clips.Count > 0) ClipTabs.SelectedIndex = 0;
+    }
+
+    private void OpenLongMix_Click(object sender, RoutedEventArgs e)
+    {
+        // The two builders are presented as modes of the same workspace. Hide the
+        // current mode before opening the other so windows never stack visually.
+        var dialog = new LongMixWindow(_viewModel) { Owner = Owner ?? Application.Current.MainWindow };
+        Hide();
+        var result = dialog.ShowDialog();
+        CloseSafely(result == true);
     }
 
     private ClipEditor CreateClip(MergeChoice choice)
@@ -89,7 +146,7 @@ public partial class MergeJinglesWindow : Window
         var total = ReadDuration(choice.Jingle.FilePath);
         var end = EffectiveEnd(choice.Jingle, total);
         var start = Math.Clamp(choice.Jingle.StartSeconds, 0, end);
-        return new ClipEditor
+        var clip = new ClipEditor
         {
             Choice = choice,
             Total = total,
@@ -99,6 +156,8 @@ public partial class MergeJinglesWindow : Window
             Cursor = start,
             TransitionStart = Math.Max(start, end - 1.5)
         };
+        if (choice.Jingle.HasFreshMusicAnalysis) clip.MusicAnalysis = MusicAnalysisService.FromJingle(choice.Jingle);
+        return clip;
     }
 
     private async void ClipTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -134,6 +193,7 @@ public partial class MergeJinglesWindow : Window
 
         var hasNext = Clips.IndexOf(clip) < Clips.Count - 1;
         TransitionGroup.Visibility = hasNext ? Visibility.Visible : Visibility.Collapsed;
+        MixAssistGroup.Visibility = hasNext ? Visibility.Visible : Visibility.Collapsed;
         TransitionMarkerPanel.Visibility = hasNext ? Visibility.Visible : Visibility.Collapsed;
         ClipTimingHeader.Text = $"LJUD {Clips.IndexOf(clip) + 1} · KLIPPGRÄNSER";
         TransitionMarkerLabel.Text = $"START FÖR LJUD {Clips.IndexOf(clip) + 2}";
@@ -142,7 +202,7 @@ public partial class MergeJinglesWindow : Window
 
         Waveform.FilePath = clip.Choice.Jingle.FilePath;
         await Waveform.LoadAsync(clip.Choice.Jingle.FilePath);
-        if (ReferenceEquals(_activeClip, clip)) UpdateActiveUi();
+        if (ReferenceEquals(_activeClip, clip)) { UpdateActiveUi(); RefreshMixAssistUi(); }
     }
 
     private async void SourceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -157,6 +217,7 @@ public partial class MergeJinglesWindow : Window
         _activeClip.UseEnd = replacement.UseEnd;
         _activeClip.Cursor = replacement.Cursor;
         _activeClip.TransitionStart = replacement.TransitionStart;
+        _activeClip.MusicAnalysis = replacement.MusicAnalysis;
         RefreshTabTitles();
         await LoadActiveClipAsync();
     }
@@ -256,6 +317,103 @@ public partial class MergeJinglesWindow : Window
         StatusText.Text = "Mallen har ställt in övergångarna. Alla värden kan finjusteras.";
     }
 
+    private async void AnalyzePair_Click(object sender, RoutedEventArgs e)
+    {
+        CommitActiveClip();
+        var current = _activeClip;
+        if (current is null) return;
+        var index = Clips.IndexOf(current);
+        if (index < 0 || index >= Clips.Count - 1) return;
+        var next = Clips[index + 1];
+        AnalyzePairButton.IsEnabled = false;
+        ApplyMixSuggestionButton.IsEnabled = false;
+        StatusText.Text = $"Analyserar ljud {index + 1} och {index + 2}…";
+        try
+        {
+            current.MusicAnalysis = await GetOrAnalyzeMusicAsync(current, _analysisCancellation.Token);
+            next.MusicAnalysis = await GetOrAnalyzeMusicAsync(next, _analysisCancellation.Token);
+            if (current.Choice.Deck is not null || next.Choice.Deck is not null) _viewModel.RequestSave();
+            RefreshMixAssistUi();
+            StatusText.Text = "Musikanalysen är klar. Förhandslyssna alltid innan den skapade jingeln används live.";
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Musikanalysen kunde inte slutföras.";
+            MessageBox.Show(this, ex.Message, "Musikanalys misslyckades", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            if (AnalyzePairButton is not null) AnalyzePairButton.IsEnabled = true;
+        }
+    }
+
+    private async Task<MusicAnalysis> GetOrAnalyzeMusicAsync(ClipEditor clip, CancellationToken cancellationToken)
+    {
+        var end = clip.UseEnd ? clip.End : EffectiveEnd(clip.Choice.Jingle, clip.Total);
+        if (clip.MusicAnalysis is { } cached &&
+            Math.Abs(cached.SourceStartSeconds - clip.Start) < .001 &&
+            Math.Abs(cached.SourceEndSeconds - end) < .001 && File.Exists(clip.Choice.Jingle.FilePath))
+        {
+            var file = new FileInfo(clip.Choice.Jingle.FilePath);
+            if (cached.FileSize == file.Length && cached.FileWriteUtcTicks == file.LastWriteTimeUtc.Ticks) return cached;
+        }
+
+        var result = await _musicAnalysis.AnalyzeAsync(clip.Choice.Jingle.FilePath, clip.Start, end, cancellationToken);
+        var jingleEnd = clip.Choice.Jingle.EndSeconds ?? clip.Total;
+        if (Math.Abs(clip.Start - clip.Choice.Jingle.StartSeconds) < .001 && Math.Abs(end - jingleEnd) < .001)
+            MusicAnalysisService.ApplyToJingle(clip.Choice.Jingle, result);
+        return result;
+    }
+
+    private void ApplyMixSuggestion_Click(object sender, RoutedEventArgs e)
+    {
+        if (_activeClip?.MusicAnalysis is not { } analysis) return;
+        _activeClip.TransitionStart = Math.Clamp(analysis.SuggestedTransitionSeconds, _activeClip.Start, _activeClip.End);
+        _activeClip.TransitionMode = JingleMergeService.TransitionMode.Crossfade;
+        _activeClip.FadeOut = Math.Clamp(analysis.SuggestedFadeSeconds, .2, 6);
+        _activeClip.FadeIn = Math.Clamp(analysis.SuggestedFadeSeconds, .2, 6);
+        TemplateCombo.SelectedIndex = 3;
+        UpdateActiveUi();
+        StatusText.Text = $"Övergången placerades på {FormatTime(_activeClip.TransitionStart)} med {_activeClip.FadeIn:0.0} sekunders crossfade.";
+    }
+
+    private void RefreshMixAssistUi()
+    {
+        if (MixAssistGroup is null || _activeClip is null) return;
+        var index = Clips.IndexOf(_activeClip);
+        var hasNext = index >= 0 && index < Clips.Count - 1;
+        MixAssistGroup.Visibility = hasNext ? Visibility.Visible : Visibility.Collapsed;
+        if (!hasNext) return;
+        var next = Clips[index + 1];
+        CurrentAnalysisHeading.Text = $"LJUD {index + 1} · {_activeClip.Choice.Jingle.Title}";
+        NextAnalysisHeading.Text = $"LJUD {index + 2} · {next.Choice.Jingle.Title}";
+        CurrentAnalysisText.Text = FormatMusicAnalysis(_activeClip.MusicAnalysis);
+        NextAnalysisText.Text = FormatMusicAnalysis(next.MusicAnalysis);
+        if (_activeClip.MusicAnalysis is { } currentAnalysis && next.MusicAnalysis is { } nextAnalysis)
+        {
+            var match = MusicAnalysisService.Compare(currentAnalysis, nextAnalysis);
+            CompatibilityScoreText.Text = $"{match.Score} %";
+            CompatibilitySummaryText.Text = $"{match.Summary}\nRytm {match.RhythmScore} · Harmoni {match.HarmonicScore} · Energi {match.EnergyScore}";
+            ApplyMixSuggestionButton.IsEnabled = true;
+            ApplyMixSuggestionButton.Content = $"Använd förslag · {FormatTime(currentAnalysis.SuggestedTransitionSeconds)}";
+        }
+        else
+        {
+            CompatibilityScoreText.Text = "–";
+            CompatibilitySummaryText.Text = "Analysera paret för BPM, Camelot, energi och övergångsförslag";
+            ApplyMixSuggestionButton.IsEnabled = false;
+            ApplyMixSuggestionButton.Content = "Använd övergångsförslag";
+        }
+    }
+
+    private static string FormatMusicAnalysis(MusicAnalysis? analysis)
+    {
+        if (analysis is null) return "Inte analyserat";
+        var key = analysis.Key == "Okänd" ? "Tonart osäker" : $"{analysis.Key} {analysis.Scale} · {analysis.CamelotCode}";
+        return $"{analysis.Bpm:0.0} BPM · {key}\nEnergi {analysis.Energy:0}/100";
+    }
+
     private void Waveform_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (_activeClip is null) return;
@@ -331,8 +489,10 @@ public partial class MergeJinglesWindow : Window
     private void UseEnd_Changed(object sender, RoutedEventArgs e)
     {
         if (!_loadingUi && _activeClip is not null) _activeClip.UseEnd = UseEndCheck.IsChecked == true;
+        InvalidateMusicAnalysisIfSelectionChanged(_activeClip);
         UpdateEndState();
         UpdateActiveUi();
+        RefreshMixAssistUi();
     }
 
     private void UpdateEndState()
@@ -403,7 +563,18 @@ public partial class MergeJinglesWindow : Window
         if (ReferenceEquals(box, StartBox)) _activeClip.Start = Math.Clamp(value, 0, _activeClip.End);
         else if (ReferenceEquals(box, EndBox)) _activeClip.End = Math.Clamp(value, _activeClip.Start, _activeClip.Total);
         else if (ReferenceEquals(box, TransitionStartBox)) _activeClip.TransitionStart = Math.Clamp(value, _activeClip.Start, _activeClip.End);
+        if (ReferenceEquals(box, StartBox) || ReferenceEquals(box, EndBox))
+            InvalidateMusicAnalysisIfSelectionChanged(_activeClip);
         UpdateActiveUi();
+        RefreshMixAssistUi();
+    }
+
+    private static void InvalidateMusicAnalysisIfSelectionChanged(ClipEditor? clip)
+    {
+        if (clip?.MusicAnalysis is not { } analysis) return;
+        var end = clip.UseEnd ? clip.End : EffectiveEnd(clip.Choice.Jingle, clip.Total);
+        if (Math.Abs(analysis.SourceStartSeconds - clip.Start) >= .001 ||
+            Math.Abs(analysis.SourceEndSeconds - end) >= .001) clip.MusicAnalysis = null;
     }
 
     private void CommitTransitionSettings()
@@ -651,7 +822,9 @@ public partial class MergeJinglesWindow : Window
             target.Title = outputTitle;
             target.FilePath = outputPath; target.StartSeconds = 0; target.EndSeconds = null; target.DurationSeconds = reader.TotalTime.TotalSeconds;
             _viewModel.Status = $"Skapade och lade till {target.Title}";
-            DialogResult = true;
+            _viewModel.NotifyJingleChanged();
+            _viewModel.RequestSave();
+            CloseSafely(true);
         }
         catch (Exception ex)
         {
@@ -659,6 +832,24 @@ public partial class MergeJinglesWindow : Window
             MessageBox.Show(this, ex.Message, "Kombinering misslyckades", MessageBoxButton.OK, MessageBoxImage.Warning);
             CreateButton.IsEnabled = true;
         }
+    }
+
+    private void CloseSafely(bool success)
+    {
+        if (success)
+        {
+            try
+            {
+                DialogResult = true;
+                return;
+            }
+            catch (InvalidOperationException)
+            {
+                // The builder can also be opened non-modally by internal preview
+                // tooling. In that case Close() is the valid completion path.
+            }
+        }
+        Close();
     }
 
     private bool TryBuildMergeRequest(out JingleMergeService.Segment[] segments,
@@ -681,6 +872,7 @@ public partial class MergeJinglesWindow : Window
     private void RefreshTabTitles()
     {
         for (var index = 0; index < Clips.Count; index++) Clips[index].TabTitle = $"{index + 1} · {Clips[index].Choice.Jingle.Title}";
+        RefreshMixAssistUi();
     }
     private static double ReadDuration(string path) { using var reader = new AudioFileReader(path); return reader.TotalTime.TotalSeconds; }
     private static double EffectiveEnd(Jingle jingle, double total) => Math.Clamp(jingle.EndSeconds ?? total, 0, total);

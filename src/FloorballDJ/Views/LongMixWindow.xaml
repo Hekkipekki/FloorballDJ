@@ -1,0 +1,142 @@
+<Window x:Class="FloorballDJ.Views.LongMixWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Bygg lång mix" Width="1180" Height="760" MinWidth="900" MinHeight="620"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Grid Margin="20,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <Button Content="Jingle / sekvens" Style="{StaticResource SecondaryButton}" Click="OpenJingleBuilder_Click"
+                            ToolTip="Korta mållåtar, utvisningsljud och sekvenser med effekter."/>
+                    <Button Content="Lång mix" Style="{StaticResource PrimaryButton}" IsEnabled="False" Margin="8,0,0,0"/>
+                </StackPanel>
+                <TextBlock Text="LÅNGMIXBYGGARE" Style="{StaticResource EyebrowText}"/>
+                <TextBlock Text="Planera uppvärmningsmixar och längre musikpass" Style="{StaticResource SectionTitle}" FontSize="26" Margin="0,3,0,0"/>
+                <TextBlock Text="Välj flera låtar, analysera musikalisk kompatibilitet och skapa en genomtänkt spelordning. Originalfilerna ändras aldrig."
+                           Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
+            </StackPanel>
+            <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="14,10" VerticalAlignment="Bottom">
+                <StackPanel>
+                    <TextBlock Text="ARBETSSÄTT" Style="{StaticResource EyebrowText}"/>
+                    <TextBlock Text="1. Välj  ·  2. Analysera  ·  3. Ordna  ·  4. Finjustera" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <TabControl x:Name="DeckTabsControl" Grid.Row="1" ItemsSource="{Binding DeckTabs}" SelectionChanged="DeckTabs_SelectionChanged" Margin="0,14,0,9">
+            <TabControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}" Padding="5,1"/></DataTemplate></TabControl.ItemTemplate>
+            <TabControl.ContentTemplate><DataTemplate><Border Height="0"/></DataTemplate></TabControl.ContentTemplate>
+        </TabControl>
+
+        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="12,9" Margin="0,0,0,9">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="78"/><ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="78"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="78"/><ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Önskad mixlängd" Style="{StaticResource FieldLabel}" ToolTip="Mål för hela mixens ungefärliga längd. Övergångarna flyttas till närmaste lämpliga musikfras."/>
+                <TextBox x:Name="TargetMinutesBox" Grid.Column="1" Text="30" TextAlignment="Center" KeyDown="PlanningBox_KeyDown" LostKeyboardFocus="PlanningBox_LostKeyboardFocus"/>
+                <TextBlock Grid.Column="2" Text="minuter" Style="{StaticResource FieldLabel}" Margin="6,0,18,0"/>
+                <TextBox x:Name="MinTrackSecondsBox" Grid.Column="3" Text="60" TextAlignment="Center" KeyDown="PlanningBox_KeyDown" LostKeyboardFocus="PlanningBox_LostKeyboardFocus"/>
+                <TextBlock Grid.Column="4" Text="–" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="9,0"/>
+                <TextBox x:Name="MaxTrackSecondsBox" Grid.Column="5" Text="150" TextAlignment="Center" KeyDown="PlanningBox_KeyDown" LostKeyboardFocus="PlanningBox_LostKeyboardFocus"/>
+                <TextBlock Grid.Column="6" Text="sekunder per låt · FloorballDJ väljer närmaste musikaliska 16-taktsfras inom intervallet"
+                           Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="8,0,0,0" TextWrapping="Wrap"/>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="3" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBox x:Name="SearchBox" Height="36" Padding="12,5" TextChanged="SearchBox_TextChanged"
+                     ToolTip="Sök i hela profilen. Vid sökning visas träffar från samtliga deck."/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="10,0,0,0">
+                <Button x:Name="SelectCurrentButton" Content="Markera hela decket" Style="{StaticResource PrimaryButton}" Click="SelectVisible_Click"
+                        ToolTip="Markerar alla låtar som visas i det valda decket eller i den aktuella sökningen."/>
+                <Button Content="Markera alla deck" Style="{StaticResource SecondaryButton}" Margin="7,0,0,0" Click="SelectAllDecks_Click"
+                        ToolTip="Markerar samtliga spelbara låtar i hela profilen."/>
+                <Button Content="Avmarkera alla" Style="{StaticResource SecondaryButton}" Margin="7,0,0,0" Click="ClearSelection_Click"/>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="1.45*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="1*"/></Grid.ColumnDefinitions>
+            <GroupBox Header="Tillgängliga låtar" Style="{StaticResource ModernGroupBox}">
+                <ListView x:Name="TracksList" ItemsSource="{Binding TracksView}" Background="{StaticResource PanelBrush}" BorderThickness="0">
+                    <ListView.View><GridView>
+                        <GridViewColumn Header="Välj" Width="52">
+                            <GridViewColumn.CellTemplate><DataTemplate><CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" HorizontalAlignment="Center"/></DataTemplate></GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="Deck" DisplayMemberBinding="{Binding DeckName}" Width="125"/>
+                        <GridViewColumn Header="Titel" DisplayMemberBinding="{Binding Title}" Width="245"/>
+                        <GridViewColumn Header="BPM" DisplayMemberBinding="{Binding BpmText}" Width="70"/>
+                        <GridViewColumn Header="Camelot" DisplayMemberBinding="{Binding KeyText}" Width="82"/>
+                        <GridViewColumn Header="Energi" DisplayMemberBinding="{Binding EnergyText}" Width="70"/>
+                        <GridViewColumn Header="Status" DisplayMemberBinding="{Binding Status}" Width="125"/>
+                    </GridView></ListView.View>
+                </ListView>
+            </GroupBox>
+
+            <GroupBox Grid.Column="2" Header="Föreslagen spelordning" Style="{StaticResource ModernGroupBox}">
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Border Background="#12312F" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="3,3,3,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="BERÄKNAD MIXLÄNGD" Style="{StaticResource EyebrowText}"/>
+                                <TextBlock x:Name="SuggestedDurationText" Text="–" FontFamily="Cascadia Mono" FontSize="21" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" Margin="0,2,0,0"/>
+                                <TextBlock x:Name="SuggestedCountText" Text="Ingen spelordning skapad" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+                            </StackPanel>
+                            <Button x:Name="RemoveWeakestButton" Grid.Column="1" Content="Ta bort svagaste matchning" Style="{StaticResource SecondaryButton}"
+                                    IsEnabled="False" Click="RemoveWeakest_Click" VerticalAlignment="Center"
+                                    ToolTip="Tar bort låten som bildar den lägsta matchpoängen mot föregående låt."/>
+                        </Grid>
+                    </Border>
+                    <ListView x:Name="SuggestedList" Grid.Row="1" ItemsSource="{Binding SuggestedOrder}" Background="{StaticResource PanelBrush}" BorderThickness="0">
+                        <ListView.ItemTemplate><DataTemplate>
+                            <Border Background="#101E30" BorderBrush="#263B55" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="3">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="34"/></Grid.ColumnDefinitions>
+                                    <Border Width="26" Height="26" CornerRadius="13" Background="#153D3B"><TextBlock Text="{Binding Order}" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"/></Border>
+                                    <StackPanel Grid.Column="1" Margin="8,0">
+                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding AnalysisSummary}" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2" Text="{Binding MatchFromPrevious}" Foreground="{StaticResource AccentBrush}" FontFamily="Cascadia Mono" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="3" Width="28" Height="28" Padding="0" Margin="6,0,0,0" Content="×" FontSize="16"
+                                            Style="{StaticResource SecondaryButton}" Tag="{Binding}" Click="RemoveSuggestedTrack_Click"
+                                            ToolTip="Avmarkera och ta bort låten från den föreslagna mixen."/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate></ListView.ItemTemplate>
+                    </ListView>
+                    <Border Grid.Row="2" Background="#142337" CornerRadius="6" Padding="10,8" Margin="3,9,3,3">
+                        <TextBlock Text="FloorballDJ provar olika startlåtar och väljer en följd med bra kombination av tempo, Camelot och energi. Du kan finjustera varje övergång i nästa steg."
+                                   Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"/>
+                    </Border>
+                </Grid>
+            </GroupBox>
+        </Grid>
+
+        <Grid Grid.Row="5" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel>
+                <ProgressBar x:Name="Progress" Height="7" Minimum="0" Maximum="1"/>
+                <TextBlock x:Name="StatusText" Text="Markera minst två låtar för att börja." Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="18,0,0,0">
+                <Button x:Name="AnalyzeButton" Content="Analysera valda" Style="{StaticResource SecondaryButton}" Click="AnalyzeSelected_Click"/>
+                <Button x:Name="SuggestButton" Content="Föreslå spelordning" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Click="SuggestOrder_Click"/>
+                <Button x:Name="OpenEditorButton" Content="Finjustera långmix" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" IsEnabled="False" Click="OpenEditor_Click"/>
+                <Button Content="Stäng" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" IsCancel="True"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

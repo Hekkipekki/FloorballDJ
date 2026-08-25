@@ -9,6 +9,7 @@ public sealed class ProjectService
 {
     public const int MaximumDeckRows = 50;
     public const int MaximumDeckColumns = 12;
+    public const int MaximumDeckPages = 20;
     private static readonly SemaphoreSlim SaveGate = new(1, 1);
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -390,7 +391,8 @@ public sealed class ProjectService
 
     public static int CountHiddenAudioAfterResize(Deck deck, int rows, int columns)
     {
-        var slots = Math.Clamp(rows, 1, MaximumDeckRows) * Math.Clamp(columns, 1, MaximumDeckColumns);
+        var slots = Math.Clamp(rows, 1, MaximumDeckRows) * Math.Clamp(columns, 1, MaximumDeckColumns) *
+                    MaximumDeckPages;
         return Math.Max(0, deck.Jingles.Count(jingle => jingle.HasContent) - slots);
     }
 
@@ -400,7 +402,12 @@ public sealed class ProjectService
         var oldColumns = Math.Clamp(deck.Columns, 1, MaximumDeckColumns);
         var newRows = Math.Clamp(rows, 1, MaximumDeckRows);
         var newColumns = Math.Clamp(columns, 1, MaximumDeckColumns);
-        var newSlots = newRows * newColumns;
+        var oldPageSlots = oldRows * oldColumns;
+        var newPageSlots = newRows * newColumns;
+        var contentCount = deck.Jingles.Count(jingle => jingle.HasContent);
+        var requiredPages = Math.Max(1, (int)Math.Ceiling(contentCount / (double)newPageSlots));
+        var pageCount = Math.Clamp(Math.Max(deck.PageCount, requiredPages), 1, MaximumDeckPages);
+        var newSlots = newPageSlots * pageCount;
         var visible = new Jingle?[newSlots];
         var overflowContent = new List<Jingle>();
 
@@ -409,13 +416,15 @@ public sealed class ProjectService
         foreach (var jingle in deck.Jingles.OrderBy(jingle => jingle.Position))
         {
             var oldPosition = jingle.Position;
-            if (oldPosition >= 0 && oldPosition < oldRows * oldColumns)
+            if (oldPosition >= 0 && oldPosition < oldPageSlots * pageCount)
             {
-                var row = oldPosition / oldColumns;
-                var column = oldPosition % oldColumns;
+                var page = oldPosition / oldPageSlots;
+                var positionOnPage = oldPosition % oldPageSlots;
+                var row = positionOnPage / oldColumns;
+                var column = positionOnPage % oldColumns;
                 if (row < newRows && column < newColumns)
                 {
-                    var newPosition = row * newColumns + column;
+                    var newPosition = page * newPageSlots + row * newColumns + column;
                     if (visible[newPosition] is null)
                     {
                         visible[newPosition] = jingle;
@@ -439,6 +448,8 @@ public sealed class ProjectService
 
         deck.Rows = newRows;
         deck.Columns = newColumns;
+        deck.PageCount = pageCount;
+        deck.ActivePage = Math.Clamp(deck.ActivePage, 0, pageCount - 1);
         deck.Jingles.Clear();
         for (var position = 0; position < visible.Length; position++)
         {
@@ -532,14 +543,18 @@ public sealed class ProjectService
             deck.Rows = Math.Clamp(deck.Rows, 1, MaximumDeckRows);
             deck.Columns = Math.Clamp(deck.Columns, 1, MaximumDeckColumns);
             var slots = deck.Rows * deck.Columns;
+            var requiredPages = Math.Max(1, (int)Math.Ceiling(deck.Jingles.Count / (double)Math.Max(1, slots)));
+            deck.PageCount = Math.Clamp(Math.Max(deck.PageCount, requiredPages), 1, MaximumDeckPages);
+            deck.ActivePage = Math.Clamp(deck.ActivePage, 0, deck.PageCount - 1);
             foreach (var jingle in deck.Jingles)
             {
                 if (!jingle.HasAudio && string.Equals(jingle.Title, "Tom plats", StringComparison.OrdinalIgnoreCase))
                     jingle.Title = "";
                 jingle.Shortcut = ShortcutService.Normalize(jingle.Shortcut);
             }
-            while (deck.Jingles.Count < slots)
+            while (deck.Jingles.Count < slots * deck.PageCount)
                 deck.Jingles.Add(new Jingle { Position = deck.Jingles.Count });
+            for (var index = 0; index < deck.Jingles.Count; index++) deck.Jingles[index].Position = index;
         }
     }
 }

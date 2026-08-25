@@ -306,7 +306,21 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 if (!QueueLoopEnabled) return false;
                 _queuePlaybackIndex = 0;
             }
-            var next = QueueShuffleEnabled ? PlaybackQueue[Random.Shared.Next(PlaybackQueue.Count)] : PlaybackQueue[_queuePlaybackIndex];
+            Jingle next;
+            if (QueueShuffleEnabled)
+            {
+                var shuffleCandidates = Settings.TrackSession
+                    ? PlaybackQueue.Where(item => item.SessionPlayCount == 0).ToArray()
+                    : PlaybackQueue.ToArray();
+                if (shuffleCandidates.Length == 0) shuffleCandidates = PlaybackQueue.ToArray();
+                if (shuffleCandidates.Length > 1 && _activeQueueJingleId is Guid activeId)
+                {
+                    var withoutCurrent = shuffleCandidates.Where(item => item.Id != activeId).ToArray();
+                    if (withoutCurrent.Length > 0) shuffleCandidates = withoutCurrent;
+                }
+                next = shuffleCandidates[Random.Shared.Next(shuffleCandidates.Length)];
+            }
+            else next = PlaybackQueue[_queuePlaybackIndex];
             _queuePlaybackIndex++;
             _activeQueueJingleId = next.Id;
             ActiveQueueItem = next;

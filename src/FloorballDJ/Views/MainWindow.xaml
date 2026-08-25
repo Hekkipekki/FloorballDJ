@@ -21,6 +21,8 @@
         <conv:ActiveJingleConverter x:Key="ActiveJingle" />
         <conv:TakeCountConverter x:Key="TakeCount" />
         <conv:TakeSlotsConverter x:Key="TakeSlots" />
+        <conv:PageSelectedConverter x:Key="PageSelected" />
+        <conv:MultiplePagesVisibilityConverter x:Key="MultiplePagesVisibility" />
 
         <Style x:Key="CompactTransportButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
             <Setter Property="Height" Value="42" />
@@ -372,7 +374,78 @@
                 </TabControl.ItemsSource>
                 <TabControl.ItemTemplate>
                     <DataTemplate>
-                        <TextBlock Text="{Binding Name}" />
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="{Binding Name}" HorizontalAlignment="Center" />
+                            <ItemsControl ItemsSource="{Binding PageNumbers}" HorizontalAlignment="Center" Margin="0,2,0,-4">
+                                <ItemsControl.Style>
+                                    <Style TargetType="ItemsControl">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding HasMultiplePages}" Value="True" />
+                                                    <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TabItem}}" Value="True" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ItemsControl.Style>
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" HorizontalAlignment="Center" /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.Resources>
+                                    <Style x:Key="DeckPageNumber" TargetType="ToggleButton">
+                                        <Setter Property="Width" Value="22" />
+                                        <Setter Property="Height" Value="18" />
+                                        <Setter Property="Margin" Value="1,0" />
+                                        <Setter Property="Padding" Value="0" />
+                                        <Setter Property="FontSize" Value="10" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                        <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="BorderBrush" Value="Transparent" />
+                                        <Setter Property="BorderThickness" Value="1" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ToggleButton">
+                                                    <Border x:Name="PageSurface" Background="{TemplateBinding Background}"
+                                                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                                            CornerRadius="3">
+                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="PageSurface" Property="Background" Value="#17304A" />
+                                                            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsChecked" Value="True">
+                                                            <Setter TargetName="PageSurface" Property="Background" Value="{StaticResource AccentBrush}" />
+                                                            <Setter Property="Foreground" Value="#07131E" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ItemsControl.Resources>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <ToggleButton Content="{Binding}" Style="{StaticResource DeckPageNumber}" AllowDrop="True"
+                                                      Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                      Click="DeckPage_Click" DragOver="DeckPage_DragOver"
+                                                      DragLeave="DeckPage_DragLeave" Drop="DeckPage_Drop"
+                                                      ToolTip="Byt sida · scrolla över deckfliken · släpp en jingle här för att flytta den">
+                                            <ToggleButton.IsChecked>
+                                                <MultiBinding Converter="{StaticResource PageSelected}" Mode="OneWay">
+                                                    <Binding/><Binding Path="DataContext.ActivePage" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
+                                                </MultiBinding>
+                                            </ToggleButton.IsChecked>
+                                        </ToggleButton>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
                     </DataTemplate>
                 </TabControl.ItemTemplate>
                 <TabControl.ContentTemplate>
@@ -384,6 +457,7 @@
                                         <Binding Path="Jingles" />
                                         <Binding Path="Rows" />
                                         <Binding Path="Columns" />
+                                        <Binding Path="ActivePage" />
                                     </MultiBinding>
                                 </ItemsControl.ItemsSource>
                                 <ItemsControl.ItemsPanel>
