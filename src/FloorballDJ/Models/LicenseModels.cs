@@ -5,6 +5,7 @@ public enum LicenseAccessKind
     None,
     Trial,
     Licensed,
+    Deactivated,
     Expired,
     InternetRequired,
     Invalid
@@ -29,6 +30,7 @@ internal sealed class LicenseCache
     public string? ActivationId { get; set; }
     public string? ActivationSecret { get; set; }
     public DateTimeOffset LastObservedUtc { get; set; }
+    public DateTimeOffset? DeactivationDeadlineUtc { get; set; }
 }
 
 internal sealed class InstallationIdentity
@@ -58,6 +60,7 @@ internal sealed class ActivationApiResponse
     public string? ActivationSecret { get; set; }
     public string? Token { get; set; }
     public DateTimeOffset? NextOnlineCheckAt { get; set; }
+    public DateTimeOffset? ServerTime { get; set; }
 }
 
 internal sealed class LicenseApiError
@@ -65,4 +68,5 @@ internal sealed class LicenseApiError
     public string? Error { get; set; }
     public string? Message { get; set; }
     public string? RequestId { get; set; }
+    public DateTimeOffset? ServerTime { get; set; }
 }

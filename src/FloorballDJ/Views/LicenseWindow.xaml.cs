@@ -79,6 +79,7 @@ public partial class LicenseWindow : Window
         {
             LicenseAccessKind.Trial => "Provperiod aktiv",
             LicenseAccessKind.Licensed => "Licens aktiv",
+            LicenseAccessKind.Deactivated => "Licensen har avaktiverats",
             LicenseAccessKind.Expired => "Provperioden har gått ut",
             LicenseAccessKind.InternetRequired => "Internetanslutning krävs",
             LicenseAccessKind.Invalid => "Licensen kunde inte aktiveras",

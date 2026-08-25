@@ -52,10 +52,16 @@ public partial class MainWindow : Window
         { Interval = TimeSpan.FromMinutes(1) };
     private readonly Stopwatch _licenseRuntimeClock = new();
     private static readonly TimeSpan TrialGracePeriod = TimeSpan.FromHours(24);
+    private static readonly TimeSpan LicenseOnlineCheckInterval = TimeSpan.FromMinutes(15);
     private DateTimeOffset? _licenseServerBaselineUtc;
     private DateTimeOffset? _trialShutdownDeadlineUtc;
+    private DateTimeOffset? _deactivatedLicenseShutdownDeadlineUtc;
+    private DateTimeOffset _nextLicenseOnlineCheckUtc;
+    private DateTimeOffset _nextLicenseObservationPersistUtc;
     private bool _trialExpirationNoticeShown;
+    private bool _deactivatedLicenseNoticeShown;
     private bool _trialShutdownInProgress;
+    private bool _licenseOnlineCheckInProgress;
     private Jingle? _inlineSearchHighlight;
     private string _lastInlineSearchQuery = "";
     private int _inlineSearchIndex = -1;
@@ -2023,6 +2029,14 @@ public partial class MainWindow : Window
 
     private void RefreshLicenseStatus()
     {
+        if (_deactivatedLicenseShutdownDeadlineUtc is { } deactivatedDeadline)
+        {
+            var remaining = deactivatedDeadline - EstimatedLicenseServerTime();
+            if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
+            LicenseStatusText.Text = $"LICENS AVAKTIVERAD  ·  STÄNGS OM {FormatGraceTime(remaining)}";
+            return;
+        }
+
         if (_trialShutdownDeadlineUtc is { } shutdownDeadline)
         {
             var remaining = shutdownDeadline - EstimatedLicenseServerTime();
@@ -2036,6 +2050,7 @@ public partial class MainWindow : Window
             LicenseAccessKind.Trial when _licenses.Current.ExpiresAt is { } expires =>
                 $"PROVPERIOD  {Math.Max(0, (int)Math.Ceiling((expires - EstimatedLicenseServerTime()).TotalDays))} dagar kvar",
             LicenseAccessKind.Licensed => "LICENS AKTIV",
+            LicenseAccessKind.Deactivated => "LICENS AVAKTIVERAD",
             _ => "LICENS EJ AKTIV"
         };
     }
@@ -2045,19 +2060,38 @@ public partial class MainWindow : Window
         _licenseServerBaselineUtc = evaluation.ServerTime ?? DateTimeOffset.UtcNow;
         _licenseRuntimeClock.Restart();
         _trialShutdownDeadlineUtc = null;
+        _deactivatedLicenseShutdownDeadlineUtc = null;
+        _nextLicenseOnlineCheckUtc = _licenseServerBaselineUtc.Value + LicenseOnlineCheckInterval;
+        _nextLicenseObservationPersistUtc = _licenseServerBaselineUtc.Value + TimeSpan.FromMinutes(5);
         _trialExpirationNoticeShown = false;
+        _deactivatedLicenseNoticeShown = false;
         _trialShutdownInProgress = false;
+        _licenseOnlineCheckInProgress = false;
 
         if (evaluation.Kind == LicenseAccessKind.Expired && evaluation.ExpiresAt is { } expiredAt)
             BeginTrialGrace(expiredAt);
+        else if (evaluation.Kind == LicenseAccessKind.Deactivated && evaluation.ExpiresAt is { } deactivatedDeadline)
+            BeginDeactivatedLicenseGrace(deactivatedDeadline);
     }
 
     private DateTimeOffset EstimatedLicenseServerTime() =>
         (_licenseServerBaselineUtc ?? DateTimeOffset.UtcNow) + _licenseRuntimeClock.Elapsed;
 
-    private void LicenseMonitorTimer_Tick(object? sender, EventArgs e)
+    private async void LicenseMonitorTimer_Tick(object? sender, EventArgs e)
     {
         var estimatedServerTime = EstimatedLicenseServerTime();
+        if (_deactivatedLicenseShutdownDeadlineUtc is { } deactivatedDeadline)
+        {
+            if (estimatedServerTime >= _nextLicenseObservationPersistUtc)
+            {
+                _nextLicenseObservationPersistUtc = estimatedServerTime + TimeSpan.FromMinutes(5);
+                await _licenses.RecordObservedTimeAsync(estimatedServerTime);
+            }
+            RefreshLicenseStatus();
+            if (estimatedServerTime >= deactivatedDeadline) FinishDeactivatedLicense();
+            return;
+        }
+
         if (_trialShutdownDeadlineUtc is { } shutdownDeadline)
         {
             RefreshLicenseStatus();
@@ -2070,6 +2104,62 @@ public partial class MainWindow : Window
             BeginTrialGrace(expiresAt);
         else if (_licenses.Current.Kind == LicenseAccessKind.Trial)
             RefreshLicenseStatus();
+
+        if (_licenses.Current.Kind != LicenseAccessKind.Licensed ||
+            estimatedServerTime < _nextLicenseOnlineCheckUtc || _licenseOnlineCheckInProgress) return;
+
+        _licenseOnlineCheckInProgress = true;
+        _nextLicenseOnlineCheckUtc = estimatedServerTime + LicenseOnlineCheckInterval;
+        try
+        {
+            var evaluation = await _licenses.RecheckOnlineAsync();
+            if (evaluation.ServerTime is { } serverTime)
+            {
+                _licenseServerBaselineUtc = serverTime;
+                _licenseRuntimeClock.Restart();
+            }
+            if (evaluation.Kind == LicenseAccessKind.Deactivated && evaluation.ExpiresAt is { } deadline)
+                BeginDeactivatedLicenseGrace(deadline);
+            else
+                RefreshLicenseStatus();
+        }
+        catch
+        {
+            // A background license check must never interrupt live playback. The signed
+            // offline proof remains valid and the next scheduled check will try again.
+        }
+        finally
+        {
+            _licenseOnlineCheckInProgress = false;
+        }
+    }
+
+    private void BeginDeactivatedLicenseGrace(DateTimeOffset deadline)
+    {
+        _deactivatedLicenseShutdownDeadlineUtc = deadline;
+        RefreshLicenseStatus();
+        if (_deactivatedLicenseNoticeShown) return;
+
+        _deactivatedLicenseNoticeShown = true;
+        MessageBox.Show(this,
+            $"Licensen för den här datorn har avaktiverats av administratören.\n\n" +
+            $"FloorballDJ fortsätter fungera till {deadline.ToLocalTime():yyyy-MM-dd HH:mm} och stängs sedan automatiskt. " +
+            "Fristen sparas lokalt och börjar inte om när programmet startas om.\n\n" +
+            "Aktivera en giltig licens via Hjälp → Licens och provperiod om datorn fortfarande ska användas.",
+            "Licensen har avaktiverats", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+        if (EstimatedLicenseServerTime() >= deadline) FinishDeactivatedLicense();
+    }
+
+    private void FinishDeactivatedLicense()
+    {
+        if (_trialShutdownInProgress) return;
+        _trialShutdownInProgress = true;
+        _licenseMonitorTimer.Stop();
+        MessageBox.Show(this,
+            "24-timmarsfristen för den avaktiverade licensen har gått ut. FloorballDJ sparar profilen och stängs nu.",
+            "FloorballDJ stängs", MessageBoxButton.OK, MessageBoxImage.Information);
+        Close();
     }
 
     private void BeginTrialGrace(DateTimeOffset trialExpiresAt)

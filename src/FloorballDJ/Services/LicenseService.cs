@@ -22,6 +22,7 @@ public sealed class LicenseService
         """;
     private static readonly byte[] StorageEntropy = Encoding.UTF8.GetBytes("FloorballDJ.Licensing.v1");
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly TimeSpan DeactivationGracePeriod = TimeSpan.FromHours(24);
     private readonly HttpClient _http;
     private readonly string _storageDirectory;
     private readonly string _identityPath;
@@ -57,6 +58,17 @@ public sealed class LicenseService
             var now = DateTimeOffset.UtcNow;
             var clockMovedBack = _cache is { LastObservedUtc: var last } && now < last.AddMinutes(-5);
 
+            if (_cache is { DeactivationDeadlineUtc: not null } deactivatedCache && HasActivation(deactivatedCache))
+            {
+                var refreshed = await TryRefreshAsync(deactivatedCache, cancellationToken);
+                if (refreshed is not null) return SetCurrent(refreshed);
+
+                var observed = now > deactivatedCache.LastObservedUtc ? now : deactivatedCache.LastObservedUtc;
+                deactivatedCache.LastObservedUtc = observed;
+                SaveCache(deactivatedCache);
+                return SetCurrent(ToDeactivatedEvaluation(deactivatedCache, observed));
+            }
+
             // Trials are authorized by Supabase server time on every launch. This prevents a
             // frozen or rolled-back Windows clock from extending a fourteen-day trial.
             if (_cache is { Token.Length: > 0 } trialCache &&
@@ -73,7 +85,7 @@ public sealed class LicenseService
                 cache.LastObservedUtc = now > cache.LastObservedUtc ? now : cache.LastObservedUtc;
                 SaveCache(cache);
 
-                if (verified.Kind == "license" && verified.ExpiresAt <= now.AddDays(7) && HasActivation(cache))
+                if (verified.Kind == "license" && HasActivation(cache))
                 {
                     var refreshed = await TryRefreshAsync(cache, cancellationToken);
                     if (refreshed is not null) return SetCurrent(refreshed);
@@ -190,6 +202,38 @@ public sealed class LicenseService
         }
     }
 
+    public async Task<LicenseEvaluation> RecheckOnlineAsync(CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            _cache ??= LoadCache();
+            if (_cache is not { } cache || !HasActivation(cache)) return Current;
+            var refreshed = await TryRefreshAsync(cache, cancellationToken);
+            return refreshed is null ? Current : SetCurrent(refreshed);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task RecordObservedTimeAsync(DateTimeOffset observedUtc, CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            _cache ??= LoadCache();
+            if (_cache is not { } cache || observedUtc <= cache.LastObservedUtc) return;
+            cache.LastObservedUtc = observedUtc;
+            SaveCache(cache);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     private async Task<LicenseEvaluation?> TryStartTrialAsync(CancellationToken cancellationToken)
     {
         try
@@ -237,7 +281,19 @@ public sealed class LicenseService
                 machineFingerprint = GetMachineFingerprint(),
                 machineName = Environment.MachineName
             }, cancellationToken);
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await TryReadErrorAsync(response, cancellationToken);
+                if (error?.Error is "activation_not_found" or "license_inactive" or "license_expired")
+                {
+                    var now = error.ServerTime ?? DateTimeOffset.UtcNow;
+                    cache.DeactivationDeadlineUtc ??= now + DeactivationGracePeriod;
+                    cache.LastObservedUtc = now > cache.LastObservedUtc ? now : cache.LastObservedUtc;
+                    SaveCache(cache);
+                    return ToDeactivatedEvaluation(cache, now);
+                }
+                return null;
+            }
 
             var result = await response.Content.ReadFromJsonAsync<ActivationApiResponse>(JsonOptions, cancellationToken);
             if (result?.Token is null || !TryVerifyToken(result.Token, DateTimeOffset.UtcNow, out var verified) ||
@@ -245,8 +301,9 @@ public sealed class LicenseService
 
             cache.Token = result.Token;
             cache.LastObservedUtc = DateTimeOffset.UtcNow;
+            cache.DeactivationDeadlineUtc = null;
             SaveCache(cache);
-            return ToEvaluation(verified);
+            return ToEvaluation(verified) with { ServerTime = result.ServerTime };
         }
         catch (Exception ex) when (IsNetworkError(ex))
         {
@@ -300,6 +357,34 @@ public sealed class LicenseService
         {
             return fallback;
         }
+    }
+
+    private static async Task<LicenseApiError?> TryReadErrorAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await response.Content.ReadFromJsonAsync<LicenseApiError>(JsonOptions, cancellationToken);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static LicenseEvaluation ToDeactivatedEvaluation(LicenseCache cache, DateTimeOffset now)
+    {
+        var deadline = cache.DeactivationDeadlineUtc ?? now;
+        var allowed = now < deadline;
+        return new LicenseEvaluation(
+            LicenseAccessKind.Deactivated,
+            allowed,
+            allowed
+                ? $"Datorns licens har avaktiverats. FloorballDJ stängs senast {deadline.ToLocalTime():yyyy-MM-dd HH:mm}."
+                : "Datorns licens har avaktiverats. Aktivera en giltig licens för att fortsätta.",
+            deadline,
+            now);
     }
 
     private static bool IsNetworkError(Exception exception) =>
