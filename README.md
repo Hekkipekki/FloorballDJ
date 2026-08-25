@@ -47,3 +47,9 @@ När Inno Setup 7 finns installerat kan en komplett Windows-installerare byggas 
 ```
 
 Se `DISTRIBUTION.md` för GitHub Releases, kontrollsummor och kodsignering.
+
+## Lansering och försäljning
+
+- `docs/LICENS-OCH-BETALNING-PRODUKTION.md` beskriver säkerhetsmodellen och produktionskraven.
+- `docs/FASTSPRING-LANSERING.md` är den praktiska checklistan att följa när FastSpring-kontot och produkten är redo.
+- Köpknappen på webbplatsen ska förbli avstängd tills hela sandboxflödet, återbetalningar och chargebacks har verifierats.

@@ -18,6 +18,8 @@ För en första kommersiell version är nuvarande modell en bra balans: den hind
 
 ## Rekommenderat FastSpring-flöde
 
+Den praktiska steg-för-steg-checklistan och alla värden som ska fyllas i när kontot är aktivt finns i `FASTSPRING-LANSERING.md`.
+
 1. Kunden betalar i FastSprings butik. FastSpring är Merchant of Record och hanterar skatt/moms och betalningsuppgifter.
 2. Produkten anropar `POST /api/v1/fastspring/license` som Remote License Fulfillment.
 3. Endpointen verifierar separat Basic Auth, skapar en standardlicens för en dator och returnerar licensnyckeln som en enda textrad.

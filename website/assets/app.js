@@ -1,5 +1,6 @@
 (() => {
   const config = window.FLOORBALLDJ_SITE_CONFIG ?? {};
+  const english = document.documentElement.lang.toLowerCase().startsWith("en");
   const header = document.querySelector("[data-header]");
   const nav = document.querySelector("[data-nav]");
   const navToggle = document.querySelector("[data-nav-toggle]");
@@ -31,7 +32,7 @@
   if (price && config.priceLabel) price.textContent = config.priceLabel;
   if (purchase && config.purchasesEnabled && config.checkoutUrl) {
     purchase.href = config.checkoutUrl;
-    purchase.textContent = "Köp FloorballDJ";
+    purchase.textContent = english ? "Buy FloorballDJ" : "Köp FloorballDJ";
     purchase.removeAttribute("aria-disabled");
   } else {
     purchase?.addEventListener("click", (event) => event.preventDefault());
@@ -43,11 +44,13 @@
   if (config.downloadsEnabled && config.downloadUrl) {
     if (downloadButton) {
       downloadButton.href = config.downloadUrl;
-      downloadButton.textContent = `Ladda ned ${config.currentVersion || "FloorballDJ"}`;
+      downloadButton.textContent = `${english ? "Download" : "Ladda ned"} ${config.currentVersion || "FloorballDJ"}`;
       downloadButton.removeAttribute("aria-disabled");
     }
     if (downloadHero) downloadHero.href = config.downloadUrl;
-    if (downloadNote) downloadNote.textContent = "Provperioden startar automatiskt första gången programmet öppnas. Betaversionen är ännu inte kodsignerad, så Windows kan visa en SmartScreen-varning.";
+    if (downloadNote) downloadNote.textContent = english
+      ? "The trial starts automatically the first time the app opens. The beta is not code-signed yet, so Windows may show a SmartScreen warning."
+      : "Provperioden startar automatiskt första gången programmet öppnas. Betaversionen är ännu inte kodsignerad, så Windows kan visa en SmartScreen-varning.";
   } else {
     downloadButton?.addEventListener("click", (event) => event.preventDefault());
   }

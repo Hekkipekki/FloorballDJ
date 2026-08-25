@@ -2,6 +2,8 @@
 
 Static public landing page for FloorballDJ. It is intentionally separate from the private licensing API.
 
+The Swedish site is served from `/`, while the complete English version is available under `/en/`.
+
 ## Launch switches
 
 Edit `assets/site-config.js`:
@@ -10,6 +12,8 @@ Edit `assets/site-config.js`:
 - Set `purchasesEnabled` to `true`, add `checkoutUrl`, and set `priceLabel` after the payment webhook flow has passed production tests.
 
 Never place Supabase secrets, the license signing key, or `LICENSE_ADMIN_API_KEY` in this site.
+
+Before enabling purchases, follow `../docs/FASTSPRING-LANSERING.md`. The public checkout must remain disabled until license fulfillment and signed refund/chargeback handling have passed end-to-end tests.
 
 ## Local preview
 

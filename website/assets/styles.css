@@ -62,6 +62,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .site-nav a[aria-current="page"] { color: var(--text); position: relative; }
 .site-nav a[aria-current="page"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -9px; height: 2px; border-radius: 2px; background: var(--mint); }
 .site-nav .nav-cta { color: #06141d; background: var(--mint); padding: 10px 17px; border-radius: 9px; }
+.site-nav .language-switch { min-width: 38px; padding: 6px 9px; text-align: center; color: var(--text); border: 1px solid var(--line); border-radius: 8px; font: 750 .72rem/1 ui-monospace, monospace; letter-spacing: .06em; }
+.site-nav .language-switch:hover, .site-nav .language-switch:focus-visible { border-color: var(--line-strong); background: rgba(56, 224, 189, .08); }
 .nav-toggle { display: none; width: 44px; height: 44px; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 11px; }
 .nav-toggle > span:not(.sr-only) { display: block; height: 2px; margin: 4px 0; background: var(--text); }
 
@@ -227,7 +229,7 @@ h1 em, .closing-cta h2 em { color: transparent; font-style: normal; -webkit-text
   .site-header { padding-inline: 20px; }
   .nav-toggle { display: block; }
   .site-nav { position: absolute; top: 66px; left: 14px; right: 14px; padding: 18px; display: none; flex-direction: column; align-items: stretch; gap: 3px; border: 1px solid var(--line); border-radius: 14px; background: #07111f; box-shadow: var(--shadow); }
-  .site-nav.is-open { display: flex; }.site-nav a { padding: 11px 12px; }.site-nav .nav-cta { margin-top: 7px; text-align: center; }
+  .site-nav.is-open { display: flex; }.site-nav a { padding: 11px 12px; }.site-nav .nav-cta { margin-top: 7px; text-align: center; }.site-nav .language-switch { margin-top: 7px; }
   .site-nav a[aria-current="page"]::after { left: 12px; right: auto; bottom: 5px; width: 34px; }
   .hero { grid-template-columns: 1fr; padding-top: 130px; gap: 20px; }
   .hero-copy { text-align: center; }.hero-lead { margin-inline: auto; }.hero-actions, .hero-facts { justify-content: center; }

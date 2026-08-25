@@ -114,7 +114,6 @@ jobs:
           gh @arguments
 
       - name: Update website release metadata
-        continue-on-error: true
         shell: pwsh
         env:
           PUBLIC_RELEASE_REPOSITORY: ${{ vars.RELEASE_REPOSITORY }}
