@@ -404,8 +404,8 @@
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="LICENS OCH PROVPERIOD" Style="{StaticResource EyebrowText}" />
                         <TextBlock Text="Aktivering och offlineanvändning" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
-                        <GroupBox Header="Sju dagars provperiod" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Första starten kräver internet. Provperioden kopplas till datorn och börjar när licenstjänsten godkänner första starten. Återstående dagar visas i statusraden längst ned.</TextBlock>
+                        <GroupBox Header="Fjorton dagars provperiod" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Första starten kräver internet. Provperioden kopplas till datorn och börjar när licenstjänsten godkänner första starten. Återstående dagar visas i statusraden längst ned. Om perioden tar slut medan FloorballDJ är öppet visas en varning och en 24-timmars nedräkning. Därefter sparas profilen och programmet stängs automatiskt.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Aktivera en köpt licens" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Öppna <Run FontWeight="Bold">Hjälp → Licens och provperiod</Run>, ange licensnyckeln och välj Aktivera licens. Nyckeln skickas via en krypterad anslutning och sparas inte i klartext på datorn.</TextBlock>

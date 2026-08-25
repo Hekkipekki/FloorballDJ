@@ -58,7 +58,7 @@ public sealed class LicenseService
             var clockMovedBack = _cache is { LastObservedUtc: var last } && now < last.AddMinutes(-5);
 
             // Trials are authorized by Supabase server time on every launch. This prevents a
-            // frozen or rolled-back Windows clock from extending a seven-day trial.
+            // frozen or rolled-back Windows clock from extending a fourteen-day trial.
             if (_cache is { Token.Length: > 0 } trialCache &&
                 TryVerifyToken(trialCache.Token, now, out var cachedTrial) && cachedTrial.Kind == "trial")
             {
@@ -202,8 +202,12 @@ public sealed class LicenseService
             if (!response.IsSuccessStatusCode)
             {
                 if ((int)response.StatusCode == 403)
+                {
+                    var expired = await response.Content.ReadFromJsonAsync<TrialApiResponse>(JsonOptions, cancellationToken);
                     return new LicenseEvaluation(LicenseAccessKind.Expired, false,
-                        "Den sju dagar långa provperioden har gått ut. Aktivera en licens för att fortsätta.");
+                        "Den fjorton dagar långa provperioden har gått ut. Aktivera en licens för att fortsätta.",
+                        expired?.TrialExpiresAt, expired?.ServerTime);
+                }
                 return null;
             }
 
@@ -213,7 +217,7 @@ public sealed class LicenseService
 
             _cache = new LicenseCache { Token = result.Token, LastObservedUtc = DateTimeOffset.UtcNow };
             SaveCache(_cache);
-            return ToEvaluation(verified);
+            return ToEvaluation(verified) with { ServerTime = result.ServerTime };
         }
         catch (Exception ex) when (IsNetworkError(ex))
         {

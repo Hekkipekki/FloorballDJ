@@ -48,6 +48,14 @@ public partial class MainWindow : Window
         { Interval = TimeSpan.FromMilliseconds(220) };
     private readonly System.Windows.Threading.DispatcherTimer _clockTimer = new()
         { Interval = TimeSpan.FromSeconds(1) };
+    private readonly System.Windows.Threading.DispatcherTimer _licenseMonitorTimer = new()
+        { Interval = TimeSpan.FromMinutes(1) };
+    private readonly Stopwatch _licenseRuntimeClock = new();
+    private static readonly TimeSpan TrialGracePeriod = TimeSpan.FromHours(24);
+    private DateTimeOffset? _licenseServerBaselineUtc;
+    private DateTimeOffset? _trialShutdownDeadlineUtc;
+    private bool _trialExpirationNoticeShown;
+    private bool _trialShutdownInProgress;
     private Jingle? _inlineSearchHighlight;
     private string _lastInlineSearchQuery = "";
     private int _inlineSearchIndex = -1;
@@ -69,6 +77,7 @@ public partial class MainWindow : Window
         _clockTimer.Tick += (_, _) => RefreshClock();
         RefreshClock();
         _clockTimer.Start();
+        _licenseMonitorTimer.Tick += LicenseMonitorTimer_Tick;
         _inlineSearchClearTimer.Tick += (_, _) =>
         {
             _inlineSearchClearTimer.Stop();
@@ -80,6 +89,8 @@ public partial class MainWindow : Window
             FindNextInlineSearchResult(false);
         };
         RefreshLicenseStatus();
+        ResetLicenseMonitor(_licenses.Current);
+        _licenseMonitorTimer.Start();
         SourceInitialized += MainWindow_SourceInitialized;
         DataContext = new MainViewModel(_projects, _profilePreferences, _audio);
         ViewModel.PrimaryPlaybackStarted += (_, _) =>
@@ -192,6 +203,7 @@ public partial class MainWindow : Window
         if (_closeCommitted)
         {
             _clockTimer.Stop();
+            _licenseMonitorTimer.Stop();
             ViewModel.Dispose();
             return;
         }
@@ -216,6 +228,7 @@ public partial class MainWindow : Window
         }
         ViewModel.Dispose();
         _clockTimer.Stop();
+        _licenseMonitorTimer.Stop();
         _closeCommitted = true;
         Application.Current.Shutdown();
     }
@@ -2003,20 +2016,94 @@ public partial class MainWindow : Window
     {
         var dialog = new LicenseWindow(_licenses, _licenses.Current, isStartup: false) { Owner = this };
         dialog.ShowDialog();
+        ResetLicenseMonitor(_licenses.Current);
         RefreshLicenseStatus();
         if (dialog.LicenseWasDeactivated) Close();
     }
 
     private void RefreshLicenseStatus()
     {
+        if (_trialShutdownDeadlineUtc is { } shutdownDeadline)
+        {
+            var remaining = shutdownDeadline - EstimatedLicenseServerTime();
+            if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
+            LicenseStatusText.Text = $"PROVPERIOD SLUT  ·  STÄNGS OM {FormatGraceTime(remaining)}";
+            return;
+        }
+
         LicenseStatusText.Text = _licenses.Current.Kind switch
         {
             LicenseAccessKind.Trial when _licenses.Current.ExpiresAt is { } expires =>
-                $"PROVPERIOD  {Math.Max(0, (int)Math.Ceiling((expires - DateTimeOffset.UtcNow).TotalDays))} dagar kvar",
+                $"PROVPERIOD  {Math.Max(0, (int)Math.Ceiling((expires - EstimatedLicenseServerTime()).TotalDays))} dagar kvar",
             LicenseAccessKind.Licensed => "LICENS AKTIV",
             _ => "LICENS EJ AKTIV"
         };
     }
+
+    private void ResetLicenseMonitor(LicenseEvaluation evaluation)
+    {
+        _licenseServerBaselineUtc = evaluation.ServerTime ?? DateTimeOffset.UtcNow;
+        _licenseRuntimeClock.Restart();
+        _trialShutdownDeadlineUtc = null;
+        _trialExpirationNoticeShown = false;
+        _trialShutdownInProgress = false;
+
+        if (evaluation.Kind == LicenseAccessKind.Expired && evaluation.ExpiresAt is { } expiredAt)
+            BeginTrialGrace(expiredAt);
+    }
+
+    private DateTimeOffset EstimatedLicenseServerTime() =>
+        (_licenseServerBaselineUtc ?? DateTimeOffset.UtcNow) + _licenseRuntimeClock.Elapsed;
+
+    private void LicenseMonitorTimer_Tick(object? sender, EventArgs e)
+    {
+        var estimatedServerTime = EstimatedLicenseServerTime();
+        if (_trialShutdownDeadlineUtc is { } shutdownDeadline)
+        {
+            RefreshLicenseStatus();
+            if (estimatedServerTime >= shutdownDeadline) FinishExpiredTrial();
+            return;
+        }
+
+        if (_licenses.Current.Kind == LicenseAccessKind.Trial &&
+            _licenses.Current.ExpiresAt is { } expiresAt && estimatedServerTime >= expiresAt)
+            BeginTrialGrace(expiresAt);
+        else if (_licenses.Current.Kind == LicenseAccessKind.Trial)
+            RefreshLicenseStatus();
+    }
+
+    private void BeginTrialGrace(DateTimeOffset trialExpiresAt)
+    {
+        _trialShutdownDeadlineUtc = trialExpiresAt + TrialGracePeriod;
+        RefreshLicenseStatus();
+        if (_trialExpirationNoticeShown) return;
+
+        _trialExpirationNoticeShown = true;
+        var localDeadline = _trialShutdownDeadlineUtc.Value.ToLocalTime();
+        MessageBox.Show(this,
+            $"Din provperiod har gått ut.\n\nFloorballDJ fortsätter fungera i 24 timmar och stängs automatiskt " +
+            $"senast {localDeadline:yyyy-MM-dd HH:mm}. Pågående arbete sparas när programmet stängs.\n\n" +
+            "Du kan aktivera en licens via Hjälp → Licens och provperiod.",
+            "Provperioden har gått ut", MessageBoxButton.OK, MessageBoxImage.Information);
+
+        if (EstimatedLicenseServerTime() >= _trialShutdownDeadlineUtc.Value)
+            FinishExpiredTrial();
+    }
+
+    private void FinishExpiredTrial()
+    {
+        if (_trialShutdownInProgress) return;
+        _trialShutdownInProgress = true;
+        _licenseMonitorTimer.Stop();
+        MessageBox.Show(this,
+            "Respittiden efter provperioden har gått ut. FloorballDJ sparar profilen och stängs nu. " +
+            "Aktivera en licens nästa gång programmet startas.",
+            "FloorballDJ stängs", MessageBoxButton.OK, MessageBoxImage.Information);
+        Close();
+    }
+
+    private static string FormatGraceTime(TimeSpan remaining) =>
+        $"{Math.Max(0, (int)remaining.TotalHours):00}:{remaining.Minutes:00}";
     private void RevisionHistory_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new RevisionHistoryWindow(ViewModel) { Owner = this };

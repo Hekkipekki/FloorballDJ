@@ -14,7 +14,8 @@ public sealed record LicenseEvaluation(
     LicenseAccessKind Kind,
     bool IsAllowed,
     string Message,
-    DateTimeOffset? ExpiresAt = null)
+    DateTimeOffset? ExpiresAt = null,
+    DateTimeOffset? ServerTime = null)
 {
     public static LicenseEvaluation InternetRequired(string message) =>
         new(LicenseAccessKind.InternetRequired, false, message);
@@ -45,6 +46,7 @@ internal sealed class TrialApiResponse
 {
     public string Status { get; set; } = "";
     public string? Token { get; set; }
+    public DateTimeOffset? ServerTime { get; set; }
     public DateTimeOffset? TrialStartedAt { get; set; }
     public DateTimeOffset? TrialExpiresAt { get; set; }
 }
