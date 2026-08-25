@@ -18,3 +18,7 @@ Before enabling purchases, follow `../docs/FASTSPRING-LANSERING.md`. The public 
 ## Local preview
 
 Run `node scripts/serve.mjs` and open `http://127.0.0.1:4173`.
+
+## Deployment
+
+The current Netlify site has no Git build settings and is deployed from this directory with `npx netlify deploy --prod --dir .`. A GitHub push alone does not update the public site. If continuous deployment is enabled later, connect `Hekkipekki/FloorballDJ`, use `main` as the production branch, `website` as the base directory, no build command, and `.` as the publish directory.
