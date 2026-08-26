@@ -1,26 +1,76 @@
 <Window x:Class="FloorballDJ.Views.LanguageSelectionWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Choose language · Välj språk" Width="540" Height="390"
+        Title="FloorballDJ · Language / Språk" Width="540" Height="440"
         ResizeMode="NoResize" WindowStartupLocation="CenterScreen">
-    <Grid Margin="34,30">
-        <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-        <StackPanel>
+    <Grid Margin="34,28,34,30">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
             <TextBlock Text="WELCOME · VÄLKOMMEN" Style="{StaticResource EyebrowText}" />
-            <TextBlock Text="Choose your language" FontSize="30" FontWeight="SemiBold" Margin="0,8,0,4" />
-            <TextBlock Text="Välj språk för FloorballDJ" Foreground="{StaticResource MutedBrush}" FontSize="16" Margin="0,0,0,26" />
-            <Border BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" CornerRadius="12" Padding="18" Margin="0,0,0,12">
-                <RadioButton x:Name="EnglishChoice" IsChecked="True" GroupName="Language" FontSize="16">
-                    <StackPanel Orientation="Horizontal"><TextBlock Text="🇬🇧" FontSize="22" Margin="0,0,12,0"/><TextBlock Text="English" VerticalAlignment="Center"/></StackPanel>
+            <TextBlock Text="Choose language · Välj språk" FontSize="28" FontWeight="SemiBold" Margin="0,7,0,4" />
+            <TextBlock Text="Select language for FloorballDJ · Välj språk för FloorballDJ"
+                       Foreground="{StaticResource MutedBrush}" FontSize="14" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1">
+            <Border BorderThickness="1" CornerRadius="10" Padding="17,15" Margin="0,0,0,10">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsChecked, ElementName=EnglishChoice}" Value="True">
+                                <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter Property="Background" Value="#101F31" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <RadioButton x:Name="EnglishChoice" IsChecked="True" GroupName="Language" FontSize="16" VerticalContentAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <Border Background="#16324A" CornerRadius="5" Padding="9,5" Margin="0,0,13,0">
+                            <TextBlock Text="EN" FontFamily="Cascadia Mono" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" />
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="English" FontWeight="SemiBold" />
+                            <TextBlock Text="Default · Standard" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </StackPanel>
                 </RadioButton>
             </Border>
-            <Border BorderBrush="{StaticResource HairlineBrush}" BorderThickness="1" CornerRadius="12" Padding="18">
-                <RadioButton x:Name="SwedishChoice" GroupName="Language" FontSize="16">
-                    <StackPanel Orientation="Horizontal"><TextBlock Text="🇸🇪" FontSize="22" Margin="0,0,12,0"/><TextBlock Text="Svenska" VerticalAlignment="Center"/></StackPanel>
+            <Border BorderThickness="1" CornerRadius="10" Padding="17,15">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsChecked, ElementName=SwedishChoice}" Value="True">
+                                <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter Property="Background" Value="#101F31" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <RadioButton x:Name="SwedishChoice" GroupName="Language" FontSize="16" VerticalContentAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <Border Background="#16324A" CornerRadius="5" Padding="9,5" Margin="0,0,13,0">
+                            <TextBlock Text="SV" FontFamily="Cascadia Mono" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" />
+                        </Border>
+                        <TextBlock Text="Svenska" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </StackPanel>
                 </RadioButton>
             </Border>
         </StackPanel>
-        <Button Grid.Row="1" Content="Continue · Fortsätt" Style="{StaticResource PrimaryButton}"
-                HorizontalAlignment="Right" MinWidth="170" IsDefault="True" Click="Continue_Click" />
+
+        <Border Grid.Row="3" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,1,0,0" Padding="0,18,0,0">
+            <Button Content="Continue · Fortsätt" Style="{StaticResource PrimaryButton}"
+                    HorizontalAlignment="Right" MinWidth="190" IsDefault="True" Click="Continue_Click" />
+        </Border>
     </Grid>
 </Window>

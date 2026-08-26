@@ -13,12 +13,6 @@
   to = "/index.html"
   status = 200
 
-[[redirects]]
-  from = "/api/community/*"
-  to = "/.netlify/functions/community?route=:splat"
-  status = 200
-  force = true
-
 [[headers]]
   for = "/*"
   [headers.values]

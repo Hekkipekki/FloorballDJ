@@ -5,12 +5,18 @@
   const words = english ? {
     loading: "Loading discussions…", unavailable: "The community is being prepared. Reading and posting will open soon.",
     empty: "No topics yet. Be the first to start one.", replies: "replies", locked: "Locked", by: "By",
+    emptyTitle: "Start the first conversation",
+    emptyBody: "Ask a question, share a match-day workflow or suggest an improvement to FloorballDJ.",
+    emptyAction: "Create the first topic",
     reply: "Reply", report: "Report", remove: "Delete my post", replyPlaceholder: "Write a reply…",
     postReply: "Post reply", nickname: "Nickname", confirmDelete: "Delete this post?", reportPrompt: "Briefly describe the problem:",
     saved: "Published. The edit key is saved in this browser.", error: "Something went wrong. Please try again."
   } : {
     loading: "Laddar diskussioner…", unavailable: "Communityt förbereds. Läsning och nya inlägg öppnas snart.",
     empty: "Det finns inga trådar ännu. Bli först med att starta en.", replies: "svar", locked: "Låst", by: "Av",
+    emptyTitle: "Starta den första diskussionen",
+    emptyBody: "Ställ en fråga, dela ett arbetssätt från matchdagen eller föreslå en förbättring av FloorballDJ.",
+    emptyAction: "Skapa första tråden",
     reply: "Svara", report: "Rapportera", remove: "Radera mitt inlägg", replyPlaceholder: "Skriv ett svar…",
     postReply: "Publicera svar", nickname: "Smeknamn", confirmDelete: "Radera det här inlägget?", reportPrompt: "Beskriv kort vad som är fel:",
     saved: "Publicerat. Redigeringsnyckeln sparades i den här webbläsaren.", error: "Något gick fel. Försök igen."
@@ -46,12 +52,25 @@
     status.hidden = !message;
   };
 
+  function showEmptyCommunity() {
+    list.replaceChildren(el("div", "community-empty community-empty-list", words.empty));
+    const emptyState = el("div", "community-empty community-empty-detail");
+    emptyState.append(el("strong", "", words.emptyTitle), el("span", "", words.emptyBody));
+    if (postingEnabled) {
+      const start = el("button", "button button-primary", words.emptyAction);
+      start.type = "button";
+      start.addEventListener("click", () => { dialog.showModal(); form.elements.nickname.focus(); });
+      emptyState.append(start);
+    }
+    detail.replaceChildren(emptyState);
+  }
+
   async function loadThreads(selectId) {
     setStatus(words.loading);
     try {
       const threads = await api("/threads");
       list.replaceChildren();
-      if (!threads.length) list.append(el("div", "community-empty", words.empty));
+      if (!threads.length) showEmptyCommunity();
       threads.forEach((thread) => {
         const button = el("button", "thread-card");
         button.type = "button";

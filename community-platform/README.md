@@ -1,24 +1,29 @@
-# FloorballDJ Community
+# FloorballDJ Community (äldre Supabase-alternativ)
 
-Det här är den separata databasdelen för webbplatsens öppna community. Den ska kopplas till ett eget Supabase-projekt och delar inga tabeller eller hemligheter med licenssystemet.
+> Webbplatsens aktiva community använder nu Netlify Blobs via
+> `website/netlify/functions/community.mjs`. Den här katalogen behålls endast
+> som dokumentation för det tidigare, separata Supabase-upplägget och ska inte
+> distribueras till produktionswebbplatsen.
+
+Det här är den tidigare separata databasdelen för webbplatsens community. Den
+används inte av den aktiva webbplatsen och delar inga tabeller eller
+hemligheter med licenssystemet.
 
 ## Säkerhetsmodell
 
 - Besökare behöver inget konto och anger endast ett smeknamn.
 - Webbläsaren pratar enbart med Netlify-funktionen under `/api/community/*`.
-- Supabase-hemligheten lämnar aldrig servern och finns inte i webbplatsens JavaScript.
-- Tabellerna ligger i ett privat schema, har RLS aktiverat och saknar rättigheter för `anon` och `authenticated`.
+- Den aktiva lösningen lagrar trådar, svar, rapporter och begränsningsdata i en
+  site-scoped Netlify Blobs-butik.
 - IP-adressen sparas aldrig. Servern lagrar endast ett saltat fingeravtryck för hastighetsbegränsning.
 - Varje inlägg får en slumpmässig redigeringsnyckel. Klartexten sparas bara lokalt i den webbläsare som skapade inlägget.
 - Administratören kan dölja, visa, låsa och radera trådar via `/community/admin/`.
 
-## Aktivering
+## Aktiv konfiguration
 
-1. Skapa ett separat Supabase-projekt, exempelvis `FloorballDJ Community`.
-2. Länka den här katalogen till projektet med Supabase CLI och kör `supabase db push`, eller klistra in migreringen i `supabase/migrations/` i SQL Editor.
-3. Lägg in variablerna från `website/.env.example` på FloorballDJ-webbplatsen i Netlify.
-4. Låt `COMMUNITY_POSTING_ENABLED` vara `false` medan du provar läsning och administration.
-5. Aktivera Cloudflare Turnstile och ange dess servernyckel innan offentlig publicering rekommenderas.
-6. Sätt därefter `COMMUNITY_POSTING_ENABLED` till `true` och gör en ny deploy.
+Servervariablerna dokumenteras i `website/.env.example`. Den aktiva funktionen
+finns i `website/netlify/functions/community.mjs` och publiceras tillsammans
+med webbplatsen. Cloudflare Turnstile kan aktiveras senare som ett extra lager
+mot automatiserad spam.
 
 Administratörsnyckeln ska vara separat från licensadministrationens nyckel.

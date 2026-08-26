@@ -196,13 +196,26 @@ public static class LanguageService
     public static void TranslateElement(FrameworkElement element)
     {
         if (!IsEnglish) return;
-        if (element is Window window && !BindingOperations.IsDataBound(window, Window.TitleProperty)) window.Title = Translate(window.Title);
+        if (element is Window window && !BindingOperations.IsDataBound(window, Window.TitleProperty))
+            SetIfTranslated(window.Title, translated => window.Title = translated);
         if (element is TextBlock text && !BindingOperations.IsDataBound(text, TextBlock.TextProperty) && !string.IsNullOrEmpty(text.Text))
-            text.Text = Translate(text.Text);
+            SetIfTranslated(text.Text, translated => text.Text = translated);
         if (element is ContentControl content && !BindingOperations.IsDataBound(content, ContentControl.ContentProperty) && content.Content is string contentText)
-            content.Content = Translate(contentText);
+            SetIfTranslated(contentText, translated => content.Content = translated);
         if (element is HeaderedContentControl header && !BindingOperations.IsDataBound(header, HeaderedContentControl.HeaderProperty) && header.Header is string headerText)
-            header.Header = Translate(headerText);
-        if (element.ToolTip is string toolTip) element.ToolTip = Translate(toolTip);
+            SetIfTranslated(headerText, translated => header.Header = translated);
+        // Menu and context-menu entries derive from HeaderedItemsControl, not
+        // HeaderedContentControl. Without this branch the saved language was used
+        // by view models while every static menu header remained in Swedish.
+        if (element is HeaderedItemsControl itemsHeader && !BindingOperations.IsDataBound(itemsHeader, HeaderedItemsControl.HeaderProperty) && itemsHeader.Header is string itemsHeaderText)
+            SetIfTranslated(itemsHeaderText, translated => itemsHeader.Header = translated);
+        if (element.ToolTip is string toolTip)
+            SetIfTranslated(toolTip, translated => element.ToolTip = translated);
+    }
+
+    private static void SetIfTranslated(string source, Action<string> setter)
+    {
+        var translated = Translate(source);
+        if (!string.Equals(source, translated, StringComparison.Ordinal)) setter(translated);
     }
 }

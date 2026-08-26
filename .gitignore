@@ -13,3 +13,5 @@ artifacts/
 *.key
 licensing-api/
 website/.netlify/
+website/node_modules/
+.community-admin-key.local.txt
