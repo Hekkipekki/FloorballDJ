@@ -62,7 +62,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .site-nav a[aria-current="page"] { color: var(--text); position: relative; }
 .site-nav a[aria-current="page"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -9px; height: 2px; border-radius: 2px; background: var(--mint); }
 .site-nav .nav-cta { color: #06141d; background: var(--mint); padding: 10px 17px; border-radius: 9px; }
-.site-nav .language-switch { min-width: 38px; padding: 6px 9px; text-align: center; color: var(--text); border: 1px solid var(--line); border-radius: 8px; font: 750 .72rem/1 ui-monospace, monospace; letter-spacing: .06em; }
+.site-nav .language-switch { min-width: 64px; padding: 6px 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-align: center; color: var(--text); border: 1px solid var(--line); border-radius: 8px; font: 750 .72rem/1 ui-monospace, monospace; letter-spacing: .06em; }
+.site-nav .language-switch span { font: 1rem/1 "Segoe UI Emoji", sans-serif; letter-spacing: 0; }
 .site-nav .language-switch:hover, .site-nav .language-switch:focus-visible { border-color: var(--line-strong); background: rgba(56, 224, 189, .08); }
 .nav-toggle { display: none; width: 44px; height: 44px; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 11px; }
 .nav-toggle > span:not(.sr-only) { display: block; height: 2px; margin: 4px 0; background: var(--text); }

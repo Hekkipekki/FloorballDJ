@@ -15,6 +15,11 @@ public partial class App : Application
     {
         EventManager.RegisterClassHandler(typeof(TextBox), Keyboard.KeyDownEvent,
             new KeyEventHandler(TextBox_KeyDown), true);
+        EventManager.RegisterClassHandler(typeof(FrameworkElement), FrameworkElement.LoadedEvent,
+            new RoutedEventHandler((sender, _) =>
+            {
+                if (sender is FrameworkElement element) LanguageService.TranslateElement(element);
+            }), true);
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             WriteCrashLog(args.ExceptionObject as Exception ?? new Exception(args.ExceptionObject?.ToString()));
@@ -26,10 +31,30 @@ public partial class App : Application
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         base.OnStartup(e);
 
+        var languagePreferences = new LanguagePreferencesService();
+        var language = languagePreferences.GetLanguage();
+        var isSmokeTest = Environment.GetCommandLineArgs()
+            .Contains("--smoke-test", StringComparer.OrdinalIgnoreCase);
+        if (language is null && isSmokeTest)
+        {
+            language = "en";
+        }
+        else if (language is null)
+        {
+            var languageWindow = new LanguageSelectionWindow();
+            if (languageWindow.ShowDialog() != true)
+            {
+                Shutdown();
+                return;
+            }
+            language = languageWindow.SelectedLanguage;
+            languagePreferences.SetLanguage(language);
+        }
+        LanguageService.SetLanguage(language);
+
         var licensing = new LicenseService();
 #if DEBUG
-        var bypassForSmokeTest = Environment.GetCommandLineArgs()
-            .Contains("--smoke-test", StringComparer.OrdinalIgnoreCase);
+        var bypassForSmokeTest = isSmokeTest;
 #else
         const bool bypassForSmokeTest = false;
 #endif

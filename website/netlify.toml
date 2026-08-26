@@ -3,6 +3,16 @@
   functions = "netlify/functions"
 
 [[redirects]]
+  from = "/"
+  to = "/en/"
+  status = 302
+
+[[redirects]]
+  from = "/sv/"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
   from = "/api/community/*"
   to = "/.netlify/functions/community?route=:splat"
   status = 200

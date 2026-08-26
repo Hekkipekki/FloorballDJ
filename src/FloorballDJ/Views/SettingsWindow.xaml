@@ -25,6 +25,19 @@
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="0,0,8,0">
+                <GroupBox Header="Språk / Language" Style="{StaticResource ModernGroupBox}" Margin="0,0,0,16">
+                    <Grid Margin="2,7,2,2">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                        <TextBlock Text="Programspråk" Style="{StaticResource FieldLabel}" />
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding Languages}" DisplayMemberPath="Name" SelectedValuePath="Code"
+                                  SelectedValue="{Binding LanguageCode, Mode=TwoWay}" Foreground="#111820" Background="White" Margin="0,5">
+                            <ComboBox.Resources><Style TargetType="ComboBoxItem"><Setter Property="Foreground" Value="#111820" /><Setter Property="Background" Value="White" /></Style></ComboBox.Resources>
+                        </ComboBox>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Språkbytet används nästa gång FloorballDJ startas."
+                                   Foreground="{StaticResource MutedBrush}" FontSize="10" TextWrapping="Wrap" />
+                    </Grid>
+                </GroupBox>
                 <GroupBox Header="Ljud" Style="{StaticResource ModernGroupBox}" Margin="0,0,0,16">
                     <Grid Margin="2,7,2,2">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>

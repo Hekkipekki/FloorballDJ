@@ -74,11 +74,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public AppSettings Settings => Project.Settings;
     public ObservableCollection<Deck> Decks => Project.Decks;
     public Deck? SelectedDeck { get => _selectedDeck; set => Set(ref _selectedDeck, value); }
-    public PlaybackSnapshot NowPlaying { get => _nowPlaying; private set { if (Set(ref _nowPlaying, value)) { Raise(nameof(RemainingText)); Raise(nameof(PositionFraction)); } } }
+    public PlaybackSnapshot NowPlaying { get => _nowPlaying; private set { if (Set(ref _nowPlaying, value)) { Raise(nameof(RemainingText)); Raise(nameof(PositionFraction)); Raise(nameof(NowPlayingTitle)); } } }
+    public string NowPlayingTitle => LanguageService.Translate(NowPlaying.Title);
     public string RemainingText => NowPlaying.Duration <= TimeSpan.Zero ? "--:--.-" : Format(NowPlaying.Duration - NowPlaying.Position);
     public double PositionFraction => NowPlaying.Duration.TotalSeconds <= 0 ? 0 : Math.Clamp(NowPlaying.Position.TotalSeconds / NowPlaying.Duration.TotalSeconds, 0, 1);
-    public string Status { get => _status; set => Set(ref _status, value); }
-    public string NowPlayingLabel => _isFadingOutCurrent ? "FADEAS UT" : "SPELAR NU";
+    public string Status { get => LanguageService.Translate(_status); set => Set(ref _status, value); }
+    public string NowPlayingLabel => LanguageService.Translate(_isFadingOutCurrent ? "FADEAS UT" : "SPELAR NU");
     public bool UseSecondaryOutput { get => _useSecondaryOutput; set => Set(ref _useSecondaryOutput, value); }
     public bool QueueLoopEnabled { get => _queueLoopEnabled; set => Set(ref _queueLoopEnabled, value); }
     public bool QueueShuffleEnabled { get => _queueShuffleEnabled; set => Set(ref _queueShuffleEnabled, value); }

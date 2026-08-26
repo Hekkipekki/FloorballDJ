@@ -12,6 +12,7 @@ public partial class SettingsWindow : Window
 {
     private readonly FloorballProject _target;
     private readonly ProfilePreferencesService _profilePreferences;
+    private readonly string _originalLanguage;
     private readonly HashSet<string> _confirmedShortcutReplacements = new(StringComparer.OrdinalIgnoreCase);
     public SettingsViewData ViewData { get; }
 
@@ -22,6 +23,7 @@ public partial class SettingsWindow : Window
         WindowPlacementService.MaximizeOnOwnerMonitor(this);
         _target = project;
         _profilePreferences = profilePreferences;
+        _originalLanguage = new LanguagePreferencesService().GetLanguage() ?? "en";
         var profileDrafts = new ObservableCollection<RandomPoolProfileDraft>(
             (project.Settings.RandomPoolProfiles ?? []).Select(profile => CreateRandomProfileDraft(profile, project.Decks)));
         if (profileDrafts.Count == 0)
@@ -48,6 +50,8 @@ public partial class SettingsWindow : Window
             DefaultProfilePath = profilePreferences.GetDefaultProfilePath() ?? "",
             RecentProfiles = new ObservableCollection<RecentProfileChoice>(profilePreferences.GetRecentProfiles()
                 .Select(path => new RecentProfileChoice(Path.GetFileNameWithoutExtension(path), path))),
+            Languages = [new LanguageChoice("English", "en"), new LanguageChoice("Svenska", "sv")],
+            LanguageCode = _originalLanguage,
             RandomPoolProfiles = profileDrafts,
             AutoplayProfiles = autoplayDrafts
         };
@@ -209,6 +213,7 @@ public partial class SettingsWindow : Window
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+        var selectedLanguage = LanguagePreferencesService.Normalize(ViewData.LanguageCode);
         var duplicateShortcut = ViewData.RandomPoolProfiles
             .Where(profile => !string.IsNullOrWhiteSpace(profile.Shortcut))
             .GroupBy(profile => ShortcutService.Normalize(profile.Shortcut), StringComparer.OrdinalIgnoreCase)
@@ -279,6 +284,15 @@ public partial class SettingsWindow : Window
         foreach (var team in settings.TeamDeckProfiles ?? [])
             if (activeReplacements.Contains(ShortcutService.Normalize(team.Shortcut) ?? "")) team.Shortcut = null;
         Copy(settings, _target.Settings);
+        new LanguagePreferencesService().SetLanguage(selectedLanguage);
+        if (!string.Equals(selectedLanguage, _originalLanguage, StringComparison.OrdinalIgnoreCase))
+        {
+            var message = LanguageService.IsEnglish
+                ? "The new language will be used the next time FloorballDJ starts."
+                : "Det nya språket används nästa gång FloorballDJ startas.";
+            var title = LanguageService.IsEnglish ? "Language saved" : "Språk sparat";
+            MessageBox.Show(this, message, title, MessageBoxButton.OK, MessageBoxImage.Information);
+        }
         DialogResult = true;
     }
 
@@ -474,6 +488,8 @@ public sealed class SettingsViewData : INotifyPropertyChanged
     public required ObservableCollection<RandomPoolProfileDraft> RandomPoolProfiles { get; init; }
     public required ObservableCollection<AutoplayProfileDraft> AutoplayProfiles { get; init; }
     public required ObservableCollection<RecentProfileChoice> RecentProfiles { get; init; }
+    public required IReadOnlyList<LanguageChoice> Languages { get; init; }
+    public string LanguageCode { get; set; } = "en";
     public RandomPoolProfileDraft? SelectedRandomPoolProfile
     {
         get => _selectedRandomPoolProfile;
@@ -506,6 +522,7 @@ public sealed class AutoplayProfileDraft : INotifyPropertyChanged
 }
 
 public sealed record RecentProfileChoice(string Name, string Path);
+public sealed record LanguageChoice(string Name, string Code);
 
 public sealed class RandomPoolProfileDraft : INotifyPropertyChanged
 {

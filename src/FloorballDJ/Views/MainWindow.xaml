@@ -292,7 +292,7 @@
                            HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" />
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0">
                         <TextBlock Text="{Binding NowPlayingLabel}" Foreground="{StaticResource AccentBrush}" FontSize="9" FontWeight="Bold" />
-                        <TextBlock Text="{Binding NowPlaying.Title}" FontFamily="Segoe UI Variable Display" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding NowPlaying.Title}" />
+                        <TextBlock Text="{Binding NowPlayingTitle}" FontFamily="Segoe UI Variable Display" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding NowPlayingTitle}" />
                     </StackPanel>
                 </Grid>
 

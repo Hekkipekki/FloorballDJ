@@ -2,7 +2,8 @@
 
 Static public landing page for FloorballDJ. It is intentionally separate from the private licensing API.
 
-The Swedish site is served from `/`, while the complete English version is available under `/en/`.
+English is the default language and `/` redirects to the complete English site under `/en/`.
+The Swedish home page is available under `/sv/`; the remaining Swedish pages keep their established routes.
 
 ## Launch switches
 

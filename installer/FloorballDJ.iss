@@ -3,7 +3,7 @@
 #define MyAppUrl "https://floorballdj.netlify.app"
 
 #ifndef AppVersion
-  #define AppVersion "0.40.0-beta.21"
+  #define AppVersion "0.40.0-beta.23"
 #endif
 #ifndef VersionInfoVersion
   #define VersionInfoVersion "0.40.0.0"
@@ -42,6 +42,7 @@ UninstallDisplayIcon={app}\FloorballDJ.exe
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern dynamic windows11
+ShowLanguageDialog=yes
 CloseApplications=yes
 RestartApplications=no
 SetupLogging=yes
@@ -65,7 +66,7 @@ Name: "swedish"; MessagesFile: "compiler:Languages\Swedish.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Skapa en genväg på skrivbordet"; GroupDescription: "Genvägar:"; Flags: unchecked
+Name: "desktopicon"; Description: "{cm:DesktopIconTask}"; GroupDescription: "{cm:ShortcutGroup}"; Flags: unchecked
 
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -75,4 +76,12 @@ Name: "{group}\FloorballDJ"; Filename: "{app}\FloorballDJ.exe"; WorkingDir: "{ap
 Name: "{autodesktop}\FloorballDJ"; Filename: "{app}\FloorballDJ.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\FloorballDJ.exe"; Description: "Starta FloorballDJ"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\FloorballDJ.exe"; Description: "{cm:StartFloorballDJ}"; Flags: nowait postinstall skipifsilent
+
+[CustomMessages]
+english.DesktopIconTask=Create a desktop shortcut
+english.ShortcutGroup=Shortcuts:
+english.StartFloorballDJ=Start FloorballDJ
+swedish.DesktopIconTask=Skapa en genväg på skrivbordet
+swedish.ShortcutGroup=Genvägar:
+swedish.StartFloorballDJ=Starta FloorballDJ
