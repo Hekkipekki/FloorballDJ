@@ -6,6 +6,7 @@
   from = "/"
   to = "/en/"
   status = 302
+  force = true
 
 [[redirects]]
   from = "/sv/"
