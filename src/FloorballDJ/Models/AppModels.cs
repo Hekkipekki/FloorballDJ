@@ -251,10 +251,17 @@ public sealed class Deck : INotifyPropertyChanged
     private int _pageCount = 1;
     private int _activePage;
 
+    public sealed class PageLayout
+    {
+        public int Rows { get; set; } = 4;
+        public int Columns { get; set; } = 5;
+    }
+
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get => _name; set { if (_name == value) return; _name = value; Raise(); } }
     public int Rows { get => _rows; set { if (_rows == value) return; _rows = value; Raise(); } }
     public int Columns { get => _columns; set { if (_columns == value) return; _columns = value; Raise(); } }
+    public List<PageLayout> PageLayouts { get; set; } = [];
     public int PageCount
     {
         get => _pageCount;
@@ -268,6 +275,8 @@ public sealed class Deck : INotifyPropertyChanged
             Raise(nameof(ActivePage));
             Raise(nameof(PageNumbers));
             Raise(nameof(HasMultiplePages));
+            Raise(nameof(ActiveRows));
+            Raise(nameof(ActiveColumns));
         }
     }
     public int ActivePage
@@ -279,13 +288,97 @@ public sealed class Deck : INotifyPropertyChanged
             if (_activePage == normalized) return;
             _activePage = normalized;
             Raise();
+            Raise(nameof(ActiveRows));
+            Raise(nameof(ActiveColumns));
         }
     }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public int ActiveRows => GetPageRows(ActivePage);
+    [System.Text.Json.Serialization.JsonIgnore]
+    public int ActiveColumns => GetPageColumns(ActivePage);
+    [System.Text.Json.Serialization.JsonIgnore]
+    public int TotalCapacity => Enumerable.Range(0, PageCount).Sum(GetPageCapacity);
     [System.Text.Json.Serialization.JsonIgnore]
     public IReadOnlyList<int> PageNumbers => Enumerable.Range(1, PageCount).ToArray();
     [System.Text.Json.Serialization.JsonIgnore]
     public bool HasMultiplePages => PageCount > 1;
     public ObservableCollection<Jingle> Jingles { get; set; } = [];
+
+    public void EnsurePageLayouts()
+    {
+        PageLayouts ??= [];
+        while (PageLayouts.Count < PageCount)
+            PageLayouts.Add(new PageLayout { Rows = Math.Max(1, Rows), Columns = Math.Max(1, Columns) });
+        if (PageLayouts.Count > PageCount) PageLayouts.RemoveRange(PageCount, PageLayouts.Count - PageCount);
+        foreach (var layout in PageLayouts)
+        {
+            layout.Rows = Math.Max(1, layout.Rows);
+            layout.Columns = Math.Max(1, layout.Columns);
+        }
+    }
+
+    public int GetPageRows(int page)
+    {
+        EnsurePageLayouts();
+        return PageLayouts[Math.Clamp(page, 0, PageCount - 1)].Rows;
+    }
+
+    public int GetPageColumns(int page)
+    {
+        EnsurePageLayouts();
+        return PageLayouts[Math.Clamp(page, 0, PageCount - 1)].Columns;
+    }
+
+    public int GetPageCapacity(int page) => Math.Max(1, GetPageRows(page) * GetPageColumns(page));
+
+    public int GetPageStartIndex(int page)
+    {
+        EnsurePageLayouts();
+        var normalized = Math.Clamp(page, 0, PageCount);
+        var start = 0;
+        for (var index = 0; index < normalized; index++) start += GetPageCapacity(index);
+        return start;
+    }
+
+    public int GetPageForPosition(int position)
+    {
+        var remaining = Math.Max(0, position);
+        for (var page = 0; page < PageCount; page++)
+        {
+            var capacity = GetPageCapacity(page);
+            if (remaining < capacity) return page;
+            remaining -= capacity;
+        }
+        return Math.Max(0, PageCount - 1);
+    }
+
+    public int GetPositionOnPage(int position)
+    {
+        var page = GetPageForPosition(position);
+        return Math.Max(0, position - GetPageStartIndex(page));
+    }
+
+    public void SetPageLayout(int page, int rows, int columns)
+    {
+        EnsurePageLayouts();
+        var normalized = Math.Clamp(page, 0, PageCount - 1);
+        PageLayouts[normalized] = new PageLayout { Rows = Math.Max(1, rows), Columns = Math.Max(1, columns) };
+        Raise(nameof(PageLayouts));
+        Raise(nameof(TotalCapacity));
+        if (normalized == ActivePage)
+        {
+            Raise(nameof(ActiveRows));
+            Raise(nameof(ActiveColumns));
+        }
+    }
+
+    public void NotifyPageLayoutChanged()
+    {
+        Raise(nameof(PageLayouts));
+        Raise(nameof(TotalCapacity));
+        Raise(nameof(ActiveRows));
+        Raise(nameof(ActiveColumns));
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private void Raise([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

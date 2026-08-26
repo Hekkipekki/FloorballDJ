@@ -455,15 +455,14 @@
                                 <ItemsControl.ItemsSource>
                                     <MultiBinding Converter="{StaticResource TakeSlots}">
                                         <Binding Path="Jingles" />
-                                        <Binding Path="Rows" />
-                                        <Binding Path="Columns" />
+                                        <Binding />
                                         <Binding Path="ActivePage" />
                                     </MultiBinding>
                                 </ItemsControl.ItemsSource>
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <UniformGrid Rows="{Binding DataContext.Rows, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                     Columns="{Binding DataContext.Columns, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+                                        <UniformGrid Rows="{Binding DataContext.ActiveRows, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                     Columns="{Binding DataContext.ActiveColumns, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>

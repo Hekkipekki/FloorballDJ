@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07111f"><meta name="description" content="FloorballDJ Community – ställ frågor, dela arbetssätt och hjälp andra match-DJ:s.">
+  <title>Community — FloorballDJ</title>
+  <link rel="alternate" hreflang="sv" href="/community/"><link rel="alternate" hreflang="en" href="/en/community/">
+  <link rel="icon" href="/assets/floorballdj-logo.png" type="image/png"><link rel="stylesheet" href="/assets/styles.css">
+  <script src="/assets/app.js" defer></script><script src="/assets/community.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Hoppa till innehållet</a>
+  <header class="site-header" data-header data-solid-header>
+    <a class="brand" href="/"><img src="/assets/floorballdj-logo.png" alt="" width="52" height="52"><span><strong>Floorball</strong><b>DJ</b></span></a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" data-nav-toggle><span></span><span></span><span></span><span class="sr-only">Öppna meny</span></button>
+    <nav id="site-nav" class="site-nav" aria-label="Huvudmeny" data-nav><a href="/funktioner/">Funktioner</a><a aria-current="page" href="/community/">Community</a><a href="/licens/">Licens</a><a href="/changelog/">Ändringslogg</a><a href="/om/">Om</a><a class="language-switch" href="/en/community/" lang="en" hreflang="en">EN</a><a class="nav-cta" href="/licens/#download">Ladda ned</a></nav>
+  </header>
+  <main id="main" class="community-page">
+    <section class="page-hero compact"><div class="reveal"><p class="eyebrow"><span></span> Öppet community</p><h1>Fråga, dela och<br><em>hjälp varandra.</em></h1><p>Ingen registrering krävs. Välj ett smeknamn, skriv ett inlägg eller svara direkt. Inlägg kan rapporteras och modereras.</p></div></section>
+    <section class="section community-shell" data-community>
+      <div class="community-toolbar"><div><p class="eyebrow"><span></span> Diskussioner</p><h2>Senaste trådarna</h2></div><button class="button button-primary" type="button" data-new-thread>+ Ny tråd</button></div>
+      <div class="community-notice" data-community-status aria-live="polite">Ansluter till communityt…</div>
+      <div class="community-layout">
+        <div class="community-list" data-thread-list></div>
+        <article class="community-detail" data-thread-detail><div class="community-empty"><strong>Välj en tråd</strong><span>Diskussionen och svaren visas här.</span></div></article>
+      </div>
+      <dialog class="community-dialog" data-thread-dialog>
+        <form method="dialog" data-thread-form><button class="dialog-close" value="cancel" aria-label="Stäng">×</button><p class="eyebrow"><span></span> Ny diskussion</p><h2>Skapa en tråd</h2>
+          <label>Smeknamn<input name="nickname" minlength="2" maxlength="40" autocomplete="nickname" required></label>
+          <label>Rubrik<input name="title" minlength="4" maxlength="120" required></label>
+          <label>Inlägg<textarea name="body" minlength="10" maxlength="5000" rows="7" required></textarea></label>
+          <label class="honeypot" aria-hidden="true">Webbplats<input name="website" tabindex="-1" autocomplete="off"></label>
+          <p class="form-note">En lokal redigeringsnyckel sparas bara i den här webbläsaren. Ingen e-post eller användarprofil krävs.</p>
+          <div class="form-error" data-form-error aria-live="polite"></div><div class="dialog-actions"><button class="button button-secondary" value="cancel">Avbryt</button><button class="button button-primary" type="submit">Publicera</button></div>
+        </form>
+      </dialog>
+    </section>
+    <section class="section instagram-panel reveal"><div><p class="eyebrow"><span></span> Följ utvecklingen</p><h2>@floorballdj på Instagram</h2><p>Se nya funktioner, gränssnitt och glimtar från utvecklingen av FloorballDJ.</p></div><a class="button button-secondary" href="https://www.instagram.com/floorballdj/" target="_blank" rel="noopener noreferrer">Öppna Instagram ↗</a></section>
+  </main>
+  <footer class="site-footer"><a class="brand" href="/"><img src="/assets/floorballdj-logo.png" alt="" width="42" height="42"><span><strong>Floorball</strong><b>DJ</b></span></a><p>Musik och jinglar för matchdagen.</p><nav><a href="/community/">Community</a><a href="https://www.instagram.com/floorballdj/" target="_blank" rel="noopener noreferrer">Instagram</a><a href="/om/">Om</a></nav><p class="copyright">© <span data-year></span> FloorballDJ</p></footer>
+</body>
+</html>

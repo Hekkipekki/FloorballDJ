@@ -398,58 +398,107 @@ public sealed class ProjectService
 
     public static void ResizeDeckLayout(Deck deck, int rows, int columns)
     {
-        var oldRows = Math.Clamp(deck.Rows, 1, MaximumDeckRows);
-        var oldColumns = Math.Clamp(deck.Columns, 1, MaximumDeckColumns);
         var newRows = Math.Clamp(rows, 1, MaximumDeckRows);
         var newColumns = Math.Clamp(columns, 1, MaximumDeckColumns);
-        var oldPageSlots = oldRows * oldColumns;
-        var newPageSlots = newRows * newColumns;
         var contentCount = deck.Jingles.Count(jingle => jingle.HasContent);
+        var newPageSlots = newRows * newColumns;
         var requiredPages = Math.Max(1, (int)Math.Ceiling(contentCount / (double)newPageSlots));
         var pageCount = Math.Clamp(Math.Max(deck.PageCount, requiredPages), 1, MaximumDeckPages);
-        var newSlots = newPageSlots * pageCount;
-        var visible = new Jingle?[newSlots];
-        var overflowContent = new List<Jingle>();
+        var layouts = Enumerable.Range(0, pageCount)
+            .Select(_ => new Deck.PageLayout { Rows = newRows, Columns = newColumns }).ToList();
+        RebuildDeckLayout(deck, layouts);
+    }
 
-        // Preserve the physical row/column for every cell that still fits. This means
-        // fewer columns trim the right edge and fewer rows trim the bottom edge.
-        foreach (var jingle in deck.Jingles.OrderBy(jingle => jingle.Position))
+    public static int CountHiddenAudioAfterPageResize(Deck deck, int page, int rows, int columns)
+    {
+        deck.EnsurePageLayouts();
+        var layouts = deck.PageLayouts.Select(layout => new Deck.PageLayout
         {
-            var oldPosition = jingle.Position;
-            if (oldPosition >= 0 && oldPosition < oldPageSlots * pageCount)
+            Rows = Math.Clamp(layout.Rows, 1, MaximumDeckRows),
+            Columns = Math.Clamp(layout.Columns, 1, MaximumDeckColumns)
+        }).ToList();
+        var normalized = Math.Clamp(page, 0, layouts.Count - 1);
+        layouts[normalized] = new Deck.PageLayout
+        {
+            Rows = Math.Clamp(rows, 1, MaximumDeckRows),
+            Columns = Math.Clamp(columns, 1, MaximumDeckColumns)
+        };
+        var fallback = layouts[normalized].Rows * layouts[normalized].Columns;
+        var maximumCapacity = layouts.Sum(layout => layout.Rows * layout.Columns) +
+                              Math.Max(0, MaximumDeckPages - layouts.Count) * fallback;
+        return Math.Max(0, deck.Jingles.Count(jingle => jingle.HasContent) - maximumCapacity);
+    }
+
+    public static void ResizeDeckPageLayout(Deck deck, int page, int rows, int columns)
+    {
+        deck.EnsurePageLayouts();
+        var layouts = deck.PageLayouts.Select(layout => new Deck.PageLayout
+        {
+            Rows = Math.Clamp(layout.Rows, 1, MaximumDeckRows),
+            Columns = Math.Clamp(layout.Columns, 1, MaximumDeckColumns)
+        }).ToList();
+        var normalized = Math.Clamp(page, 0, layouts.Count - 1);
+        layouts[normalized] = new Deck.PageLayout
+        {
+            Rows = Math.Clamp(rows, 1, MaximumDeckRows),
+            Columns = Math.Clamp(columns, 1, MaximumDeckColumns)
+        };
+        var contentCount = deck.Jingles.Count(jingle => jingle.HasContent);
+        while (layouts.Sum(layout => layout.Rows * layout.Columns) < contentCount && layouts.Count < MaximumDeckPages)
+            layouts.Add(new Deck.PageLayout { Rows = layouts[normalized].Rows, Columns = layouts[normalized].Columns });
+        RebuildDeckLayout(deck, layouts);
+    }
+
+    private static void RebuildDeckLayout(Deck deck, List<Deck.PageLayout> targetLayouts)
+    {
+        deck.EnsurePageLayouts();
+        var oldLayouts = deck.PageLayouts.Select(layout => new Deck.PageLayout
+        {
+            Rows = Math.Clamp(layout.Rows, 1, MaximumDeckRows),
+            Columns = Math.Clamp(layout.Columns, 1, MaximumDeckColumns)
+        }).ToArray();
+        var oldStarts = new int[oldLayouts.Length];
+        for (var page = 1; page < oldStarts.Length; page++)
+            oldStarts[page] = oldStarts[page - 1] + oldLayouts[page - 1].Rows * oldLayouts[page - 1].Columns;
+
+        targetLayouts = targetLayouts.Take(MaximumDeckPages).ToList();
+        var targetStarts = new int[targetLayouts.Count];
+        for (var page = 1; page < targetStarts.Length; page++)
+            targetStarts[page] = targetStarts[page - 1] + targetLayouts[page - 1].Rows * targetLayouts[page - 1].Columns;
+        var targetCapacity = targetLayouts.Sum(layout => layout.Rows * layout.Columns);
+        var visible = new Jingle?[targetCapacity];
+        var overflow = new List<Jingle>();
+
+        foreach (var jingle in deck.Jingles.OrderBy(item => item.Position))
+        {
+            if (!jingle.HasContent) continue;
+            var oldPage = oldLayouts.Length - 1;
+            for (var page = 0; page < oldLayouts.Length; page++)
             {
-                var page = oldPosition / oldPageSlots;
-                var positionOnPage = oldPosition % oldPageSlots;
-                var row = positionOnPage / oldColumns;
-                var column = positionOnPage % oldColumns;
-                if (row < newRows && column < newColumns)
-                {
-                    var newPosition = page * newPageSlots + row * newColumns + column;
-                    if (visible[newPosition] is null)
-                    {
-                        visible[newPosition] = jingle;
-                        continue;
-                    }
-                }
+                var end = oldStarts[page] + oldLayouts[page].Rows * oldLayouts[page].Columns;
+                if (jingle.Position < end) { oldPage = page; break; }
             }
-
-            if (jingle.HasContent) overflowContent.Add(jingle);
+            var local = Math.Max(0, jingle.Position - oldStarts[oldPage]);
+            var row = local / oldLayouts[oldPage].Columns;
+            var column = local % oldLayouts[oldPage].Columns;
+            if (oldPage < targetLayouts.Count && row < targetLayouts[oldPage].Rows && column < targetLayouts[oldPage].Columns)
+            {
+                var target = targetStarts[oldPage] + row * targetLayouts[oldPage].Columns + column;
+                if (visible[target] is null) { visible[target] = jingle; continue; }
+            }
+            overflow.Add(jingle);
         }
 
-        // Audio outside the new right/bottom edges is moved only into genuinely empty
-        // visible cells. If capacity is still insufficient it remains hidden after the
-        // visible range, so resizing never deletes a jingle.
         var overflowIndex = 0;
-        for (var position = 0; position < visible.Length && overflowIndex < overflowContent.Count; position++)
-        {
-            if (visible[position]?.HasContent == true) continue;
-            visible[position] = overflowContent[overflowIndex++];
-        }
+        for (var position = 0; position < visible.Length && overflowIndex < overflow.Count; position++)
+            if (visible[position] is null) visible[position] = overflow[overflowIndex++];
 
-        deck.Rows = newRows;
-        deck.Columns = newColumns;
-        deck.PageCount = pageCount;
-        deck.ActivePage = Math.Clamp(deck.ActivePage, 0, pageCount - 1);
+        deck.Rows = targetLayouts[0].Rows;
+        deck.Columns = targetLayouts[0].Columns;
+        deck.PageCount = targetLayouts.Count;
+        deck.PageLayouts = targetLayouts;
+        deck.NotifyPageLayoutChanged();
+        deck.ActivePage = Math.Clamp(deck.ActivePage, 0, deck.PageCount - 1);
         deck.Jingles.Clear();
         for (var position = 0; position < visible.Length; position++)
         {
@@ -457,9 +506,9 @@ public sealed class ProjectService
             jingle.Position = position;
             deck.Jingles.Add(jingle);
         }
-        while (overflowIndex < overflowContent.Count)
+        while (overflowIndex < overflow.Count)
         {
-            var jingle = overflowContent[overflowIndex++];
+            var jingle = overflow[overflowIndex++];
             jingle.Position = deck.Jingles.Count;
             deck.Jingles.Add(jingle);
         }
@@ -542,9 +591,20 @@ public sealed class ProjectService
             if (deck.Columns <= 0) deck.Columns = project.Settings.Columns;
             deck.Rows = Math.Clamp(deck.Rows, 1, MaximumDeckRows);
             deck.Columns = Math.Clamp(deck.Columns, 1, MaximumDeckColumns);
-            var slots = deck.Rows * deck.Columns;
-            var requiredPages = Math.Max(1, (int)Math.Ceiling(deck.Jingles.Count / (double)Math.Max(1, slots)));
-            deck.PageCount = Math.Clamp(Math.Max(deck.PageCount, requiredPages), 1, MaximumDeckPages);
+            deck.PageLayouts ??= [];
+            if (deck.PageLayouts.Count > deck.PageCount) deck.PageCount = Math.Min(deck.PageLayouts.Count, MaximumDeckPages);
+            deck.EnsurePageLayouts();
+            foreach (var layout in deck.PageLayouts)
+            {
+                layout.Rows = Math.Clamp(layout.Rows, 1, MaximumDeckRows);
+                layout.Columns = Math.Clamp(layout.Columns, 1, MaximumDeckColumns);
+            }
+            while (deck.Jingles.Count > deck.TotalCapacity && deck.PageCount < MaximumDeckPages)
+            {
+                deck.PageCount++;
+                deck.EnsurePageLayouts();
+            }
+            deck.NotifyPageLayoutChanged();
             deck.ActivePage = Math.Clamp(deck.ActivePage, 0, deck.PageCount - 1);
             foreach (var jingle in deck.Jingles)
             {
@@ -552,7 +612,7 @@ public sealed class ProjectService
                     jingle.Title = "";
                 jingle.Shortcut = ShortcutService.Normalize(jingle.Shortcut);
             }
-            while (deck.Jingles.Count < slots * deck.PageCount)
+            while (deck.Jingles.Count < deck.TotalCapacity)
                 deck.Jingles.Add(new Jingle { Position = deck.Jingles.Count });
             for (var index = 0; index < deck.Jingles.Count; index++) deck.Jingles[index].Position = index;
         }

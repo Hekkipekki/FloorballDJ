@@ -9,13 +9,15 @@ public partial class DeckLayoutWindow : Window
     public int Rows { get; private set; }
     public int Columns { get; private set; }
 
-    public DeckLayoutWindow(Deck deck)
+    public DeckLayoutWindow(Deck deck) : this(deck, null) { }
+
+    public DeckLayoutWindow(Deck deck, int? page)
     {
         InitializeComponent();
         WindowPlacementService.MaximizeOnOwnerMonitor(this);
-        DeckNameText.Text = deck.Name;
-        RowsBox.Text = deck.Rows.ToString();
-        ColumnsBox.Text = deck.Columns.ToString();
+        DeckNameText.Text = page is null ? $"{deck.Name} · alla sidor" : $"{deck.Name} · sida {page.Value + 1}";
+        RowsBox.Text = (page is null ? deck.Rows : deck.GetPageRows(page.Value)).ToString();
+        ColumnsBox.Text = (page is null ? deck.Columns : deck.GetPageColumns(page.Value)).ToString();
         Loaded += (_, _) => { RowsBox.Focus(); RowsBox.SelectAll(); };
     }
 

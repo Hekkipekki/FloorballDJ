@@ -1,0 +1,46 @@
+<Window x:Class="FloorballDJ.Views.DeckAppearanceSelectionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Välj knappar" Width="760" Height="720" MinWidth="620" MinHeight="520"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="24,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <StackPanel>
+            <TextBlock Text="Välj knappar att ändra" Style="{StaticResource SectionTitle}" FontSize="24" />
+            <TextBlock x:Name="DeckNameText" Foreground="{StaticResource MutedBrush}" Margin="0,5,0,0"
+                       Text="Markera de jinglar och textblock som ska få samma färger." />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,16,0,12">
+            <Button Content="Alla" Style="{StaticResource SecondaryButton}" Padding="14,7" Margin="0,0,8,0" Click="SelectAll_Click" />
+            <Button Content="Aktuell sida" Style="{StaticResource SecondaryButton}" Padding="14,7" Margin="0,0,8,0" Click="SelectCurrentPage_Click" />
+            <Button Content="Avmarkera" Style="{StaticResource SecondaryButton}" Padding="14,7" Click="Clear_Click" />
+            <TextBlock x:Name="SelectionCountText" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" Margin="16,0,0,0" />
+        </StackPanel>
+        <Border Grid.Row="2" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource HairlineBrush}"
+                BorderThickness="1" CornerRadius="9" Padding="8">
+            <ListBox x:Name="ButtonList" BorderThickness="0" Background="Transparent" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Checked="SelectionChanged" Unchecked="SelectionChanged"
+                                  Padding="8,7" HorizontalContentAlignment="Stretch">
+                            <Grid Width="620">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="92" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Location}" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="1" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                        </CheckBox>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+            <Button Content="Avbryt" Style="{StaticResource SecondaryButton}" MinWidth="100" Margin="0,0,8,0" IsCancel="True" />
+            <Button Content="Välj färger…" Style="{StaticResource PrimaryButton}" MinWidth="130" IsDefault="True" Click="Continue_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

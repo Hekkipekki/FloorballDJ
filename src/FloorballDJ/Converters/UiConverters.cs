@@ -120,11 +120,11 @@ public sealed class TakeSlotsConverter : IMultiValueConverter
 {
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
     {
-        if (values.Length < 3 || values[0] is not IList source || values[1] is not int rows || values[2] is not int columns)
+        if (values.Length < 2 || values[0] is not IList source || values[1] is not Deck deck)
             return Array.Empty<object>();
-        var slots = Math.Max(0, rows * columns);
-        var page = values.Length > 3 && values[3] is int activePage ? Math.Max(0, activePage) : 0;
-        var first = page * slots;
+        var page = values.Length > 2 && values[2] is int activePage ? Math.Max(0, activePage) : 0;
+        var slots = deck.GetPageCapacity(page);
+        var first = deck.GetPageStartIndex(page);
         var last = first + slots;
         return new ListCollectionView(source)
         {
