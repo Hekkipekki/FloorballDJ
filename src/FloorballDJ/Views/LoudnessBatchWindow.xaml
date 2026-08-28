@@ -47,6 +47,7 @@
             <StackPanel><ProgressBar x:Name="Progress" Height="7" Minimum="0" Maximum="1"/><TextBlock x:Name="ProgressText" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/></StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="18,0,0,0">
                 <Button x:Name="SelectAllButton" Content="Markera alla" Style="{StaticResource SecondaryButton}" Click="SelectAll_Click" />
+                <Button x:Name="SelectPendingButton" Content="Markera ej färdiga" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="SelectPending_Click" ToolTip="Avmarkerar färdiga ljud och markerar endast de som saknar aktuell loudnessanalys eller aktiverad Auto gain." />
                 <Button x:Name="SelectNoneButton" Content="Avmarkera alla" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="SelectNone_Click" />
                 <Button x:Name="CancelAnalysisButton" Content="Avbryt analys" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" IsEnabled="False" Click="CancelAnalysis_Click"/>
                 <Button Content="Stäng" Style="{StaticResource SecondaryButton}" MinWidth="90" Margin="8,0,0,0" IsCancel="True"/>

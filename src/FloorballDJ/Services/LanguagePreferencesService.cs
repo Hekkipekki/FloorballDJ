@@ -82,7 +82,11 @@ public static class LanguageService
         ["Använd färger på hela raden…"] = "Apply colors to the entire row…", ["Kopiera jingle"] = "Copy jingle",
         ["Klistra in jingle"] = "Paste jingle", ["Spelläge"] = "Play mode", ["Tillåt flera samtidiga klick"] = "Allow multiple simultaneous clicks",
         ["Töm ruta"] = "Clear slot", ["SAKNAS"] = "MISSING", ["BYT PLATS"] = "SWAP",
-        ["Sida"] = "Page", ["Hela decket…"] = "Entire deck…", ["Välj knappar…"] = "Select buttons…",
+        ["Sida"] = "Page", ["Sidor"] = "Pages",
+        ["Ändra rader och kolumner…"] = "Change rows and columns…",
+        ["Rader och kolumner per sida"] = "Rows and columns per page",
+        ["Lägg till sida"] = "Add page", ["Ta bort sista sidan"] = "Remove last page",
+        ["Hela decket…"] = "Entire deck…", ["Välj knappar…"] = "Select buttons…",
         ["Sortera alfabetiskt"] = "Sort alphabetically", ["Rader"] = "Rows", ["Kolumner"] = "Columns",
         ["Sekunder"] = "Seconds", ["Ljudfil"] = "Audio file", ["Titel"] = "Title",
         ["Förhandsvisa"] = "Preview", ["Förhandslyssning"] = "Preview", ["Teknisk information"] = "Technical information",
@@ -115,6 +119,7 @@ public static class LanguageService
         ["Analysera och balansera ljudbibliotek"] = "Analyze and balance audio library",
         ["LOUDNESS OCH SÄKER NIVÅ"] = "LOUDNESS AND SAFE LEVEL", ["Analysera och balansera"] = "Analyze and balance",
         ["Avbryt analys"] = "Cancel analysis", ["Markera alla"] = "Select all", ["Avmarkera alla"] = "Clear all",
+        ["Markera ej färdiga"] = "Select unfinished", ["Analyserad, ej balanserad"] = "Analyzed, not balanced",
         ["Inte analyserad"] = "Not analyzed", ["Inte analyserat"] = "Not analyzed", ["Analysvärdet verkar gammalt"] = "Analysis is out of date",
         ["JINGLEBYGGARE"] = "JINGLE BUILDER", ["Skapa mållåtar och egna ljudsekvenser"] = "Create goal songs and custom audio sequences",
         ["Jingle / sekvens"] = "Jingle / sequence", ["Lång mix"] = "Long mix", ["Lägg till ljud"] = "Add audio",
@@ -177,7 +182,8 @@ public static class LanguageService
         if (!IsEnglish || string.IsNullOrEmpty(value)) return value;
         if (English.TryGetValue(value, out var translated)) return translated;
 
-        return TranslatePrefix(value, "Spelar: ", "Playing: ")
+        return TranslatePrefix(value, "Sida ", "Page ")
+            ?? TranslatePrefix(value, "Spelar: ", "Playing: ")
             ?? TranslatePrefix(value, "Tonar ut: ", "Fading out: ")
             ?? TranslatePrefix(value, "Köade ", "Queued ")
             ?? TranslatePrefix(value, "Tog bort ", "Removed ")

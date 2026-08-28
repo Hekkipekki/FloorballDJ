@@ -1066,7 +1066,19 @@ public partial class MainWindow : Window
         menu.Items.Add(new Separator());
         menu.Items.Add(CreateDeckMenuItem("Ändra rader och kolumner…", deck, ChangeDeckLayout_Click));
         var pagesMenu = new MenuItem { Header = "Sidor" };
-        pagesMenu.Items.Add(CreateDeckMenuItem($"Layout för sida {deck.ActivePage + 1}…", deck, ChangeDeckPageLayout_Click));
+        var pageLayoutsMenu = new MenuItem { Header = "Rader och kolumner per sida" };
+        for (var page = 0; page < deck.PageCount; page++)
+        {
+            var pageLayoutItem = CreateDeckMenuItem(
+                $"Sida {page + 1} · {deck.GetPageRows(page)} × {deck.GetPageColumns(page)}…",
+                deck,
+                ChangeDeckPageLayout_Click);
+            pageLayoutItem.CommandParameter = page;
+            pageLayoutItem.IsCheckable = true;
+            pageLayoutItem.IsChecked = page == deck.ActivePage;
+            pageLayoutsMenu.Items.Add(pageLayoutItem);
+        }
+        pagesMenu.Items.Add(pageLayoutsMenu);
         pagesMenu.Items.Add(new Separator());
         pagesMenu.Items.Add(CreateDeckMenuItem("Lägg till sida", deck, AddDeckPage_Click));
         var removePage = CreateDeckMenuItem("Ta bort sista sidan", deck, RemoveLastDeckPage_Click);
@@ -1185,7 +1197,9 @@ public partial class MainWindow : Window
     private async void ChangeDeckPageLayout_Click(object sender, RoutedEventArgs e)
     {
         if (GetContextDeck(sender) is not { } deck) return;
-        var page = deck.ActivePage;
+        var page = sender is MenuItem { CommandParameter: int selectedPage }
+            ? Math.Clamp(selectedPage, 0, deck.PageCount - 1)
+            : deck.ActivePage;
         var dialog = new DeckLayoutWindow(deck, page) { Owner = this };
         if (dialog.ShowDialog() != true) return;
         var hiddenAudio = ProjectService.CountHiddenAudioAfterPageResize(deck, page, dialog.Rows, dialog.Columns);

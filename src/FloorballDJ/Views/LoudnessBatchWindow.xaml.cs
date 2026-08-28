@@ -43,6 +43,12 @@ public partial class LoudnessBatchWindow : Window
     private async void AnalyzeAndBalance_Click(object sender, RoutedEventArgs e) => await RunAsync(true);
     private void CancelAnalysis_Click(object sender, RoutedEventArgs e) => _cancellation?.Cancel();
     private void SelectAll_Click(object sender, RoutedEventArgs e) { foreach (var item in Items) item.IsSelected = true; }
+    private void SelectPending_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var item in Items) item.IsSelected = item.NeedsLoudnessProcessing;
+        var selected = Items.Count(item => item.IsSelected);
+        ProgressText.Text = selected == 0 ? "Alla ljud är analyserade och balanserade." : $"{selected} ljud som behöver analyseras eller balanseras markerades.";
+    }
     private void SelectNone_Click(object sender, RoutedEventArgs e) { foreach (var item in Items) item.IsSelected = false; }
 
     private void SearchBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -80,7 +86,7 @@ public partial class LoudnessBatchWindow : Window
         _viewModel.Settings.MasterLimiterCeilingDbtp = peak;
         _cancellation = new CancellationTokenSource();
         CancelAnalysisButton.IsEnabled = true;
-        FilesList.IsEnabled = SelectAllButton.IsEnabled = SelectNoneButton.IsEnabled = false;
+        FilesList.IsEnabled = SelectAllButton.IsEnabled = SelectPendingButton.IsEnabled = SelectNoneButton.IsEnabled = false;
         Progress.Maximum = Math.Max(1, selectedItems.Length);
         var cache = new Dictionary<string, LoudnessAnalysis>(StringComparer.OrdinalIgnoreCase);
         try
@@ -111,7 +117,7 @@ public partial class LoudnessBatchWindow : Window
         finally
         {
             _cancellation.Dispose(); _cancellation = null; CancelAnalysisButton.IsEnabled = false;
-            FilesList.IsEnabled = SelectAllButton.IsEnabled = SelectNoneButton.IsEnabled = true;
+            FilesList.IsEnabled = SelectAllButton.IsEnabled = SelectPendingButton.IsEnabled = SelectNoneButton.IsEnabled = true;
             UpdateSummary();
         }
     }
@@ -128,8 +134,9 @@ public partial class LoudnessBatchWindow : Window
     private void UpdateSummary()
     {
         var analyzed = Items.Count(item => item.Jingle.HasFreshLoudnessAnalysis);
+        var balanced = Items.Count(item => item.Jingle.HasFreshLoudnessAnalysis && item.Jingle.NormalizationEnabled);
         var selected = Items.Count(item => item.IsSelected);
-        SummaryText.Text = $"{Items.Count} ljud • {selected} valda • {analyzed} aktuella analyser";
+        SummaryText.Text = $"{Items.Count} ljud • {selected} valda • {analyzed} analyserade • {balanced} balanserade";
     }
 
     private static double Parse(string text, double fallback, double min, double max) =>
@@ -141,11 +148,12 @@ public sealed class LoudnessBatchItem : INotifyPropertyChanged
 {
     private string _status;
     private bool _isSelected = true;
-    public LoudnessBatchItem(string deck, Jingle jingle) { Deck = deck; Jingle = jingle; _status = jingle.HasFreshLoudnessAnalysis ? "Aktuell" : "Ej analyserad"; }
+    public LoudnessBatchItem(string deck, Jingle jingle) { Deck = deck; Jingle = jingle; _status = !jingle.HasFreshLoudnessAnalysis ? "Ej analyserad" : jingle.NormalizationEnabled ? "Balanserad" : "Analyserad, ej balanserad"; }
     public string Deck { get; }
     public Jingle Jingle { get; }
     public string Title => Jingle.Title;
     public bool IsSelected { get => _isSelected; set { if (_isSelected == value) return; _isSelected = value; Raise(); } }
+    public bool NeedsLoudnessProcessing => !Jingle.HasFreshLoudnessAnalysis || !Jingle.NormalizationEnabled;
     public string Lufs => Jingle.IntegratedLufs?.ToString("0.0", CultureInfo.InvariantCulture) ?? "–";
     public string Peak => Jingle.TruePeakDbtp is double value ? $"{value:0.0} dBTP" : "–";
     public string Gain => Jingle.IntegratedLufs is null ? "–" : $"{Jingle.NormalizationGainDb:+0.0;-0.0;0.0} dB";
