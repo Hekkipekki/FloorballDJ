@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Data;
 using System.Windows.Threading;
 using FloorballDJ.Models;
 using FloorballDJ.Services;
@@ -46,6 +47,7 @@ public partial class MergeJinglesWindow : Window
     private readonly MusicAnalysisService _musicAnalysis = new();
     private readonly CancellationTokenSource _analysisCancellation = new();
     private readonly ObservableCollection<MergeChoice> _choices;
+    private readonly ICollectionView _choiceView;
     private readonly DispatcherTimer _previewTimer;
     private readonly Stopwatch _previewClock = new();
     private AudioFileReader? _previewReader;
@@ -79,7 +81,9 @@ public partial class MergeJinglesWindow : Window
         _choices = new ObservableCollection<MergeChoice>(viewModel.Decks.SelectMany(deck => deck.Jingles
             .Where(jingle => jingle.HasAudio && File.Exists(jingle.FilePath))
             .Select(jingle => new MergeChoice(deck, jingle, $"{deck.Name}  ·  {jingle.Title}"))));
-        SourceCombo.ItemsSource = _choices;
+        _choiceView = CollectionViewSource.GetDefaultView(_choices);
+        _choiceView.Filter = FilterSourceChoice;
+        SourceCombo.ItemsSource = _choiceView;
 
         var initialChoices = initialJingles?
             .Select(jingle => _choices.FirstOrDefault(choice => ReferenceEquals(choice.Jingle, jingle) || choice.Jingle.Id == jingle.Id))
@@ -203,6 +207,32 @@ public partial class MergeJinglesWindow : Window
         Waveform.FilePath = clip.Choice.Jingle.FilePath;
         await Waveform.LoadAsync(clip.Choice.Jingle.FilePath);
         if (ReferenceEquals(_activeClip, clip)) { UpdateActiveUi(); RefreshMixAssistUi(); }
+    }
+
+    private bool FilterSourceChoice(object item)
+    {
+        if (item is not MergeChoice choice) return false;
+        var query = SourceSearchBox?.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(query)) return true;
+        var searchable = $"{choice.Display} {choice.Jingle.Title} {Path.GetFileName(choice.Jingle.FilePath)} {choice.Jingle.FilePath}";
+        return query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .All(term => searchable.Contains(term, StringComparison.CurrentCultureIgnoreCase));
+    }
+
+    private void SourceSearch_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_choiceView is null) return;
+        _loadingUi = true;
+        try
+        {
+            _choiceView.Refresh();
+            if (_activeClip is not null && FilterSourceChoice(_activeClip.Choice))
+                SourceCombo.SelectedItem = _activeClip.Choice;
+        }
+        finally { _loadingUi = false; }
+
+        if (!string.IsNullOrWhiteSpace(SourceSearchBox.Text) && _choiceView.Cast<object>().Any())
+            SourceCombo.IsDropDownOpen = true;
     }
 
     private async void SourceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -670,8 +700,10 @@ public partial class MergeJinglesWindow : Window
         _previewClip = clip;
         _previewStart = cursor;
         _previewEnd = end;
-        _previewReader = new AudioFileReader(clip.Choice.Jingle.FilePath) { CurrentTime = TimeSpan.FromSeconds(cursor) };
-        ISampleProvider source = _previewReader;
+        _previewReader = new AudioFileReader(clip.Choice.Jingle.FilePath);
+        var seekProvider = new AudioFileSeekSampleProvider(_previewReader, clip.Choice.Jingle.FilePath);
+        seekProvider.Seek(TimeSpan.FromSeconds(cursor));
+        ISampleProvider source = seekProvider;
         var jingle = clip.Choice.Jingle;
         if (Math.Abs(jingle.PitchSemitones) >= .01)
             source = new SmbPitchShiftingSampleProvider(source) { PitchFactor = (float)Math.Pow(2, jingle.PitchSemitones / 12) };

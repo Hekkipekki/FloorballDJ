@@ -40,6 +40,7 @@ public partial class JinglePropertiesWindow : Window
     private readonly HashSet<string> _confirmedShortcutReplacements = new(StringComparer.OrdinalIgnoreCase);
     private readonly Action<string>? _deleteCategory;
     private AudioFileReader? _previewReader;
+    private AudioFileSeekSampleProvider? _previewSeekProvider;
     private WaveOutEvent? _previewOutput;
     private VolumeSampleProvider? _previewVolume;
     private LoudnessAnalysis? _analysis;
@@ -223,7 +224,7 @@ public partial class JinglePropertiesWindow : Window
         if (_totalSeconds <= 0) return;
         var fraction = Math.Clamp(e.GetPosition(FullWaveform).X / Math.Max(1, FullWaveform.ActualWidth), 0, 1);
         _cursorSeconds = fraction * _totalSeconds;
-        if (_previewReader is not null) _previewReader.CurrentTime = TimeSpan.FromSeconds(_cursorSeconds);
+        _previewSeekProvider?.Seek(TimeSpan.FromSeconds(_cursorSeconds));
         ResetPreviewClockIfPlaying();
         UpdatePlaybackUi();
     }
@@ -234,7 +235,7 @@ public partial class JinglePropertiesWindow : Window
         var deltaPixels = e.GetPosition(DetailWaveform).X - _dragStartX;
         var deltaSeconds = deltaPixels / Math.Max(1, DetailWaveform.ActualWidth) * DetailWindowSeconds;
         _cursorSeconds = Math.Clamp(_dragStartSeconds - deltaSeconds, 0, _totalSeconds);
-        if (_previewReader is not null) _previewReader.CurrentTime = TimeSpan.FromSeconds(_cursorSeconds);
+        _previewSeekProvider?.Seek(TimeSpan.FromSeconds(_cursorSeconds));
         ResetPreviewClockIfPlaying();
         UpdatePlaybackUi();
     }
@@ -308,9 +309,11 @@ public partial class JinglePropertiesWindow : Window
         if (!File.Exists(_path)) return;
         if (_cursorSeconds < _start || _cursorSeconds >= _end) _cursorSeconds = _start;
         DisposePreview();
-        _previewReader = new AudioFileReader(_path) { CurrentTime = TimeSpan.FromSeconds(_cursorSeconds) };
+        _previewReader = new AudioFileReader(_path);
+        _previewSeekProvider = new AudioFileSeekSampleProvider(_previewReader, _path);
+        _previewSeekProvider.Seek(TimeSpan.FromSeconds(_cursorSeconds));
         var mixerSettings = BuildMixerSettings();
-        ISampleProvider source = _previewReader;
+        ISampleProvider source = _previewSeekProvider;
         if (Math.Abs(mixerSettings.PitchSemitones) >= .01)
             source = new SmbPitchShiftingSampleProvider(source) { PitchFactor = (float)Math.Pow(2, mixerSettings.PitchSemitones / 12) };
         _previewVolume = new VolumeSampleProvider(source)
@@ -613,7 +616,7 @@ public partial class JinglePropertiesWindow : Window
         _previewClock.Stop();
         if (stopTimer) _previewTimer.Stop();
         _previewOutput?.Stop(); _previewOutput?.Dispose(); _previewReader?.Dispose();
-        _previewOutput = null; _previewReader = null; _previewVolume = null;
+        _previewOutput = null; _previewReader = null; _previewSeekProvider = null; _previewVolume = null;
     }
 
     private void RefreshPreviewVolume()

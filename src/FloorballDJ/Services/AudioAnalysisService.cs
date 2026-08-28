@@ -35,7 +35,7 @@ public sealed class AudioAnalysisService
         {
             var start = TimeSpan.FromSeconds(Math.Clamp(startSeconds, 0, reader.TotalTime.TotalSeconds));
             var end = TimeSpan.FromSeconds(Math.Clamp(endSeconds ?? reader.TotalTime.TotalSeconds, start.TotalSeconds, reader.TotalTime.TotalSeconds));
-            reader.CurrentTime = start;
+            AudioFileSeekService.Seek(reader, path, start, cancellationToken);
             var channels = reader.WaveFormat.Channels;
             var sampleRate = reader.WaveFormat.SampleRate;
             var highShelf = Enumerable.Range(0, channels).Select(_ => BiQuadFilter.HighShelf(sampleRate, 1681.974f, .707f, 4f)).ToArray();
@@ -143,7 +143,7 @@ public sealed class AudioAnalysisService
         using var reader = new AudioFileReader(path);
         var start = Math.Clamp(startSeconds, 0, reader.TotalTime.TotalSeconds);
         var end = Math.Clamp(endSeconds ?? reader.TotalTime.TotalSeconds, start, reader.TotalTime.TotalSeconds);
-        reader.CurrentTime = TimeSpan.FromSeconds(start);
+        AudioFileSeekService.Seek(reader, path, TimeSpan.FromSeconds(start), cancellationToken);
         var oversampled = new WdlResamplingSampleProvider(reader, reader.WaveFormat.SampleRate * 4);
         var remainingSamples = (long)Math.Ceiling((end - start) * oversampled.WaveFormat.SampleRate * oversampled.WaveFormat.Channels);
         var buffer = new float[16384];

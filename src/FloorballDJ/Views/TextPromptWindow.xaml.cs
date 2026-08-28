@@ -1,4 +1,5 @@
 using System.Windows;
+using FloorballDJ.Services;
 
 namespace FloorballDJ.Views;
 
@@ -10,6 +11,7 @@ public partial class TextPromptWindow : Window
     {
         InitializeComponent();
         Title = title;
+        WindowPlacementService.FitToOwnerMonitor(this);
         HeadingText.Text = heading;
         DescriptionText.Text = description;
         ValueBox.Text = initialValue;

@@ -12,6 +12,7 @@ public partial class ShortcutCaptureWindow : Window
     {
         InitializeComponent();
         SelectedShortcut = ShortcutService.Normalize(currentShortcut);
+        WindowPlacementService.FitToOwnerMonitor(this);
         PressedText.Text = SelectedShortcut ?? "Väntar på tangent …";
         Loaded += (_, _) => Keyboard.Focus(this);
     }

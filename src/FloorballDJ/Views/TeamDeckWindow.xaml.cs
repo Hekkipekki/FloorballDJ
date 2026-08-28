@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using FloorballDJ.Services;
 using FloorballDJ.Models;
 
 namespace FloorballDJ.Views;
@@ -50,6 +51,7 @@ public partial class TeamDeckWindow : Window, INotifyPropertyChanged
             if (player.JingleId is Guid jingleId) jingles.TryGetValue(jingleId, out jingle);
             return new TeamPlayerButton(player, jingle);
         }));
+        WindowPlacementService.FitToOwnerMonitor(this);
         InitializeComponent();
         DataContext = this;
         _transitionTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };

@@ -18,6 +18,7 @@ public sealed class AudioEngine : IDisposable
         private volatile bool _isVolumeTransitioning;
 
         public required Jingle Jingle { get; init; }
+        public required AudioFileSeekSampleProvider SeekProvider { get; init; }
         public required AudioFileReader Reader { get; init; }
         public required WasapiOut Output { get; init; }
         // Statisk nivå: manuell gain, LUFS-normalisering och mastervolym.
@@ -222,9 +223,10 @@ public sealed class AudioEngine : IDisposable
                     : reader.TotalTime;
                 if (clipStart > reader.TotalTime) clipStart = reader.TotalTime;
                 var requestedOffset = initialClipPosition ?? TimeSpan.Zero;
-                reader.CurrentTime = clipStart + TimeSpan.FromTicks(
-                    Math.Clamp(requestedOffset.Ticks, 0, Math.Max(0, (clipEnd - clipStart).Ticks)));
-                ISampleProvider source = reader;
+                var seekProvider = new AudioFileSeekSampleProvider(reader, jingle.FilePath);
+                seekProvider.Seek(clipStart + TimeSpan.FromTicks(
+                    Math.Clamp(requestedOffset.Ticks, 0, Math.Max(0, (clipEnd - clipStart).Ticks))));
+                ISampleProvider source = seekProvider;
                 if (Math.Abs(jingle.PitchSemitones) >= .01)
                     source = new SmbPitchShiftingSampleProvider(source) { PitchFactor = (float)Math.Pow(2, jingle.PitchSemitones / 12) };
                 var volume = new VolumeSampleProvider(source);
@@ -240,6 +242,7 @@ public sealed class AudioEngine : IDisposable
                     Reader = reader,
                     Output = output,
                     Volume = volume,
+                    SeekProvider = seekProvider,
                     Effects = effects,
                     FadeVolume = fadeVolume,
                     TalkGain = talkGain,
@@ -385,8 +388,8 @@ public sealed class AudioEngine : IDisposable
                 var start = TimeSpan.FromSeconds(_primary.PlaybackStartSeconds);
                 var end = _primary.Jingle.EndSeconds is double seconds
                     ? TimeSpan.FromSeconds(seconds) : _primary.Reader.TotalTime;
-                _primary.Reader.CurrentTime = start + TimeSpan.FromTicks(
-                    Math.Clamp(position.Ticks, 0, Math.Max(0, (end - start).Ticks)));
+                _primary.SeekProvider.Seek(start + TimeSpan.FromTicks(
+                    Math.Clamp(position.Ticks, 0, Math.Max(0, (end - start).Ticks))));
             }
     }
 
@@ -448,7 +451,7 @@ public sealed class AudioEngine : IDisposable
             {
                 if (voice.Jingle.EndSeconds is not double endSeconds || voice.Reader.CurrentTime.TotalSeconds < endSeconds) continue;
                 if (voice.LoopEnabled)
-                    voice.Reader.CurrentTime = TimeSpan.FromSeconds(voice.PlaybackStartSeconds);
+                    voice.SeekProvider.Seek(TimeSpan.FromSeconds(voice.PlaybackStartSeconds));
                 else
                 {
                     voice.NaturalEndRequested = true;
@@ -489,7 +492,7 @@ public sealed class AudioEngine : IDisposable
         {
             if (error is null && !voice.StopRequested && voice.LoopEnabled && !voice.IsDisposed)
             {
-                voice.Reader.CurrentTime = TimeSpan.FromSeconds(voice.PlaybackStartSeconds);
+                voice.SeekProvider.Seek(TimeSpan.FromSeconds(voice.PlaybackStartSeconds));
                 voice.Output.Play();
                 return;
             }

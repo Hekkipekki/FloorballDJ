@@ -115,7 +115,7 @@ public sealed class MusicAnalysisService
         // Long programme mixes are analysed from their final ten minutes. That keeps memory bounded and
         // still gives the transition assistant information about the section where the next clip will enter.
         var readStart = Math.Max(sourceStart, sourceEnd - MaximumAnalysisSeconds);
-        reader.CurrentTime = TimeSpan.FromSeconds(readStart);
+        AudioFileSeekService.Seek(reader, path, TimeSpan.FromSeconds(readStart), cancellationToken);
         ISampleProvider mono = reader.WaveFormat.Channels switch
         {
             1 => reader,

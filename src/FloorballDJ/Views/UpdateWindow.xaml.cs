@@ -15,6 +15,7 @@ public partial class UpdateWindow : Window
     {
         InitializeComponent();
         VersionText.Text = $"Installerad version: {_updates.CurrentVersion}";
+        WindowPlacementService.FitToOwnerMonitor(this);
         Loaded += async (_, _) => await CheckAsync();
         Closed += (_, _) => _downloadCancellation?.Cancel();
     }

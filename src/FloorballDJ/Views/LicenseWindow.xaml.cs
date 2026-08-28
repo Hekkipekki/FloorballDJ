@@ -16,6 +16,7 @@ public partial class LicenseWindow : Window
     public LicenseWindow(LicenseService licenses, LicenseEvaluation evaluation, bool isStartup)
     {
         InitializeComponent();
+        WindowPlacementService.FitToOwnerMonitor(this);
         _licenses = licenses;
         _evaluation = evaluation;
         _isStartup = isStartup;
