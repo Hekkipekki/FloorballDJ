@@ -311,8 +311,11 @@
                                            ToolTip="Stereo-nivå för vänster och höger kanal" />
 
                 <StackPanel Grid.Column="4" VerticalAlignment="Center" Margin="8,0">
-                    <TextBlock Text="{Binding ElementName=MasterVolumeSlider, Path=Value, StringFormat={}LJUDNIVÅ  {0:0.#} dB}" Foreground="{StaticResource MutedBrush}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"
-                               Cursor="Hand" MouseLeftButtonDown="MasterVolumeText_MouseLeftButtonDown" ToolTip="Klicka för att skriva in en exakt ljudnivå" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Cursor="Hand"
+                                MouseLeftButtonDown="MasterVolumeText_MouseLeftButtonDown" ToolTip="Klicka för att skriva in en exakt ljudnivå">
+                        <TextBlock Text="LJUDNIVÅ" Foreground="{StaticResource MutedBrush}" FontSize="9" FontWeight="Bold" />
+                        <TextBlock Text="{Binding ElementName=MasterVolumeSlider, Path=Value, StringFormat={}  {0:0.#} dB}" Foreground="{StaticResource MutedBrush}" FontSize="9" FontWeight="Bold" />
+                    </StackPanel>
                     <Slider x:Name="MasterVolumeSlider" Minimum="-60" Maximum="6" Value="{Binding Settings.MasterVolumeDb, Mode=TwoWay}"
                             TickPlacement="BottomRight" TickFrequency="6" IsSnapToTickEnabled="False" IsMoveToPointEnabled="True" Height="34"
                             Foreground="#7F93AD"

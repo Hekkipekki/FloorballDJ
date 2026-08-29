@@ -360,8 +360,9 @@ public partial class RandomPlayerSettingsWindow : Window
         SelectedSoundsText.Text = selectedSounds.ToString();
         SelectedDecksText.Text = selectedDecks.ToString();
         var total = ViewData.Profiles.Sum(profile => profile.SelectedSoundCount);
-        HeaderSummaryText.Text = $"{ViewData.Setups.Count} {(ViewData.Setups.Count == 1 ? "profil" : "profiler")} • " +
-                                 $"{ViewData.Profiles.Count} {(ViewData.Profiles.Count == 1 ? "grupp" : "grupper")} • {total} valda ljud";
+        HeaderSummaryText.Text = LanguageService.IsEnglish
+            ? $"{ViewData.Setups.Count} {(ViewData.Setups.Count == 1 ? "profile" : "profiles")} • {ViewData.Profiles.Count} {(ViewData.Profiles.Count == 1 ? "group" : "groups")} • {total} selected sounds"
+            : $"{ViewData.Setups.Count} {(ViewData.Setups.Count == 1 ? "profil" : "profiler")} • {ViewData.Profiles.Count} {(ViewData.Profiles.Count == 1 ? "grupp" : "grupper")} • {total} valda ljud";
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
@@ -461,7 +462,8 @@ public sealed class RandomPlayerSetupEditor : INotifyPropertyChanged
     public Guid Id { get; init; } = Guid.NewGuid();
     public string Name { get => _name; set { if (_name == value) return; _name = value; Raise(); } }
     public required ObservableCollection<RandomPlayerProfileEditor> Profiles { get; init; }
-    public string Summary => $"{Profiles.Count} {(Profiles.Count == 1 ? "grupp" : "grupper")}";
+    public string Summary => LanguageService.IsEnglish
+        ? $"{Profiles.Count} {(Profiles.Count == 1 ? "group" : "groups")}" : $"{Profiles.Count} {(Profiles.Count == 1 ? "grupp" : "grupper")}";
     public event PropertyChangedEventHandler? PropertyChanged;
     private void Raise([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
@@ -473,10 +475,10 @@ public sealed class RandomPlayerProfileEditor : INotifyPropertyChanged
     public Guid Id { get; init; } = Guid.NewGuid();
     public string Name { get => _name; set { if (_name == value) return; _name = value; Raise(); } }
     public string? Shortcut { get => _shortcut; set { if (_shortcut == value) return; _shortcut = value; Raise(); Raise(nameof(ShortcutDisplay)); } }
-    public string ShortcutDisplay => ShortcutService.Normalize(Shortcut) ?? "<Ingen>";
+    public string ShortcutDisplay => ShortcutService.Normalize(Shortcut) ?? (LanguageService.IsEnglish ? "<None>" : "<Ingen>");
     public ObservableCollection<RandomPlayerDeckEditor> Decks { get; } = [];
     public int SelectedSoundCount => Decks.Sum(deck => deck.IncludeWholeDeck ? deck.Jingles.Count : deck.Jingles.Count(item => item.IsIncluded));
-    public string SelectionSummary => $"{SelectedSoundCount} ljud";
+    public string SelectionSummary => LanguageService.IsEnglish ? $"{SelectedSoundCount} sounds" : $"{SelectedSoundCount} ljud";
     public void RefreshSummary() { Raise(nameof(SelectedSoundCount)); Raise(nameof(SelectionSummary)); }
     public event PropertyChangedEventHandler? PropertyChanged;
     private void Raise([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
@@ -502,7 +504,8 @@ public sealed class RandomPlayerDeckEditor : INotifyPropertyChanged
     }
     public ObservableCollection<RandomPlayerJingleEditor> Jingles { get; } = [];
     public int SelectedCount => IncludeWholeDeck ? Jingles.Count : Jingles.Count(item => item.IsIncluded);
-    public string MatchSummary => $"{Jingles.Count(item => item.IsVisible)} av {Jingles.Count} visas";
+    public string MatchSummary => LanguageService.IsEnglish
+        ? $"{Jingles.Count(item => item.IsVisible)} of {Jingles.Count} shown" : $"{Jingles.Count(item => item.IsVisible)} av {Jingles.Count} visas";
     public Action? SelectionChanged { get; set; }
     public void RefreshCounts() { Raise(nameof(SelectedCount)); Raise(nameof(MatchSummary)); }
     public event PropertyChangedEventHandler? PropertyChanged;

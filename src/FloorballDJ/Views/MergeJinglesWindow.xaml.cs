@@ -815,11 +815,7 @@ public partial class MergeJinglesWindow : Window
 
     private string? PromptForOutputPath()
     {
-        var musicFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
-        var outputFolder = string.IsNullOrWhiteSpace(musicFolder)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FloorballDJ", "Skapade jinglar")
-            : Path.Combine(musicFolder, "FloorballDJ", "Skapade jinglar");
-        Directory.CreateDirectory(outputFolder);
+        var outputFolder = UserContentFolders.CreatedJinglesDirectory;
         var suggestedTitle = Clips.Count > 0 ? $"{Clips[0].Choice.Jingle.Title} – mix" : "Ny kombinerad jingle";
         var dialog = new SaveFileDialog
         {

@@ -10,6 +10,12 @@ Directory.CreateDirectory(sourceDirectory);
 Directory.CreateDirectory(backupParent);
 Environment.SetEnvironmentVariable("FLOORBALLDJ_DATA_DIR", appDataDirectory);
 
+var contentRoot = Path.Combine(testRoot, "FloorballDJ");
+var profilesFolder = UserContentFolders.EnsureSubfolder(UserContentFolders.ProfilesFolderName, contentRoot);
+var createdJinglesFolder = UserContentFolders.EnsureSubfolder(UserContentFolders.CreatedJinglesFolderName, contentRoot);
+if (!Directory.Exists(profilesFolder) || !Directory.Exists(createdJinglesFolder))
+    throw new InvalidOperationException("Användarmapparna skapades inte.");
+
 var sourceAudio = Path.Combine(sourceDirectory, "test-audio.wav");
 var expectedBytes = Enumerable.Range(0, 32768).Select(index => (byte)(index * 31 % 251)).ToArray();
 await File.WriteAllBytesAsync(sourceAudio, expectedBytes);

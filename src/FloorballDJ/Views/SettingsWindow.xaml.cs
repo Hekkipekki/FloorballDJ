@@ -174,7 +174,8 @@ public partial class SettingsWindow : Window
         {
             Filter = "FloorballDJ-projekt|*.floorballdj.json|Alla filer|*.*",
             CheckFileExists = true,
-            Title = "Välj standardprofil"
+            Title = "Välj standardprofil",
+            InitialDirectory = UserContentFolders.ProfilesDirectory
         };
         if (!string.IsNullOrWhiteSpace(ViewData.DefaultProfilePath))
         {

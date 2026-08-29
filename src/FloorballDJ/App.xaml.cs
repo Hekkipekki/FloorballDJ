@@ -20,6 +20,23 @@ public partial class App : Application
             {
                 if (sender is FrameworkElement element) LanguageService.TranslateElement(element);
             }), true);
+        EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent,
+            new RoutedEventHandler((sender, _) =>
+            {
+                if (sender is not Window window) return;
+                window.Dispatcher.BeginInvoke(() => LanguageService.TranslateTree(window),
+                    DispatcherPriority.Loaded);
+            }), true);
+        EventManager.RegisterClassHandler(typeof(ContextMenu), ContextMenu.OpenedEvent,
+            new RoutedEventHandler((sender, _) =>
+            {
+                if (sender is ContextMenu menu) LanguageService.TranslateTree(menu);
+            }), true);
+        EventManager.RegisterClassHandler(typeof(MenuItem), MenuItem.SubmenuOpenedEvent,
+            new RoutedEventHandler((sender, _) =>
+            {
+                if (sender is MenuItem item) LanguageService.TranslateTree(item);
+            }), true);
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             WriteCrashLog(args.ExceptionObject as Exception ?? new Exception(args.ExceptionObject?.ToString()));
@@ -51,6 +68,7 @@ public partial class App : Application
             languagePreferences.SetLanguage(language);
         }
         LanguageService.SetLanguage(language);
+        try { UserContentFolders.EnsureCreated(); } catch { }
 
         var licensing = new LicenseService();
 #if DEBUG

@@ -1880,13 +1880,22 @@ public partial class MainWindow : Window
     private async void Save_Click(object sender, RoutedEventArgs e) => await SaveSafelyAsync();
     private async void SaveAs_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new SaveFileDialog { Filter = "FloorballDJ-projekt|*.floorballdj.json", FileName = $"{ViewModel.Project.Name}.floorballdj.json" };
+        var dialog = new SaveFileDialog
+        {
+            Filter = "FloorballDJ-projekt|*.floorballdj.json",
+            FileName = $"{ViewModel.Project.Name}.floorballdj.json",
+            InitialDirectory = UserContentFolders.ProfilesDirectory
+        };
         if (dialog.ShowDialog(this) == true) await SaveSafelyAsync(dialog.FileName);
     }
 
     private async void Open_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog { Filter = "FloorballDJ-projekt|*.floorballdj.json|Alla filer|*.*" };
+        var dialog = new OpenFileDialog
+        {
+            Filter = "FloorballDJ-projekt|*.floorballdj.json|Alla filer|*.*",
+            InitialDirectory = UserContentFolders.ProfilesDirectory
+        };
         if (dialog.ShowDialog(this) == true) await OpenProfileAsync(dialog.FileName);
     }
 
@@ -2004,7 +2013,8 @@ public partial class MainWindow : Window
         var dialog = new OpenFileDialog
         {
             Title = "Importera FloorballDJ- eller Snap-profil",
-            Filter = "Profiler|*.floorballdj.json;*.xml|FloorballDJ-profil|*.floorballdj.json|Snap Jingle Player XML|*.xml|Alla filer|*.*"
+            Filter = "Profiler|*.floorballdj.json;*.xml|FloorballDJ-profil|*.floorballdj.json|Snap Jingle Player XML|*.xml|Alla filer|*.*",
+            InitialDirectory = UserContentFolders.ProfilesDirectory
         };
         if (dialog.ShowDialog(this) != true) return;
         if (dialog.FileName.EndsWith(".floorballdj.json", StringComparison.OrdinalIgnoreCase))

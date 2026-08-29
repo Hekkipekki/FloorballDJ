@@ -2,6 +2,8 @@ using FloorballDJ.Services;
 using FloorballDJ.Models;
 using NAudio.Wave;
 using System.Reflection;
+using System.IO;
+using System.Windows.Controls;
 
 var folder = Path.Combine(Path.GetTempPath(), "FloorballDJ", "MusicAnalysisSmoke", Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(folder);
@@ -29,11 +31,42 @@ try
     var peaks = (Array?)readPeaks.Invoke(null, [mixedPath]);
     if (peaks is null || peaks.Length < 2)
         throw new InvalidOperationException("Den skapade mixen gav ingen waveform.");
+    VerifyEnglishUiTree();
     Console.WriteLine($"PASS BPM={first.Bpm:0.0}, key={first.Key} {first.Scale}/{first.CamelotCode}, energy={first.Energy:0}, match={match.Score}%");
 }
 finally
 {
     try { Directory.Delete(folder, true); } catch { }
+}
+
+static void VerifyEnglishUiTree()
+{
+    Exception? failure = null;
+    var thread = new Thread(() =>
+    {
+        try
+        {
+            LanguageService.SetLanguage("en");
+            var profile = new MenuItem { Header = "_Profil" };
+            profile.Items.Add(new MenuItem { Header = "Nytt projekt" });
+            var root = new StackPanel();
+            root.Children.Add(new TextBlock { Text = "Alla ändringar autosparas" });
+            root.Children.Add(new Menu { Items = { profile } });
+
+            LanguageService.TranslateTree(root);
+            if (!Equals(profile.Header, "_Profile"))
+                throw new InvalidOperationException("Huvudmenyn översattes inte.");
+            if (profile.Items[0] is not MenuItem { Header: "New project" })
+                throw new InvalidOperationException("Undermenyn översattes inte.");
+            if (root.Children[0] is not TextBlock { Text: "All changes are saved automatically" })
+                throw new InvalidOperationException("Fönstertexten översattes inte.");
+        }
+        catch (Exception ex) { failure = ex; }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+    if (failure is not null) throw new InvalidOperationException("Språkets UI-test misslyckades.", failure);
 }
 
 static void CreatePulseTrack(string path, double bpm, double seconds, double rootFrequency)
