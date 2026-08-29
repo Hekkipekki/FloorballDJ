@@ -171,6 +171,13 @@ public partial class AutoplayView : UserControl
         viewModel.SetSecondaryOutput(enabled);
     }
 
+    private void PreviewPositionSlider_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not Slider slider || slider.ActualWidth <= 0 || !ViewModel.HasPreview) return;
+        ViewModel.SeekPreview(e.GetPosition(slider).X / slider.ActualWidth);
+        e.Handled = true;
+    }
+
     private void AvailableList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) || !ViewModel.UseSecondaryOutput) return;

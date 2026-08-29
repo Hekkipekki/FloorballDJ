@@ -3,8 +3,20 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Välj automatiska följdlåtar" Width="920" Height="680" MinWidth="700" MinHeight="500"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip">
+    <Window.Resources>
+        <Style x:Key="DeckFilterTab" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="14,7"/><Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/><Setter Property="Background" Value="Transparent"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="{StaticResource AccentSoftBrush}"/><Setter Property="Foreground" Value="{StaticResource AccentBrush}"/></Trigger>
+                <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{StaticResource TextBrush}"/></Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
     <Grid Margin="22">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -16,13 +28,18 @@
             <TextBlock Text="Om flera låtar markeras väljs en av dem slumpmässigt. Manuell fade eller stopp startar aldrig en följdlåt."
                        Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,0" />
         </StackPanel>
-        <Grid Grid.Row="1" Margin="0,16,0,12">
+        <ListBox x:Name="DeckTabs" Grid.Row="1" Margin="0,14,0,6" ItemsSource="{Binding DeckNames}" SelectedIndex="0"
+                 SelectionChanged="DeckTabs_SelectionChanged" ItemContainerStyle="{StaticResource DeckFilterTab}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+            <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ListBox.ItemsPanel>
+        </ListBox>
+        <Grid Grid.Row="2" Margin="0,6,0,12">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
             <TextBox x:Name="SearchBox" Padding="12,8" TextChanged="SearchBox_TextChanged" ToolTip="Sök på låt eller deck" />
             <Button Grid.Column="1" Content="A–Ö" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="SortAscending_Click" />
             <Button Grid.Column="2" Content="Ö–A" Style="{StaticResource SecondaryButton}" Margin="6,0,0,0" Click="SortDescending_Click" />
         </Grid>
-        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="8">
+        <Border Grid.Row="3" Style="{StaticResource CardBorder}" Padding="8">
             <ListBox x:Name="ItemsList" ItemsSource="{Binding VisibleItems}" BorderThickness="0" Background="Transparent"
                      HorizontalContentAlignment="Stretch">
                 <ListBox.ItemTemplate>
@@ -31,7 +48,7 @@
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="70" /></Grid.ColumnDefinitions>
                                 <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}" />
-                                <TextBlock Grid.Column="1" Text="{Binding DeckName}" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="1" Text="{Binding DeckName}" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis" Margin="14,0,0,0" />
                                 <TextBlock Grid.Column="2" Text="{Binding DurationDisplay}" Foreground="{StaticResource MutedBrush}" FontFamily="Cascadia Mono" HorizontalAlignment="Right" />
                             </Grid>
                         </CheckBox>
@@ -39,7 +56,7 @@
                 </ListBox.ItemTemplate>
             </ListBox>
         </Border>
-        <Grid Grid.Row="3" Margin="0,14,0,0">
+        <Grid Grid.Row="4" Margin="0,14,0,0">
             <TextBlock x:Name="SelectedCountText" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Avbryt" Style="{StaticResource SecondaryButton}" MinWidth="100" Margin="0,0,8,0" IsCancel="True" />

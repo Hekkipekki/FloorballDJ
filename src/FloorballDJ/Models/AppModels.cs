@@ -72,6 +72,8 @@ public sealed class RandomPoolProfile
     /// pool sound reaches its natural end. Manual stop/fade never triggers them.
     /// </summary>
     public List<Guid> FollowUpJingleIds { get; set; } = [];
+    public double FollowUpFadeOutSeconds { get; set; } = 1.5;
+    public double FollowUpFadeInSeconds { get; set; } = 0.75;
 }
 
 public sealed class RandomPoolSetup

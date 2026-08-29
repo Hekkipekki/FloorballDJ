@@ -105,8 +105,8 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="270" />
-                    <ColumnDefinition Width="16" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -117,9 +117,9 @@
                 </StackPanel>
                 <ComboBox x:Name="SetupsCombo" Grid.Column="1" ItemsSource="{Binding Setups}"
                           SelectedItem="{Binding SelectedSetup, Mode=TwoWay}" DisplayMemberPath="Name"
-                          SelectionChanged="SetupsCombo_SelectionChanged" />
-                <TextBox Grid.Column="3" Text="{Binding SelectedSetup.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="Namn på den aktiva slumpprofilen" />
+                          SelectionChanged="SetupsCombo_SelectionChanged" Foreground="#111820" />
+                <Button Grid.Column="3" Content="&#xE70F;" FontFamily="Segoe Fluent Icons" Style="{StaticResource SecondaryButton}"
+                        Width="40" MinWidth="40" Padding="0" Margin="7,0,0,0" ToolTip="Byt namn på aktiv slumpprofil" Click="RenameSetup_Click" />
                 <Button Grid.Column="4" Content="+ Ny profil" Style="{StaticResource PrimaryButton}" Margin="10,0,0,0"
                         Click="AddSetup_Click" />
                 <Button Grid.Column="5" Content="&#xE8C8;" FontFamily="Segoe Fluent Icons" Style="{StaticResource SecondaryButton}"
@@ -180,16 +180,11 @@
 
                 <Border Style="{StaticResource CardBorder}" Padding="16" Margin="0,0,0,12">
                     <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="20" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel>
                             <TextBlock Text="GRUPPNAMN" Style="{StaticResource FieldLabel}" Margin="0,0,0,5" />
                             <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinWidth="300" />
-                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                                <TextBlock Text="AUTOMATISK FÖLJDLÅT" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                <Button Content="Välj följdlåtar…" Style="{StaticResource SecondaryButton}" Padding="12,6" Click="ChooseFollowUps_Click" />
-                                <TextBlock Text="{Binding FollowUpSummary}" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
-                                <Button Content="Rensa" Style="{StaticResource SecondaryButton}" Padding="10,6" Margin="8,0,0,0" Click="ClearFollowUps_Click" />
-                            </StackPanel>
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="SNABBTANGENT" Style="{StaticResource FieldLabel}" Margin="0,0,0,5" />
@@ -204,6 +199,20 @@
                                         ToolTip="Ta bort snabbtangent" Click="ClearShortcut_Click" />
                             </StackPanel>
                         </StackPanel>
+                        <Border Grid.Row="1" Grid.ColumnSpan="3" Background="#15243A" BorderBrush="#405677" BorderThickness="1" CornerRadius="7" Padding="10,7" Margin="0,12,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="AUTOMATISK FÖLJDLÅT" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <Button Content="Välj följdlåtar…" Style="{StaticResource SecondaryButton}" Padding="12,6" Click="ChooseFollowUps_Click" />
+                                <TextBlock Text="{Binding FollowUpSummary}" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                <Button Content="Rensa" Style="{StaticResource SecondaryButton}" Padding="10,6" Margin="8,0,18,0" Click="ClearFollowUps_Click" />
+                                <TextBlock Text="FADE UT" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" />
+                                <TextBox Width="54" Margin="7,0,4,0" TextAlignment="Center" Text="{Binding FollowUpFadeOutSeconds, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" ToolTip="När så här mycket återstår startar crossfaden." />
+                                <TextBlock Text="s" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,14,0" />
+                                <TextBlock Text="FADE IN" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" />
+                                <TextBox Width="54" Margin="7,0,4,0" TextAlignment="Center" Text="{Binding FollowUpFadeInSeconds, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" ToolTip="Hur snabbt följdlåten tonas in." />
+                                <TextBlock Text="s" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
                     </Grid>
                 </Border>
 

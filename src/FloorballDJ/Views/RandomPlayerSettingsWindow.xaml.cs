@@ -56,7 +56,9 @@ public partial class RandomPlayerSettingsWindow : Window
             Id = profile.Id == Guid.Empty ? Guid.NewGuid() : profile.Id,
             Name = string.IsNullOrWhiteSpace(profile.Name) ? "Slumpgrupp" : profile.Name.Trim(),
             Shortcut = ShortcutService.Normalize(profile.Shortcut),
-            FollowUpJingleIds = profile.FollowUpJingleIds?.Distinct().ToList() ?? []
+            FollowUpJingleIds = profile.FollowUpJingleIds?.Distinct().ToList() ?? [],
+            FollowUpFadeOutSeconds = profile.FollowUpFadeOutSeconds,
+            FollowUpFadeInSeconds = profile.FollowUpFadeInSeconds
         };
         foreach (var deck in _project.Decks.Where(deck => deck.Jingles.Any(jingle => jingle.HasAudio && File.Exists(jingle.FilePath))))
         {
@@ -119,6 +121,16 @@ public partial class RandomPlayerSettingsWindow : Window
         var setup = CreateSetupEditor(new RandomPoolSetup { Name = name });
         ViewData.Setups.Add(setup);
         ViewData.SelectedSetup = setup;
+    }
+
+    private void RenameSetup_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewData.SelectedSetup is not { } selected) return;
+        var dialog = new TextPromptWindow("Byt namn på slumpprofil", "Namn på slumpprofil",
+            "Namnet visas i väljaren och påverkar inte musikprofilen.", selected.Name) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+        selected.Name = dialog.Value;
+        RefreshOverview();
     }
 
     private void DuplicateSetup_Click(object sender, RoutedEventArgs e)
@@ -204,7 +216,9 @@ public partial class RandomPlayerSettingsWindow : Window
             Name = name,
             DeckIds = source.Decks.Where(deck => deck.IncludeWholeDeck).Select(deck => deck.DeckId).ToList(),
             JingleIds = source.Decks.SelectMany(deck => deck.Jingles).Where(jingle => jingle.IsIncluded).Select(jingle => jingle.JingleId).ToList(),
-            FollowUpJingleIds = source.FollowUpJingleIds.ToList()
+            FollowUpJingleIds = source.FollowUpJingleIds.ToList(),
+            FollowUpFadeOutSeconds = source.FollowUpFadeOutSeconds,
+            FollowUpFadeInSeconds = source.FollowUpFadeInSeconds
         });
         ViewData.Profiles.Add(copy);
         ViewData.SelectedProfile = copy;
@@ -444,7 +458,9 @@ public partial class RandomPlayerSettingsWindow : Window
         DeckIds = profile.Decks.Where(deck => deck.IncludeWholeDeck).Select(deck => deck.DeckId).Distinct().ToList(),
         JingleIds = profile.Decks.SelectMany(deck => deck.Jingles).Where(jingle => jingle.IsIncluded)
             .Select(jingle => jingle.JingleId).Distinct().ToList(),
-        FollowUpJingleIds = profile.FollowUpJingleIds.Distinct().ToList()
+        FollowUpJingleIds = profile.FollowUpJingleIds.Distinct().ToList(),
+        FollowUpFadeOutSeconds = profile.FollowUpFadeOutSeconds,
+        FollowUpFadeInSeconds = profile.FollowUpFadeInSeconds
     };
 }
 
@@ -500,6 +516,8 @@ public sealed class RandomPlayerProfileEditor : INotifyPropertyChanged
     public string ShortcutDisplay => ShortcutService.Normalize(Shortcut) ?? (LanguageService.IsEnglish ? "<None>" : "<Ingen>");
     public ObservableCollection<RandomPlayerDeckEditor> Decks { get; } = [];
     public List<Guid> FollowUpJingleIds { get; set; } = [];
+    public double FollowUpFadeOutSeconds { get; set; } = 1.5;
+    public double FollowUpFadeInSeconds { get; set; } = 0.75;
     public string FollowUpSummary => FollowUpJingleIds.Count == 0
         ? (LanguageService.IsEnglish ? "No follow-up" : "Ingen följdlåt")
         : LanguageService.IsEnglish ? $"{FollowUpJingleIds.Count} selected" : $"{FollowUpJingleIds.Count} valda";

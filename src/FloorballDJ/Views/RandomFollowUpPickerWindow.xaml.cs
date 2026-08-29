@@ -13,6 +13,7 @@ public partial class RandomFollowUpPickerWindow : Window
     private readonly List<FollowUpChoice> _allItems;
     private bool _descending;
     public ObservableCollection<FollowUpChoice> VisibleItems { get; } = [];
+    public ObservableCollection<string> DeckNames { get; } = [];
     public IReadOnlyCollection<Guid> SelectedJingleIds => _allItems.Where(item => item.IsSelected).Select(item => item.JingleId).ToArray();
 
     public RandomFollowUpPickerWindow(FloorballProject project, IEnumerable<Guid> selectedIds)
@@ -25,6 +26,10 @@ public partial class RandomFollowUpPickerWindow : Window
                 .Where(jingle => jingle.HasAudio && File.Exists(jingle.FilePath))
                 .Select(jingle => new FollowUpChoice(jingle, deck.Name, selected.Contains(jingle.Id))))
             .ToList();
+        DeckNames.Add(LanguageService.IsEnglish ? "All" : "Alla");
+        foreach (var deckName in project.Decks.Select(deck => deck.Name).Where(name =>
+                     _allItems.Any(item => string.Equals(item.DeckName, name, StringComparison.CurrentCultureIgnoreCase))))
+            DeckNames.Add(deckName);
         foreach (var item in _allItems) item.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(FollowUpChoice.IsSelected)) RefreshCount();
@@ -33,15 +38,18 @@ public partial class RandomFollowUpPickerWindow : Window
     }
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => RefreshItems();
+    private void DeckTabs_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshItems();
     private void SortAscending_Click(object sender, RoutedEventArgs e) { _descending = false; RefreshItems(); }
     private void SortDescending_Click(object sender, RoutedEventArgs e) { _descending = true; RefreshItems(); }
 
     private void RefreshItems()
     {
         var query = SearchBox?.Text.Trim() ?? "";
-        IEnumerable<FollowUpChoice> items = _allItems.Where(item => query.Length == 0 ||
+        var deck = DeckTabs?.SelectedIndex > 0 ? DeckTabs.SelectedItem as string : null;
+        IEnumerable<FollowUpChoice> items = _allItems.Where(item =>
+            (deck is null || string.Equals(item.DeckName, deck, StringComparison.CurrentCultureIgnoreCase)) && (query.Length == 0 ||
             item.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
-            item.DeckName.Contains(query, StringComparison.CurrentCultureIgnoreCase));
+            item.DeckName.Contains(query, StringComparison.CurrentCultureIgnoreCase)));
         items = _descending
             ? items.OrderByDescending(item => item.Title, StringComparer.CurrentCultureIgnoreCase)
             : items.OrderBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase);

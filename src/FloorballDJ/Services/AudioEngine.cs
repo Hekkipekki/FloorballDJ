@@ -108,6 +108,7 @@ public sealed class AudioEngine : IDisposable
     private double _talkDuckDb = -15;
     private double _talkGainDb;
     private bool _talkDuckingEnabled;
+    private double _secondaryMonitorDb;
 
     public event EventHandler<PlaybackSnapshot>? SnapshotChanged;
     public event EventHandler<Jingle>? PlaybackCompleted;
@@ -331,6 +332,36 @@ public sealed class AudioEngine : IDisposable
         PublishSnapshot();
     }
 
+    public void SetSecondaryMonitorVolumeDb(double db)
+    {
+        lock (_gate)
+        {
+            _secondaryMonitorDb = Math.Clamp(db, -60, 12);
+            RefreshActiveVolumes();
+        }
+    }
+
+    public void SeekSecondary(TimeSpan position)
+    {
+        lock (_gate)
+        {
+            var voice = _voices.LastOrDefault(candidate => candidate.UsesSecondaryDevice && !candidate.IsDisposed && !candidate.StopRequested);
+            if (voice is null) return;
+            var start = TimeSpan.FromSeconds(voice.PlaybackStartSeconds);
+            var end = voice.Jingle.EndSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : voice.Reader.TotalTime;
+            voice.SeekProvider.Seek(start + TimeSpan.FromTicks(Math.Clamp(position.Ticks, 0, Math.Max(0, (end - start).Ticks))));
+        }
+    }
+
+    public PlaybackSnapshot GetSecondarySnapshot()
+    {
+        lock (_gate)
+        {
+            var voice = _voices.LastOrDefault(candidate => candidate.UsesSecondaryDevice && !candidate.IsDisposed && !candidate.StopRequested);
+            return CreateSnapshot(voice, "Ingen förlyssning");
+        }
+    }
+
     public async Task PauseOrResumeAsync()
     {
         Voice? voice;
@@ -458,19 +489,8 @@ public sealed class AudioEngine : IDisposable
                     reachedEnd.Add(voice);
                 }
             }
-            if (_primary is null)
-                snapshot = new(null, "Redo för nästa jingle", "", TimeSpan.Zero, TimeSpan.Zero, -60, -60, false, false);
-            else
-            {
-                var start = TimeSpan.FromSeconds(_primary.PlaybackStartSeconds);
-                var end = _primary.Jingle.EndSeconds is double seconds
-                    ? TimeSpan.FromSeconds(seconds) : _primary.Reader.TotalTime;
-                var duration = end > start ? end - start : TimeSpan.Zero;
-                var position = _primary.Reader.CurrentTime > start ? _primary.Reader.CurrentTime - start : TimeSpan.Zero;
-                snapshot = new(_primary.Jingle.Id, _primary.Jingle.Title, _primary.Jingle.FilePath, position, duration,
-                    LinearToDb(_primary.PeakLeft), LinearToDb(_primary.PeakRight),
-                    _primary.Output.PlaybackState == PlaybackState.Playing, _primary.Paused);
-            }
+            var primaryOutputVoice = _voices.LastOrDefault(candidate => !candidate.UsesSecondaryDevice && !candidate.IsDisposed && !candidate.StopRequested);
+            snapshot = CreateSnapshot(primaryOutputVoice, "Redo för nästa jingle");
         }
         foreach (var voice in reachedEnd)
             try { voice.Output.Stop(); } catch { }
@@ -576,7 +596,7 @@ public sealed class AudioEngine : IDisposable
     private float TargetVolume(Voice voice)
     {
         var gainDb = voice.Jingle.GainDb + (voice.Jingle.NormalizationEnabled ? voice.Jingle.NormalizationGainDb : 0) +
-            _masterDb + voice.PolyphonyHeadroomDb + voice.PlaybackGainOffsetDb;
+            _masterDb + voice.PolyphonyHeadroomDb + voice.PlaybackGainOffsetDb + (voice.UsesSecondaryDevice ? _secondaryMonitorDb : 0);
         // Röster som redan tonas ut är en del av en crossfade, inte en bestående mix.
         // Genom att utesluta dem hålls den nya röstens gain konstant under hela starten.
         var activeOnDevice = _voices.Where(candidate => !candidate.IsDisposed && !candidate.StopRequested && !candidate.NaturalEndRequested &&
@@ -603,6 +623,17 @@ public sealed class AudioEngine : IDisposable
     public void RefreshVolumes()
     {
         lock (_gate) RefreshActiveVolumes();
+    }
+    private static PlaybackSnapshot CreateSnapshot(Voice? voice, string emptyTitle)
+    {
+        if (voice is null)
+            return new(null, emptyTitle, "", TimeSpan.Zero, TimeSpan.Zero, -60, -60, false, false);
+        var start = TimeSpan.FromSeconds(voice.PlaybackStartSeconds);
+        var end = voice.Jingle.EndSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : voice.Reader.TotalTime;
+        var duration = end > start ? end - start : TimeSpan.Zero;
+        var position = voice.Reader.CurrentTime > start ? voice.Reader.CurrentTime - start : TimeSpan.Zero;
+        return new(voice.Jingle.Id, voice.Jingle.Title, voice.Jingle.FilePath, position, duration,
+            LinearToDb(voice.PeakLeft), LinearToDb(voice.PeakRight), voice.Output.PlaybackState == PlaybackState.Playing, voice.Paused);
     }
     private static float DbToLinear(double db) => (float)Math.Pow(10, db / 20);
     private static float LinearToDb(float value) => value <= 0.0001f ? -60 : Math.Max(-60, 20f * MathF.Log10(value));

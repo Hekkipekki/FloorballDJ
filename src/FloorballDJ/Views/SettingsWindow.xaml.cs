@@ -268,7 +268,9 @@ public partial class SettingsWindow : Window
             DeckIds = profile.Decks.Where(deck => deck.IncludeWholeDeck).Select(deck => deck.DeckId).Distinct().ToList(),
             JingleIds = profile.Decks.SelectMany(deck => deck.Jingles).Where(jingle => jingle.IsIncluded)
                 .Select(jingle => jingle.JingleId).Distinct().ToList(),
-            FollowUpJingleIds = profile.FollowUpJingleIds.Distinct().ToList()
+            FollowUpJingleIds = profile.FollowUpJingleIds.Distinct().ToList(),
+            FollowUpFadeOutSeconds = profile.FollowUpFadeOutSeconds,
+            FollowUpFadeInSeconds = profile.FollowUpFadeInSeconds
         }).ToList();
         settings.RandomPoolSetups ??= [];
         var activeRandomSetup = settings.RandomPoolSetups
@@ -360,7 +362,9 @@ public partial class SettingsWindow : Window
             Shortcut = ShortcutService.Normalize(profile.Shortcut),
             DeckIds = profile.DeckIds?.Distinct().ToList() ?? [],
             JingleIds = profile.JingleIds?.Distinct().ToList() ?? [],
-            FollowUpJingleIds = profile.FollowUpJingleIds?.Distinct().ToList() ?? []
+            FollowUpJingleIds = profile.FollowUpJingleIds?.Distinct().ToList() ?? [],
+            FollowUpFadeOutSeconds = profile.FollowUpFadeOutSeconds,
+            FollowUpFadeInSeconds = profile.FollowUpFadeInSeconds
         }).ToList() ?? [];
         target.RandomPoolSetups = source.RandomPoolSetups?.Select(setup => new RandomPoolSetup
         {
@@ -373,7 +377,9 @@ public partial class SettingsWindow : Window
                 Shortcut = ShortcutService.Normalize(profile.Shortcut),
                 DeckIds = profile.DeckIds?.Distinct().ToList() ?? [],
                 JingleIds = profile.JingleIds?.Distinct().ToList() ?? [],
-                FollowUpJingleIds = profile.FollowUpJingleIds?.Distinct().ToList() ?? []
+                FollowUpJingleIds = profile.FollowUpJingleIds?.Distinct().ToList() ?? [],
+                FollowUpFadeOutSeconds = profile.FollowUpFadeOutSeconds,
+                FollowUpFadeInSeconds = profile.FollowUpFadeInSeconds
             }).ToList() ?? []
         }).ToList() ?? [];
         target.ActiveRandomPoolSetupId = source.ActiveRandomPoolSetupId;
@@ -409,6 +415,8 @@ public partial class SettingsWindow : Window
             Name = string.IsNullOrWhiteSpace(profile.Name) ? "Slumpgrupp" : profile.Name,
             Shortcut = ShortcutService.Normalize(profile.Shortcut),
             FollowUpJingleIds = profile.FollowUpJingleIds?.Distinct().ToList() ?? [],
+            FollowUpFadeOutSeconds = profile.FollowUpFadeOutSeconds,
+            FollowUpFadeInSeconds = profile.FollowUpFadeInSeconds,
             Decks = new ObservableCollection<RandomPoolDeckDraft>(decks
                 .Where(deck => deck.Jingles.Any(jingle => jingle.HasAudio))
                 .Select(deck => new RandomPoolDeckDraft
@@ -562,6 +570,8 @@ public sealed class RandomPoolProfileDraft : INotifyPropertyChanged
     public string? Shortcut { get => _shortcut; set { if (_shortcut == value) return; _shortcut = value; Raise(); Raise(nameof(ShortcutDisplay)); } }
     public string ShortcutDisplay => Shortcut ?? "<Ingen>";
     public List<Guid> FollowUpJingleIds { get; init; } = [];
+    public double FollowUpFadeOutSeconds { get; init; } = 1.5;
+    public double FollowUpFadeInSeconds { get; init; } = 0.75;
     public required ObservableCollection<RandomPoolDeckDraft> Decks { get; init; }
     public event PropertyChangedEventHandler? PropertyChanged;
     private void Raise([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

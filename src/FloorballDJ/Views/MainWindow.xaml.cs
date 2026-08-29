@@ -70,6 +70,9 @@ public partial class MainWindow : Window
     private bool _randomShortcutAwaitingNext;
     private Guid? _pendingRandomFollowUpSourceId;
     private Guid[] _pendingRandomFollowUpIds = [];
+    private double _pendingRandomFollowUpFadeOutSeconds;
+    private double _pendingRandomFollowUpFadeInSeconds;
+    private bool _randomFollowUpTransitionStarted;
     private TeamDeckWindow? _activeTeamDeckWindow;
     private MainViewModel ViewModel => (MainViewModel)DataContext;
 
@@ -101,6 +104,10 @@ public partial class MainWindow : Window
         _licenseMonitorTimer.Start();
         SourceInitialized += MainWindow_SourceInitialized;
         DataContext = new MainViewModel(_projects, _profilePreferences, _audio);
+        ViewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(MainViewModel.NowPlaying)) TryStartRandomFollowUpTransition();
+        };
         ViewModel.PrimaryPlaybackStarted += (_, _) =>
         {
             if (TalkToggle.IsChecked == true) TalkToggle.IsChecked = false;
@@ -109,9 +116,10 @@ public partial class MainWindow : Window
         {
             if (_pendingRandomFollowUpSourceId != completedJingle.Id) return;
             var followUpIds = _pendingRandomFollowUpIds;
+            var fadeInSeconds = _pendingRandomFollowUpFadeInSeconds;
             ClearPendingRandomFollowUp();
             if (followUpIds.Length == 0) return;
-            Application.Current.Dispatcher.BeginInvoke(() => PlayAutomaticRandomFollowUp(followUpIds));
+            Application.Current.Dispatcher.BeginInvoke(() => PlayAutomaticRandomFollowUp(followUpIds, fadeInSeconds, 0));
         };
         Loaded += async (_, _) =>
         {
@@ -836,7 +844,8 @@ public partial class MainWindow : Window
                     .Where(jingle => (randomProfile.FollowUpJingleIds ?? []).Contains(jingle.Id) &&
                                      jingle.HasAudio && File.Exists(jingle.FilePath))
                     .DistinctBy(jingle => jingle.Id).ToArray();
-                if (TryHandleRandomShortcut(e, pool, followUps)) return;
+                if (TryHandleRandomShortcut(e, pool, followUps, randomProfile.FollowUpFadeOutSeconds,
+                        randomProfile.FollowUpFadeInSeconds)) return;
             }
 
             var categoryAnchor = ViewModel.Decks.SelectMany(deck => deck.Jingles)
@@ -931,7 +940,8 @@ public partial class MainWindow : Window
         .ToUpperInvariant();
 
     private bool TryHandleRandomShortcut(KeyEventArgs e, IReadOnlyCollection<Jingle> candidates,
-        IReadOnlyCollection<Jingle>? followUps = null)
+        IReadOnlyCollection<Jingle>? followUps = null, double followUpFadeOutSeconds = 1.5,
+        double followUpFadeInSeconds = 0.75)
     {
         if (candidates.Count == 0) return false;
         e.Handled = true;
@@ -969,12 +979,30 @@ public partial class MainWindow : Window
         _randomShortcutAwaitingNext = false;
         _pendingRandomFollowUpSourceId = selected.Id;
         _pendingRandomFollowUpIds = followUps?.Select(jingle => jingle.Id).Distinct().ToArray() ?? [];
+        _pendingRandomFollowUpFadeOutSeconds = Math.Clamp(followUpFadeOutSeconds, 0, 30);
+        _pendingRandomFollowUpFadeInSeconds = Math.Clamp(followUpFadeInSeconds, 0, 30);
+        _randomFollowUpTransitionStarted = false;
         try { ViewModel.Play(selected); }
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "Kunde inte spela", MessageBoxButton.OK, MessageBoxImage.Warning); }
         return true;
     }
 
-    private void PlayAutomaticRandomFollowUp(IReadOnlyCollection<Guid> followUpIds)
+    private void TryStartRandomFollowUpTransition()
+    {
+        if (_randomFollowUpTransitionStarted || _pendingRandomFollowUpSourceId is not Guid sourceId ||
+            _pendingRandomFollowUpIds.Length == 0 || ViewModel.NowPlaying.JingleId != sourceId) return;
+        var remaining = ViewModel.NowPlaying.Duration - ViewModel.NowPlaying.Position;
+        if (_pendingRandomFollowUpFadeOutSeconds <= 0 || ViewModel.NowPlaying.Position <= TimeSpan.Zero ||
+            remaining.TotalSeconds > _pendingRandomFollowUpFadeOutSeconds) return;
+        var followUpIds = _pendingRandomFollowUpIds;
+        var fadeOutSeconds = _pendingRandomFollowUpFadeOutSeconds;
+        var fadeInSeconds = _pendingRandomFollowUpFadeInSeconds;
+        _randomFollowUpTransitionStarted = true;
+        ClearPendingRandomFollowUp();
+        PlayAutomaticRandomFollowUp(followUpIds, fadeInSeconds, fadeOutSeconds);
+    }
+
+    private void PlayAutomaticRandomFollowUp(IReadOnlyCollection<Guid> followUpIds, double fadeInSeconds, double fadeOutPreviousSeconds)
     {
         var available = ViewModel.Decks.SelectMany(deck => deck.Jingles)
             .Where(jingle => followUpIds.Contains(jingle.Id) && jingle.HasAudio && File.Exists(jingle.FilePath))
@@ -983,7 +1011,7 @@ public partial class MainWindow : Window
         var followUp = available[Random.Shared.Next(available.Length)];
         try
         {
-            ViewModel.Play(followUp);
+            ViewModel.Play(followUp, null, Math.Clamp(fadeInSeconds, 0, 30), Math.Clamp(fadeOutPreviousSeconds, 0, 30));
             ViewModel.Status = $"Automatisk följdlåt: {followUp.Title}";
         }
         catch (Exception ex)
@@ -996,6 +1024,9 @@ public partial class MainWindow : Window
     {
         _pendingRandomFollowUpSourceId = null;
         _pendingRandomFollowUpIds = [];
+        _pendingRandomFollowUpFadeOutSeconds = 0;
+        _pendingRandomFollowUpFadeInSeconds = 0;
+        _randomFollowUpTransitionStarted = false;
     }
 
     private void ClearSpaceResume()

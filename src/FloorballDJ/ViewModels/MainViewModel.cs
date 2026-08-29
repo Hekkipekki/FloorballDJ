@@ -18,6 +18,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string _status = "Redo";
     private bool _isFadingOutCurrent;
     private bool _useSecondaryOutput;
+    private PlaybackSnapshot _previewPlaying = new(null, "Ingen förlyssning", "", TimeSpan.Zero, TimeSpan.Zero, -60, -60, false, false);
+    private double _previewVolumeDb;
     private bool _queueLoopEnabled = true;
     private bool _queueShuffleEnabled;
     private bool _autoplayModeActive;
@@ -66,6 +68,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _timer.Tick += (_, _) =>
         {
             _audio.PublishSnapshot();
+            PreviewPlaying = _audio.GetSecondarySnapshot();
             TryStartQueueTransition();
         };
         _timer.Start();
@@ -82,6 +85,32 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public string Status { get => LanguageService.Translate(_status); set => Set(ref _status, value); }
     public string NowPlayingLabel => LanguageService.Translate(_isFadingOutCurrent ? "FADEAS UT" : "SPELAR NU");
     public bool UseSecondaryOutput { get => _useSecondaryOutput; set => Set(ref _useSecondaryOutput, value); }
+    public PlaybackSnapshot PreviewPlaying
+    {
+        get => _previewPlaying;
+        private set
+        {
+            if (!Set(ref _previewPlaying, value)) return;
+            Raise(nameof(PreviewPositionFraction));
+            Raise(nameof(PreviewTimeText));
+            Raise(nameof(HasPreview));
+        }
+    }
+    public bool HasPreview => PreviewPlaying.JingleId is not null;
+    public double PreviewPositionFraction => PreviewPlaying.Duration.TotalSeconds <= 0 ? 0 :
+        Math.Clamp(PreviewPlaying.Position.TotalSeconds / PreviewPlaying.Duration.TotalSeconds, 0, 1);
+    public string PreviewTimeText => PreviewPlaying.Duration <= TimeSpan.Zero ? "--:-- / --:--" :
+        $"{Format(PreviewPlaying.Position)} / {Format(PreviewPlaying.Duration)}";
+    public double PreviewVolumeDb
+    {
+        get => _previewVolumeDb;
+        set
+        {
+            var normalized = Math.Clamp(Math.Round(value), -60, 12);
+            if (!Set(ref _previewVolumeDb, normalized)) return;
+            _audio.SetSecondaryMonitorVolumeDb(normalized);
+        }
+    }
     public bool QueueLoopEnabled { get => _queueLoopEnabled; set => Set(ref _queueLoopEnabled, value); }
     public bool QueueShuffleEnabled { get => _queueShuffleEnabled; set => Set(ref _queueShuffleEnabled, value); }
     public bool AutoplayModeActive { get => _autoplayModeActive; private set => Set(ref _autoplayModeActive, value); }
@@ -151,7 +180,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     public void PlayPreview(Jingle jingle)
-        => PlayCore(jingle, true, true);
+    {
+        PlayCore(jingle, true, true);
+        PreviewPlaying = _audio.GetSecondarySnapshot();
+    }
+
+    public void SeekPreview(double fraction)
+    {
+        if (PreviewPlaying.Duration <= TimeSpan.Zero) return;
+        _audio.SeekSecondary(TimeSpan.FromTicks((long)(PreviewPlaying.Duration.Ticks * Math.Clamp(fraction, 0, 1))));
+        PreviewPlaying = _audio.GetSecondarySnapshot();
+    }
 
     public void Resume(Jingle jingle, TimeSpan clipPosition, bool queuedItem)
     {
@@ -206,7 +245,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 PrimaryPlaybackStarted?.Invoke(this, EventArgs.Empty);
             _isFadingOutCurrent = false;
             Raise(nameof(NowPlayingLabel));
-            if (Settings.TrackSession) jingle.SessionPlayCount++;
+            if (!previewOnly && Settings.TrackSession) jingle.SessionPlayCount++;
             Status = $"Spelar: {jingle.Title}";
         }
         else if (action == PlaybackAction.FadingOut)

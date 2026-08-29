@@ -40,12 +40,37 @@
                 <TextBlock Text="AUTOPLAY OCH SPELLISTOR" Style="{StaticResource EyebrowText}" />
                 <TextBlock Text="Kön ligger kvar. Space tonar ut och återupptar samma låt; nästa låt startar automatiskt vid slutet." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" />
             </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <ToggleButton x:Name="PreviewToggle" Content="🎧 FÖRLYSSNING" Style="{StaticResource PillToggle}" Margin="0,0,7,0"
-                              IsChecked="{Binding UseSecondaryOutput, Mode=OneWay}" Checked="PreviewToggle_Changed" Unchecked="PreviewToggle_Changed" />
-                <Button Content="Välj musikmapp" Style="{StaticResource SecondaryButton}" Click="ChooseMusicFolder_Click" />
-                <Button Content="Ladda spellista" Style="{StaticResource SecondaryButton}" Margin="7,0" Click="LoadPlaylist_Click" />
-                <Button Content="Spara spellista" Style="{StaticResource PrimaryButton}" Click="SavePlaylist_Click" />
+            <StackPanel Grid.Column="1">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <ToggleButton x:Name="PreviewToggle" Content="🎧 FÖRLYSSNING" Style="{StaticResource PillToggle}" Margin="0,0,7,0"
+                                  IsChecked="{Binding UseSecondaryOutput, Mode=OneWay}" Checked="PreviewToggle_Changed" Unchecked="PreviewToggle_Changed" />
+                    <Button Content="Välj musikmapp" Style="{StaticResource SecondaryButton}" Click="ChooseMusicFolder_Click" />
+                    <Button Content="Ladda spellista" Style="{StaticResource SecondaryButton}" Margin="7,0" Click="LoadPlaylist_Click" />
+                    <Button Content="Spara spellista" Style="{StaticResource PrimaryButton}" Click="SavePlaylist_Click" />
+                </StackPanel>
+                <Border x:Name="PreviewTransport" Background="#15243A" BorderBrush="#405677" BorderThickness="1" CornerRadius="7"
+                        Padding="10,6" Margin="0,7,0,0" HorizontalAlignment="Right" MinWidth="560">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers><DataTrigger Binding="{Binding UseSecondaryOutput}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="220"/><ColumnDefinition Width="88"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="FÖRLYSSNING · UTGÅNG 2" Style="{StaticResource EyebrowText}" />
+                            <TextBlock Text="{Binding PreviewPlaying.Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding PreviewPlaying.Title}" />
+                        </StackPanel>
+                        <Slider x:Name="PreviewPositionSlider" Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding PreviewPositionFraction, Mode=OneWay}"
+                                Margin="10,0" VerticalAlignment="Center" PreviewMouseLeftButtonDown="PreviewPositionSlider_PreviewMouseLeftButtonDown"
+                                ToolTip="Klicka för att hoppa i förlyssningen. Utgång 1 påverkas inte." />
+                        <TextBlock Grid.Column="2" Text="{Binding PreviewTimeText}" FontFamily="Cascadia Mono" FontSize="10" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="3" Text="VOLYM" Style="{StaticResource EyebrowText}" VerticalAlignment="Center" Margin="10,0,6,0" />
+                        <Slider Grid.Column="4" Minimum="-60" Maximum="12" Value="{Binding PreviewVolumeDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                VerticalAlignment="Center" ToolTip="Volym endast för förlyssning på utgång 2" />
+                    </Grid>
+                </Border>
             </StackPanel>
         </Grid>
 
