@@ -9,6 +9,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Interop;
+using System.Windows.Threading;
 using FloorballDJ.Models;
 using FloorballDJ.Services;
 using FloorballDJ.ViewModels;
@@ -222,6 +223,12 @@ public partial class MainWindow : Window
                 followUpPicker.Show();
                 await Task.Delay(180);
                 followUpPicker.Close();
+                var backupProgress = new BackupProgressWindow("Test", "Skapar komplett flyttbackup",
+                    "Profil, inställningar och alla länkade ljudfiler kopieras till den valda platsen.") { Owner = this };
+                backupProgress.Show();
+                backupProgress.Report(new PortableBackupProgress("Kopierar ljudfiler…", 47, 12, 26, "test-audio.flac"));
+                await Task.Delay(180);
+                backupProgress.CloseAfterOperation();
                 var teamPreview = new TeamDeckWindow(new TeamDeckProfile
                 {
                     Name = "Testlag",
@@ -2131,51 +2138,87 @@ public partial class MainWindow : Window
         var dialog = new OpenFolderDialog { Title = "Välj var den kompletta flyttbackupen ska skapas" };
         if (dialog.ShowDialog(this) != true) return;
         if (!await SaveSafelyAsync()) return;
+
+        PortableBackupResult? result = null;
+        Exception? failure = null;
+        var progressWindow = new BackupProgressWindow(
+            "Skapar flyttbackup",
+            "Skapar komplett flyttbackup",
+            "Profil, inställningar och alla länkade ljudfiler kopieras till den valda platsen.") { Owner = this };
         try
         {
-            var result = await _projects.CreateMediaBackupAsync(ViewModel.Project, dialog.FolderName);
-            var warning = result.MissingFiles.Count == 0
-                ? "Alla länkade ljudfiler följde med."
-                : $"Varning: {result.MissingFiles.Count} ljudfiler saknades och kunde inte kopieras.";
-            MessageBox.Show(this,
-                $"Flyttbackupen är klar:\n{result.Directory}\n\n" +
-                $"{result.MediaFileCount} ljudfiler, {result.CustomFontCount} egna typsnitt och " +
-                $"{result.RandomPoolProfileCount} profilbundna slumpgrupper och {result.TeamDeckProfileCount} Team Deck kopierades.\n{warning}\n\n" +
-                "Kopiera hela mappen till den andra datorn och välj Profil → Återställ flyttbackup.",
-                "Komplett backup klar", MessageBoxButton.OK,
-                result.MissingFiles.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            progressWindow.Show();
+            await Dispatcher.Yield(DispatcherPriority.Render);
+            result = await _projects.CreateMediaBackupAsync(ViewModel.Project, dialog.FolderName, progressWindow);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Backupen misslyckades", MessageBoxButton.OK, MessageBoxImage.Error);
+            failure = ex;
         }
+        finally { progressWindow.CloseAfterOperation(); }
+
+        if (failure is not null)
+        {
+            MessageBox.Show(this, failure.Message, "Backupen misslyckades", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        var warning = result!.MissingFiles.Count == 0
+            ? "Alla länkade ljudfiler följde med."
+            : $"Varning: {result.MissingFiles.Count} ljudfiler saknades och kunde inte kopieras.";
+        MessageBox.Show(this,
+            $"Flyttbackupen är klar:\n{result.Directory}\n\n" +
+            $"{result.MediaFileCount} ljudfiler, {result.CustomFontCount} egna typsnitt och " +
+            $"{result.RandomPoolProfileCount} profilbundna slumpgrupper och {result.TeamDeckProfileCount} Team Deck kopierades.\n{warning}\n\n" +
+            "Kopiera hela mappen till den andra datorn och välj Profil → Återställ flyttbackup.",
+            "Komplett backup klar", MessageBoxButton.OK,
+            result.MissingFiles.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
     }
 
     private async void RestoreBackup_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFolderDialog { Title = "Välj FloorballDJ-backupmappen" };
         if (dialog.ShowDialog(this) != true) return;
+
+        PortableRestoreResult? result = null;
+        Exception? failure = null;
+        var progressWindow = new BackupProgressWindow(
+            "Återställer flyttbackup",
+            "Återställer komplett flyttbackup",
+            "Backupens filer, profil och inställningar installeras lokalt på den här datorn.") { Owner = this };
         try
         {
-            var result = await _projects.RestorePortableBackupAsync(dialog.FolderName);
+            progressWindow.Show();
+            await Dispatcher.Yield(DispatcherPriority.Render);
+            result = await _projects.RestorePortableBackupAsync(dialog.FolderName, progressWindow);
+            progressWindow.Report(new PortableBackupProgress("Öppnar den återställda profilen…", 100,
+                Detail: Path.GetFileNameWithoutExtension(result.ProfilePath)));
             await OpenProfileAsync(result.ProfilePath);
             _profilePreferences.SetDefaultProfile(result.ProfilePath);
             RefreshRecentProfilesMenu();
-            var warning = result.MissingMediaCount == 0
-                ? "Alla medföljande ljudfiler är redo."
-                : $"{result.MissingMediaCount} ljudfiler saknas fortfarande och behöver länkas om.";
-            MessageBox.Show(this,
-                $"Backupen har återställts och är nu standardprofil.\n\n" +
-                $"{result.CustomFontCount} egna typsnitt och {result.ColorPresetCount} sparade färgval importerades.\n" +
-                $"{result.RandomPoolProfileCount} slumpgrupper och {result.TeamDeckProfileCount} Team Deck återställdes för den här profilen.\n" +
-                $"{warning}\n\nVälj ljudutgångar på den här datorn under Verktyg → Inställningar.",
-                "Flyttbackup återställd", MessageBoxButton.OK,
-                result.MissingMediaCount == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Backupen kunde inte återställas", MessageBoxButton.OK, MessageBoxImage.Error);
+            failure = ex;
         }
+        finally { progressWindow.CloseAfterOperation(); }
+
+        if (failure is not null)
+        {
+            MessageBox.Show(this, failure.Message, "Backupen kunde inte återställas", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        var warning = result!.MissingMediaCount == 0
+            ? "Alla medföljande ljudfiler är redo."
+            : $"{result.MissingMediaCount} ljudfiler saknas fortfarande och behöver länkas om.";
+        MessageBox.Show(this,
+            $"Backupen har återställts och är nu standardprofil.\n\n" +
+            $"{result.CustomFontCount} egna typsnitt och {result.ColorPresetCount} sparade färgval importerades.\n" +
+            $"{result.RandomPoolProfileCount} slumpgrupper och {result.TeamDeckProfileCount} Team Deck återställdes för den här profilen.\n" +
+            $"{warning}\n\nVälj ljudutgångar på den här datorn under Verktyg → Inställningar.",
+            "Flyttbackup återställd", MessageBoxButton.OK,
+            result.MissingMediaCount == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
     }
 
     private void Settings_Click(object sender, RoutedEventArgs e)

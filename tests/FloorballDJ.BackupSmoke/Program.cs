@@ -84,9 +84,14 @@ project.Settings.TeamDeckProfiles =
     }
 ];
 
-var backup = await service.CreateMediaBackupAsync(project, backupParent);
+var createProgress = new CaptureProgress();
+var backup = await service.CreateMediaBackupAsync(project, backupParent, createProgress);
 Assert(backup.MediaFileCount == 1, "Backupen ska innehålla en unik ljudfil.");
 Assert(backup.MissingFiles.Count == 0, "Backupen ska inte rapportera saknade filer.");
+Assert(createProgress.Values.Count >= 4 && createProgress.Values[^1].Percent == 100,
+    "Backupen rapporterade inte fortlöpande progress fram till 100 procent.");
+Assert(createProgress.Values.Any(value => value.TotalFiles == 1 && value.CompletedFiles == 1),
+    "Backupens progress rapporterade inte kopierat filantal.");
 Assert(File.Exists(Path.Combine(backup.Directory, "floorballdj-backup.json")), "Backupmanifest saknas.");
 Assert(File.Exists(Path.Combine(backup.Directory, "LÄS MIG - ÅTERSTÄLL BACKUP.txt")), "Återställningsguide saknas.");
 
@@ -125,8 +130,13 @@ Assert(portable.Settings.TeamDeckProfiles.Single().Name == "IBF Dalen" &&
        portable.Settings.TeamDeckProfiles.Single().Players.Single().StartSecondsOverride == 12.5,
     "Profilens Team Deck bevarades inte i flyttbackupen.");
 
-var restored = await service.RestorePortableBackupAsync(backup.Directory);
+var restoreProgress = new CaptureProgress();
+var restored = await service.RestorePortableBackupAsync(backup.Directory, restoreProgress);
 var imported = await service.LoadAsync(restored.ProfilePath);
+Assert(restoreProgress.Values.Count >= 4 && restoreProgress.Values[^1].Percent == 100,
+    "Återställningen rapporterade inte fortlöpande progress fram till 100 procent.");
+Assert(restoreProgress.Values.Any(value => value.TotalFiles > 0 && value.CompletedFiles > 0),
+    "Återställningens progress rapporterade inte kopierade backupfiler.");
 Assert(restored.MissingMediaCount == 0, "Återställd backup rapporterar saknade ljudfiler.");
 Assert(File.Exists(imported.Decks[0].Jingles[0].FilePath), "Återställd ljudfil saknas.");
 Assert(Hash(sourceAudio) == Hash(imported.Decks[0].Jingles[0].FilePath), "Återställd ljudfil skiljer sig från originalet.");
@@ -208,4 +218,11 @@ static string Hash(string path) => Convert.ToHexString(SHA256.HashData(File.Read
 static void Assert(bool condition, string message)
 {
     if (!condition) throw new InvalidOperationException(message);
+}
+
+sealed class CaptureProgress : IProgress<PortableBackupProgress>
+{
+    public List<PortableBackupProgress> Values { get; } = [];
+
+    public void Report(PortableBackupProgress value) => Values.Add(value);
 }

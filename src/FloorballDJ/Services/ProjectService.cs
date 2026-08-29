@@ -244,8 +244,10 @@ public sealed class ProjectService
         return path;
     }
 
-    public async Task<PortableBackupResult> CreateMediaBackupAsync(FloorballProject project, string parentDirectory)
+    public async Task<PortableBackupResult> CreateMediaBackupAsync(FloorballProject project, string parentDirectory,
+        IProgress<PortableBackupProgress>? progress = null)
     {
+        progress?.Report(new PortableBackupProgress("Förbereder backupen…", 1, Detail: project.Name));
         var baseName = $"FloorballDJ-backup-{DateTime.Now:yyyyMMdd-HHmmss}";
         var directory = Path.Combine(parentDirectory, baseName);
         var suffix = 2;
@@ -260,6 +262,12 @@ public sealed class ProjectService
         // export så även äldre profiler migreras och aldrig hämtar grupper från någon
         // annan profil på den nya datorn.
         EnsureLayout(copy);
+        var totalMediaFiles = copy.Decks
+            .SelectMany(deck => deck.Jingles)
+            .Where(jingle => jingle.HasAudio && File.Exists(jingle.FilePath))
+            .Select(jingle => jingle.FilePath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
         var usedDeckFolderNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var copiedMediaCount = 0;
         var missingFiles = new List<string>();
@@ -298,6 +306,9 @@ public sealed class ProjectService
                     // om resultatet fortfarande är giltigt. Behåll därför originalets tid.
                     File.SetLastWriteTimeUtc(targetPath, File.GetLastWriteTimeUtc(source));
                     copiedMediaCount++;
+                    var copyPercent = totalMediaFiles == 0 ? 82 : 5 + copiedMediaCount * 77d / totalMediaFiles;
+                    progress?.Report(new PortableBackupProgress("Kopierar ljudfiler…", copyPercent,
+                        copiedMediaCount, totalMediaFiles, Path.GetFileName(source)));
                 }
                 jingle.FilePath = relativePath;
             }
@@ -309,6 +320,8 @@ public sealed class ProjectService
         copy.Settings.SecondaryOutputDeviceId = null;
         copy.Settings.MusicFolderPath = "Media";
 
+        progress?.Report(new PortableBackupProgress("Sparar profil och inställningar…", 87,
+            copiedMediaCount, totalMediaFiles));
         var projectName = SanitizePathSegment(project.Name, "FloorballDJ-profil");
         var profileFileName = $"{projectName}.floorballdj.json";
         await SaveAsync(copy, Path.Combine(directory, profileFileName));
@@ -348,6 +361,8 @@ public sealed class ProjectService
         };
         await File.WriteAllTextAsync(Path.Combine(directory, "floorballdj-backup.json"),
             JsonSerializer.Serialize(manifest, JsonOptions));
+        progress?.Report(new PortableBackupProgress("Skapar backupinformation…", 95,
+            copiedMediaCount, totalMediaFiles));
         var missingSummary = missingFiles.Count == 0
             ? "Inga länkade ljudfiler saknades när backupen skapades."
             : $"VARNING: {missingFiles.Count} länkade ljudfiler saknades:\r\n- {string.Join("\r\n- ", missingFiles)}";
@@ -358,12 +373,16 @@ public sealed class ProjectService
             $"Slumpprofiler: {copy.Settings.RandomPoolSetups.Count}. Slumpgrupper totalt: {copy.Settings.RandomPoolSetups.Sum(setup => setup.Profiles.Count)}. Team Deck: {copy.Settings.TeamDeckProfiles.Count}. De är profilbundna och följer med denna profil.\r\n\r\n" +
             missingSummary);
 
+        progress?.Report(new PortableBackupProgress("Backupen är klar", 100,
+            copiedMediaCount, totalMediaFiles));
         return new PortableBackupResult(directory, Path.Combine(directory, profileFileName), copiedMediaCount,
             fontsIncluded, copy.Settings.RandomPoolSetups.Sum(setup => setup.Profiles.Count), copy.Settings.TeamDeckProfiles.Count, presetsIncluded, missingFiles);
     }
 
-    public async Task<PortableRestoreResult> RestorePortableBackupAsync(string backupDirectory)
+    public async Task<PortableRestoreResult> RestorePortableBackupAsync(string backupDirectory,
+        IProgress<PortableBackupProgress>? progress = null)
     {
+        progress?.Report(new PortableBackupProgress("Kontrollerar backupen…", 2));
         var sourceDirectory = Path.GetFullPath(backupDirectory);
         if (!Directory.Exists(sourceDirectory))
             throw new DirectoryNotFoundException("Den valda backupmappen finns inte.");
@@ -398,19 +417,23 @@ public sealed class ProjectService
         var suffix = 2;
         while (Directory.Exists(destinationDirectory))
             destinationDirectory = Path.Combine(importsRoot, $"{baseName}-{DateTime.Now:yyyyMMdd-HHmmss}-{suffix++}");
-        await CopyDirectoryAsync(sourceDirectory, destinationDirectory);
+        await CopyDirectoryAsync(sourceDirectory, destinationDirectory, progress);
 
         var profilePath = SafeChildPath(destinationDirectory, manifest.ProfileFile);
+        progress?.Report(new PortableBackupProgress("Installerar typsnitt och färgval…", 86));
         var fontsImported = ImportFonts(Path.Combine(destinationDirectory, "Inställningar", "Fonts"));
         var presetsImported = new ColorPresetService().MergeFrom(
             Path.Combine(destinationDirectory, "Inställningar", "color-presets.json"));
 
+        progress?.Report(new PortableBackupProgress("Förbereder profilen…", 93, Detail: manifest.ProjectName));
         var restoredProject = await LoadAsync(profilePath);
         EnsureLayout(restoredProject);
         restoredProject.Settings.OutputDeviceId = null;
         restoredProject.Settings.SecondaryOutputDeviceId = null;
         await SaveAsync(restoredProject, profilePath);
         var missingCount = restoredProject.Decks.SelectMany(deck => deck.Jingles).Count(jingle => jingle.IsMissing);
+        progress?.Report(new PortableBackupProgress("Återställningen är klar", 100,
+            Detail: restoredProject.Name));
         return new PortableRestoreResult(profilePath, destinationDirectory, fontsImported, presetsImported,
             restoredProject.Settings.RandomPoolSetups.Sum(setup => setup.Profiles.Count),
             restoredProject.Settings.TeamDeckProfiles.Count, missingCount);
@@ -427,18 +450,25 @@ public sealed class ProjectService
         return candidate;
     }
 
-    private static async Task CopyDirectoryAsync(string sourceDirectory, string destinationDirectory)
+    private static async Task CopyDirectoryAsync(string sourceDirectory, string destinationDirectory,
+        IProgress<PortableBackupProgress>? progress)
     {
         await Task.Run(() =>
         {
             foreach (var directory in Directory.EnumerateDirectories(sourceDirectory, "*", SearchOption.AllDirectories))
                 Directory.CreateDirectory(Path.Combine(destinationDirectory, Path.GetRelativePath(sourceDirectory, directory)));
             Directory.CreateDirectory(destinationDirectory);
-            foreach (var source in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+            var files = Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories).ToArray();
+            for (var index = 0; index < files.Length; index++)
             {
+                var source = files[index];
                 var target = Path.Combine(destinationDirectory, Path.GetRelativePath(sourceDirectory, source));
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                 File.Copy(source, target, false);
+                var completed = index + 1;
+                var copyPercent = files.Length == 0 ? 80 : 8 + completed * 72d / files.Length;
+                progress?.Report(new PortableBackupProgress("Kopierar backupfiler…", copyPercent,
+                    completed, files.Length, Path.GetFileName(source)));
             }
         });
     }
@@ -770,6 +800,9 @@ public sealed class PortableBackupManifest
 
 public sealed record PortableBackupResult(string Directory, string ProfilePath, int MediaFileCount,
     int CustomFontCount, int RandomPoolProfileCount, int TeamDeckProfileCount, bool IncludesColorPresets, IReadOnlyList<string> MissingFiles);
+
+public sealed record PortableBackupProgress(string Phase, double Percent, int CompletedFiles = 0,
+    int TotalFiles = 0, string? Detail = null);
 
 public sealed record PortableRestoreResult(string ProfilePath, string Directory, int CustomFontCount,
     int ColorPresetCount, int RandomPoolProfileCount, int TeamDeckProfileCount, int MissingMediaCount);

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Windows;
+using System.Windows.Threading;
 using FloorballDJ.Models;
 using FloorballDJ.Services;
 using FloorballDJ.ViewModels;
@@ -124,26 +125,45 @@ public partial class ManageAudioFilesWindow : Window
         }
 
         SetBusy(true, "Kopierar projekt och media…");
+        PortableBackupResult? result = null;
+        Exception? failure = null;
+        var progressWindow = new BackupProgressWindow(
+            "Skapar flyttbackup",
+            "Skapar komplett flyttbackup",
+            "Profil, inställningar och alla länkade ljudfiler kopieras till den valda platsen.") { Owner = this };
         try
         {
-            var result = await _projects.CreateMediaBackupAsync(_viewModel.Project, BackupFolderBox.Text);
-            StatusText.Text = $"Backup skapad: {result.Directory}";
-            var warning = result.MissingFiles.Count == 0
-                ? "Alla länkade ljudfiler följde med."
-                : $"Varning: {result.MissingFiles.Count} ljudfiler saknades och kunde inte kopieras.";
-            MessageBox.Show(this,
-                $"Profil, inställningar och media har kopierats till:\n{result.Directory}\n\n" +
-                $"{result.MediaFileCount} ljudfiler, {result.CustomFontCount} egna typsnitt och " +
-                $"{result.RandomPoolProfileCount} profilbundna slumpgrupper och {result.TeamDeckProfileCount} Team Deck kopierades.\n{warning}",
-                "Backup klar", MessageBoxButton.OK,
-                result.MissingFiles.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            progressWindow.Show();
+            await Dispatcher.Yield(DispatcherPriority.Render);
+            result = await _projects.CreateMediaBackupAsync(_viewModel.Project, BackupFolderBox.Text, progressWindow);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Backupen misslyckades", MessageBoxButton.OK, MessageBoxImage.Warning);
-            StatusText.Text = "Backupen kunde inte skapas.";
+            failure = ex;
         }
-        finally { SetBusy(false); }
+        finally
+        {
+            progressWindow.CloseAfterOperation();
+            SetBusy(false);
+        }
+
+        if (failure is not null)
+        {
+            MessageBox.Show(this, failure.Message, "Backupen misslyckades", MessageBoxButton.OK, MessageBoxImage.Warning);
+            StatusText.Text = "Backupen kunde inte skapas.";
+            return;
+        }
+
+        StatusText.Text = $"Backup skapad: {result!.Directory}";
+        var warning = result.MissingFiles.Count == 0
+            ? "Alla länkade ljudfiler följde med."
+            : $"Varning: {result.MissingFiles.Count} ljudfiler saknades och kunde inte kopieras.";
+        MessageBox.Show(this,
+            $"Profil, inställningar och media har kopierats till:\n{result.Directory}\n\n" +
+            $"{result.MediaFileCount} ljudfiler, {result.CustomFontCount} egna typsnitt och " +
+            $"{result.RandomPoolProfileCount} profilbundna slumpgrupper och {result.TeamDeckProfileCount} Team Deck kopierades.\n{warning}",
+            "Backup klar", MessageBoxButton.OK,
+            result.MissingFiles.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
     }
 
     private void SetBusy(bool busy, string? status = null)
