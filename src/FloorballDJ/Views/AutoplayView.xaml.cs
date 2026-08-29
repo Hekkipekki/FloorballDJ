@@ -287,7 +287,12 @@ public partial class AutoplayView : UserControl
     {
         var dialog = new SaveFileDialog { Filter = "FloorballDJ-spellista|*.fdjplaylist.json", FileName = "Ny spellista.fdjplaylist.json" };
         if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
-        File.WriteAllText(dialog.FileName, JsonSerializer.Serialize(ViewModel.PlaybackQueue.Select(item => new PlaylistEntry(item.Title, item.FilePath)), new JsonSerializerOptions { WriteIndented = true }));
+        var document = new PlaylistDocument(
+            Version: 2,
+            ShuffleEnabled: ViewModel.QueueShuffleEnabled,
+            LoopEnabled: ViewModel.QueueLoopEnabled,
+            Entries: ViewModel.PlaybackQueue.Select(item => new PlaylistEntry(item.Title, item.FilePath)).ToList());
+        File.WriteAllText(dialog.FileName, JsonSerializer.Serialize(document, new JsonSerializerOptions { WriteIndented = true }));
     }
 
     private void LoadPlaylist_Click(object sender, RoutedEventArgs e)
@@ -306,7 +311,24 @@ public partial class AutoplayView : UserControl
 
     private bool LoadPlaylist(string path, bool startPlayback, double queueGainOffsetDb = 0)
     {
-        var entries = JsonSerializer.Deserialize<List<PlaylistEntry>>(File.ReadAllText(path)) ?? [];
+        var json = File.ReadAllText(path);
+        using var parsed = JsonDocument.Parse(json);
+        List<PlaylistEntry> entries;
+        if (parsed.RootElement.ValueKind == JsonValueKind.Array)
+        {
+            // Version 1 stored only the entries. Preserve its historical defaults.
+            entries = JsonSerializer.Deserialize<List<PlaylistEntry>>(json) ?? [];
+            ViewModel.QueueShuffleEnabled = false;
+            ViewModel.QueueLoopEnabled = true;
+        }
+        else
+        {
+            var document = JsonSerializer.Deserialize<PlaylistDocument>(json)
+                           ?? new PlaylistDocument(2, false, true, []);
+            entries = document.Entries ?? [];
+            ViewModel.QueueShuffleEnabled = document.ShuffleEnabled;
+            ViewModel.QueueLoopEnabled = document.LoopEnabled;
+        }
         var all = ViewModel.Decks.SelectMany(deck => deck.Jingles).Where(jingle => jingle.HasAudio)
             .Concat(_folderItems).ToList();
         var items = entries.Where(entry => File.Exists(entry.FilePath)).Select(entry =>
@@ -318,4 +340,5 @@ public partial class AutoplayView : UserControl
 
     private sealed record DeckFilter(string Name, Deck? Deck);
     private sealed record PlaylistEntry(string Title, string FilePath);
+    private sealed record PlaylistDocument(int Version, bool ShuffleEnabled, bool LoopEnabled, List<PlaylistEntry>? Entries);
 }

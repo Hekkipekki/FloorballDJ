@@ -14,6 +14,7 @@ public partial class RandomPlayerSettingsWindow : Window
 {
     private readonly FloorballProject _project;
     private readonly HashSet<string> _replacementShortcuts = new(StringComparer.OrdinalIgnoreCase);
+    private string _sortMode = "deck";
     public RandomPlayerSettingsViewData ViewData { get; }
 
     public RandomPlayerSettingsWindow(FloorballProject project)
@@ -54,7 +55,8 @@ public partial class RandomPlayerSettingsWindow : Window
         {
             Id = profile.Id == Guid.Empty ? Guid.NewGuid() : profile.Id,
             Name = string.IsNullOrWhiteSpace(profile.Name) ? "Slumpgrupp" : profile.Name.Trim(),
-            Shortcut = ShortcutService.Normalize(profile.Shortcut)
+            Shortcut = ShortcutService.Normalize(profile.Shortcut),
+            FollowUpJingleIds = profile.FollowUpJingleIds?.Distinct().ToList() ?? []
         };
         foreach (var deck in _project.Decks.Where(deck => deck.Jingles.Any(jingle => jingle.HasAudio && File.Exists(jingle.FilePath))))
         {
@@ -152,15 +154,17 @@ public partial class RandomPlayerSettingsWindow : Window
         RefreshOverview();
     }
 
-    private void SortCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => ApplySelectedSort();
+    private void SortButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string mode }) _sortMode = mode;
+        ApplySelectedSort();
+    }
 
     private void ApplySelectedSort()
     {
-        if (DeckTabs is null || SortCombo is null) return;
-        if (DeckTabs.SelectedItem is not RandomPlayerDeckEditor deck ||
-            SortCombo.SelectedItem is not ComboBoxItem { Tag: string mode }) return;
+        if (DeckTabs is null || DeckTabs.SelectedItem is not RandomPlayerDeckEditor deck) return;
 
-        IEnumerable<RandomPlayerJingleEditor> sorted = mode switch
+        IEnumerable<RandomPlayerJingleEditor> sorted = _sortMode switch
         {
             "asc" => deck.Jingles.OrderBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase).ThenBy(item => item.OriginalOrder),
             "desc" => deck.Jingles.OrderByDescending(item => item.Title, StringComparer.CurrentCultureIgnoreCase).ThenBy(item => item.OriginalOrder),
@@ -199,7 +203,8 @@ public partial class RandomPlayerSettingsWindow : Window
         {
             Name = name,
             DeckIds = source.Decks.Where(deck => deck.IncludeWholeDeck).Select(deck => deck.DeckId).ToList(),
-            JingleIds = source.Decks.SelectMany(deck => deck.Jingles).Where(jingle => jingle.IsIncluded).Select(jingle => jingle.JingleId).ToList()
+            JingleIds = source.Decks.SelectMany(deck => deck.Jingles).Where(jingle => jingle.IsIncluded).Select(jingle => jingle.JingleId).ToList(),
+            FollowUpJingleIds = source.FollowUpJingleIds.ToList()
         });
         ViewData.Profiles.Add(copy);
         ViewData.SelectedProfile = copy;
@@ -236,6 +241,22 @@ public partial class RandomPlayerSettingsWindow : Window
     {
         if (ViewData.SelectedProfile is { } selected) selected.Shortcut = null;
         RefreshOverview();
+    }
+
+    private void ChooseFollowUps_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewData.SelectedProfile is not { } selected) return;
+        var dialog = new RandomFollowUpPickerWindow(_project, selected.FollowUpJingleIds) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+        selected.FollowUpJingleIds = dialog.SelectedJingleIds.ToList();
+        selected.RefreshSummary();
+    }
+
+    private void ClearFollowUps_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewData.SelectedProfile is not { } selected) return;
+        selected.FollowUpJingleIds = [];
+        selected.RefreshSummary();
     }
 
     private bool ConfirmShortcutReplacement(RandomPlayerProfileEditor selected, string? shortcut)
@@ -422,7 +443,8 @@ public partial class RandomPlayerSettingsWindow : Window
         Shortcut = ShortcutService.Normalize(profile.Shortcut),
         DeckIds = profile.Decks.Where(deck => deck.IncludeWholeDeck).Select(deck => deck.DeckId).Distinct().ToList(),
         JingleIds = profile.Decks.SelectMany(deck => deck.Jingles).Where(jingle => jingle.IsIncluded)
-            .Select(jingle => jingle.JingleId).Distinct().ToList()
+            .Select(jingle => jingle.JingleId).Distinct().ToList(),
+        FollowUpJingleIds = profile.FollowUpJingleIds.Distinct().ToList()
     };
 }
 
@@ -477,9 +499,13 @@ public sealed class RandomPlayerProfileEditor : INotifyPropertyChanged
     public string? Shortcut { get => _shortcut; set { if (_shortcut == value) return; _shortcut = value; Raise(); Raise(nameof(ShortcutDisplay)); } }
     public string ShortcutDisplay => ShortcutService.Normalize(Shortcut) ?? (LanguageService.IsEnglish ? "<None>" : "<Ingen>");
     public ObservableCollection<RandomPlayerDeckEditor> Decks { get; } = [];
+    public List<Guid> FollowUpJingleIds { get; set; } = [];
+    public string FollowUpSummary => FollowUpJingleIds.Count == 0
+        ? (LanguageService.IsEnglish ? "No follow-up" : "Ingen följdlåt")
+        : LanguageService.IsEnglish ? $"{FollowUpJingleIds.Count} selected" : $"{FollowUpJingleIds.Count} valda";
     public int SelectedSoundCount => Decks.Sum(deck => deck.IncludeWholeDeck ? deck.Jingles.Count : deck.Jingles.Count(item => item.IsIncluded));
     public string SelectionSummary => LanguageService.IsEnglish ? $"{SelectedSoundCount} sounds" : $"{SelectedSoundCount} ljud";
-    public void RefreshSummary() { Raise(nameof(SelectedSoundCount)); Raise(nameof(SelectionSummary)); }
+    public void RefreshSummary() { Raise(nameof(SelectedSoundCount)); Raise(nameof(SelectionSummary)); Raise(nameof(FollowUpSummary)); }
     public event PropertyChangedEventHandler? PropertyChanged;
     private void Raise([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

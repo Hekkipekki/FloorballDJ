@@ -184,6 +184,12 @@
                         <StackPanel>
                             <TextBlock Text="GRUPPNAMN" Style="{StaticResource FieldLabel}" Margin="0,0,0,5" />
                             <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinWidth="300" />
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <TextBlock Text="AUTOMATISK FÖLJDLÅT" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <Button Content="Välj följdlåtar…" Style="{StaticResource SecondaryButton}" Padding="12,6" Click="ChooseFollowUps_Click" />
+                                <TextBlock Text="{Binding FollowUpSummary}" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                <Button Content="Rensa" Style="{StaticResource SecondaryButton}" Padding="10,6" Margin="8,0,0,0" Click="ClearFollowUps_Click" />
+                            </StackPanel>
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="SNABBTANGENT" Style="{StaticResource FieldLabel}" Margin="0,0,0,5" />
@@ -210,12 +216,11 @@
                             <TextBlock Text="&#xE721;" FontFamily="Segoe Fluent Icons" Foreground="{StaticResource AccentBrush}"
                                        Margin="11,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" IsHitTestVisible="False" />
                         </Grid>
-                        <ComboBox x:Name="SortCombo" Grid.Column="1" Width="150" Margin="8,0,0,0" SelectedIndex="0"
-                                  SelectionChanged="SortCombo_SelectionChanged" ToolTip="Ändrar endast visningsordningen i den här menyn">
-                            <ComboBoxItem Content="Deckordning" Tag="deck" />
-                            <ComboBoxItem Content="Namn A–Ö" Tag="asc" />
-                            <ComboBoxItem Content="Namn Ö–A" Tag="desc" />
-                        </ComboBox>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0" ToolTip="Sortera låtarna i den öppna deckfliken">
+                            <Button Content="Deck" Tag="deck" Style="{StaticResource SecondaryButton}" Padding="10,6" Click="SortButton_Click" />
+                            <Button Content="A–Ö" Tag="asc" Style="{StaticResource SecondaryButton}" Padding="10,6" Margin="4,0,0,0" Click="SortButton_Click" />
+                            <Button Content="Ö–A" Tag="desc" Style="{StaticResource SecondaryButton}" Padding="10,6" Margin="4,0,0,0" Click="SortButton_Click" />
+                        </StackPanel>
                         <Button Grid.Column="2" Content="Markera träffar" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="SelectVisible_Click" />
                         <Button Grid.Column="3" Content="Rensa deck" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="ClearSelectedDeck_Click" />
                     </Grid>

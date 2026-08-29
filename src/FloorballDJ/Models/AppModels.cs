@@ -67,6 +67,11 @@ public sealed class RandomPoolProfile
     public string? Shortcut { get; set; }
     public List<Guid> DeckIds { get; set; } = [];
     public List<Guid> JingleIds { get; set; } = [];
+    /// <summary>
+    /// Optional sounds that may start automatically after a randomly selected
+    /// pool sound reaches its natural end. Manual stop/fade never triggers them.
+    /// </summary>
+    public List<Guid> FollowUpJingleIds { get; set; } = [];
 }
 
 public sealed class RandomPoolSetup

@@ -1,7 +1,7 @@
 <Window x:Class="FloorballDJ.Views.TextPromptWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Ange namn" Width="430" Height="220" ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
+        Title="Ange namn" Width="460" MinHeight="245" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
     <Grid Margin="24,20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />

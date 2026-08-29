@@ -646,6 +646,7 @@ public sealed class ProjectService
             profile.Shortcut = ShortcutService.Normalize(profile.Shortcut);
             profile.DeckIds = profile.DeckIds?.Distinct().ToList() ?? [];
             profile.JingleIds = profile.JingleIds?.Distinct().ToList() ?? [];
+            profile.FollowUpJingleIds = profile.FollowUpJingleIds?.Distinct().ToList() ?? [];
         }
         project.Settings.RandomPoolSetups ??= [];
         if (project.Settings.RandomPoolSetups.Count == 0)
@@ -668,6 +669,7 @@ public sealed class ProjectService
                 profile.Shortcut = ShortcutService.Normalize(profile.Shortcut);
                 profile.DeckIds = profile.DeckIds?.Distinct().ToList() ?? [];
                 profile.JingleIds = profile.JingleIds?.Distinct().ToList() ?? [];
+                profile.FollowUpJingleIds = profile.FollowUpJingleIds?.Distinct().ToList() ?? [];
             }
         }
         var activeRandomSetup = project.Settings.RandomPoolSetups

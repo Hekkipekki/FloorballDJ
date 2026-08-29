@@ -68,6 +68,8 @@ public partial class MainWindow : Window
     private string? _activeRandomShortcut;
     private Guid? _activeRandomJingleId;
     private bool _randomShortcutAwaitingNext;
+    private Guid? _pendingRandomFollowUpSourceId;
+    private Guid[] _pendingRandomFollowUpIds = [];
     private TeamDeckWindow? _activeTeamDeckWindow;
     private MainViewModel ViewModel => (MainViewModel)DataContext;
 
@@ -102,6 +104,14 @@ public partial class MainWindow : Window
         ViewModel.PrimaryPlaybackStarted += (_, _) =>
         {
             if (TalkToggle.IsChecked == true) TalkToggle.IsChecked = false;
+        };
+        _audio.PlaybackCompleted += (_, completedJingle) =>
+        {
+            if (_pendingRandomFollowUpSourceId != completedJingle.Id) return;
+            var followUpIds = _pendingRandomFollowUpIds;
+            ClearPendingRandomFollowUp();
+            if (followUpIds.Length == 0) return;
+            Application.Current.Dispatcher.BeginInvoke(() => PlayAutomaticRandomFollowUp(followUpIds));
         };
         Loaded += async (_, _) =>
         {
@@ -164,12 +174,21 @@ public partial class MainWindow : Window
                 EmbeddedAutoplay.Visibility = Visibility.Collapsed;
                 var help = new HelpWindow { Owner = this };
                 help.Show();
-                if (help.FindName("HelpNavigation") is ListBox helpNavigation)
+                foreach (var navigationName in new[] { "HelpNavigation", "AdvancedNavigation", "SupportNavigation" })
+                {
+                    if (help.FindName(navigationName) is not ListBox helpNavigation) continue;
                     for (var page = 0; page < helpNavigation.Items.Count; page++)
                     {
                         helpNavigation.SelectedIndex = page;
                         await Task.Delay(40);
                     }
+                }
+                if (help.FindName("HelpSearchBox") is TextBox helpSearch)
+                {
+                    helpSearch.Text = "slump";
+                    await Task.Delay(80);
+                    helpSearch.Clear();
+                }
                 help.Close();
                 var search = new JingleSearchWindow(ViewModel.Decks) { Owner = this };
                 search.Show();
@@ -187,6 +206,14 @@ public partial class MainWindow : Window
                 randomPlayer.Show();
                 await Task.Delay(180);
                 randomPlayer.Close();
+                var shortcutCapture = new ShortcutCaptureWindow(null) { Owner = this };
+                shortcutCapture.Show();
+                await Task.Delay(180);
+                shortcutCapture.Close();
+                var followUpPicker = new RandomFollowUpPickerWindow(ViewModel.Project, []) { Owner = this };
+                followUpPicker.Show();
+                await Task.Delay(180);
+                followUpPicker.Close();
                 var teamPreview = new TeamDeckWindow(new TeamDeckProfile
                 {
                     Name = "Testlag",
@@ -805,7 +832,11 @@ public partial class MainWindow : Window
                         (selectedDeckIds.Contains(deck.Id) || selectedJingleIds.Contains(jingle.Id))))
                     .DistinctBy(jingle => jingle.Id)
                     .ToArray();
-                if (TryHandleRandomShortcut(e, pool)) return;
+                var followUps = ViewModel.Decks.SelectMany(deck => deck.Jingles)
+                    .Where(jingle => (randomProfile.FollowUpJingleIds ?? []).Contains(jingle.Id) &&
+                                     jingle.HasAudio && File.Exists(jingle.FilePath))
+                    .DistinctBy(jingle => jingle.Id).ToArray();
+                if (TryHandleRandomShortcut(e, pool, followUps)) return;
             }
 
             var categoryAnchor = ViewModel.Decks.SelectMany(deck => deck.Jingles)
@@ -899,7 +930,8 @@ public partial class MainWindow : Window
         .Replace(" ", "", StringComparison.Ordinal)
         .ToUpperInvariant();
 
-    private bool TryHandleRandomShortcut(KeyEventArgs e, IReadOnlyCollection<Jingle> candidates)
+    private bool TryHandleRandomShortcut(KeyEventArgs e, IReadOnlyCollection<Jingle> candidates,
+        IReadOnlyCollection<Jingle>? followUps = null)
     {
         if (candidates.Count == 0) return false;
         e.Handled = true;
@@ -914,6 +946,7 @@ public partial class MainWindow : Window
             ViewModel.NowPlaying.JingleId == activeRandom.Id)
         {
             _randomShortcutAwaitingNext = true;
+            ClearPendingRandomFollowUp();
             try { ViewModel.Play(activeRandom); }
             catch (Exception ex) { MessageBox.Show(this, ex.Message, "Kunde inte tona ut", MessageBoxButton.OK, MessageBoxImage.Warning); }
             return true;
@@ -934,9 +967,35 @@ public partial class MainWindow : Window
         _activeRandomShortcut = pressedRandomShortcut;
         _activeRandomJingleId = selected.Id;
         _randomShortcutAwaitingNext = false;
+        _pendingRandomFollowUpSourceId = selected.Id;
+        _pendingRandomFollowUpIds = followUps?.Select(jingle => jingle.Id).Distinct().ToArray() ?? [];
         try { ViewModel.Play(selected); }
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "Kunde inte spela", MessageBoxButton.OK, MessageBoxImage.Warning); }
         return true;
+    }
+
+    private void PlayAutomaticRandomFollowUp(IReadOnlyCollection<Guid> followUpIds)
+    {
+        var available = ViewModel.Decks.SelectMany(deck => deck.Jingles)
+            .Where(jingle => followUpIds.Contains(jingle.Id) && jingle.HasAudio && File.Exists(jingle.FilePath))
+            .DistinctBy(jingle => jingle.Id).ToArray();
+        if (available.Length == 0) return;
+        var followUp = available[Random.Shared.Next(available.Length)];
+        try
+        {
+            ViewModel.Play(followUp);
+            ViewModel.Status = $"Automatisk följdlåt: {followUp.Title}";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Kunde inte spela följdlåten", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void ClearPendingRandomFollowUp()
+    {
+        _pendingRandomFollowUpSourceId = null;
+        _pendingRandomFollowUpIds = [];
     }
 
     private void ClearSpaceResume()

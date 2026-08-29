@@ -47,7 +47,8 @@ project.Settings.RandomPoolProfiles =
         Name = "IBF Mål",
         Shortcut = "Shift+2",
         DeckIds = [project.Decks[0].Id],
-        JingleIds = [jingle.Id]
+        JingleIds = [jingle.Id],
+        FollowUpJingleIds = [jingle.Id]
     }
 ];
 var ibfRandomSetup = project.Settings.RandomPoolSetups.Single();
@@ -102,7 +103,8 @@ Assert(portable.Decks[0].PageCount == 2 &&
 Assert(portable.Settings.RandomPoolProfiles.Count == 1 &&
        portable.Settings.RandomPoolProfiles[0].Name == "IBF Mål" &&
        portable.Settings.RandomPoolProfiles[0].Shortcut == "Shift+2" &&
-       portable.Settings.RandomPoolProfiles[0].JingleIds.SequenceEqual([jingle.Id]),
+       portable.Settings.RandomPoolProfiles[0].JingleIds.SequenceEqual([jingle.Id]) &&
+       portable.Settings.RandomPoolProfiles[0].FollowUpJingleIds.SequenceEqual([jingle.Id]),
     "Profilens egna slumpgrupp bevarades inte i flyttbackupen.");
 Assert(portable.Settings.RandomPoolSetups.Count == 2 &&
        portable.Settings.RandomPoolSetups.Single(setup => setup.Name == "Scandic").Profiles.Single().Shortcut == "Shift+3" &&
