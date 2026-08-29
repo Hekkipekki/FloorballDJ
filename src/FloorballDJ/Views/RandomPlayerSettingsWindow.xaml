@@ -39,11 +39,46 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="ToolTip" Value="Markera för att ta med jingeln i den valda slumpgruppen" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="Card" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="7" Padding="{TemplateBinding Padding}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="22" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <Border x:Name="Indicator" Width="18" Height="18" CornerRadius="4" Background="#0A1624"
+                                        BorderBrush="#40526A" BorderThickness="1" VerticalAlignment="Center">
+                                    <TextBlock x:Name="Checkmark" Text="✓" FontFamily="Segoe UI Symbol" FontSize="13" FontWeight="Bold"
+                                               Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0" />
+                                </Border>
+                                <ContentPresenter Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Card" Property="BorderBrush" Value="#50718F" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Card" Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="Indicator" Property="Background" Value="#123D38" />
+                                <Setter TargetName="Indicator" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="Checkmark" Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Card" Property="Opacity" Value=".75" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
     <Grid Margin="22,18,22,16">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -65,7 +100,38 @@
             </Border>
         </Grid>
 
-        <Grid Grid.Row="1">
+        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="14,11" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="270" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
+                    <TextBlock Text="AKTIV SLUMPPROFIL" Style="{StaticResource FieldLabel}" />
+                    <TextBlock Text="Byt lag utan att byta musikprofil" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,3,0,0" />
+                </StackPanel>
+                <ComboBox x:Name="SetupsCombo" Grid.Column="1" ItemsSource="{Binding Setups}"
+                          SelectedItem="{Binding SelectedSetup, Mode=TwoWay}" DisplayMemberPath="Name"
+                          SelectionChanged="SetupsCombo_SelectionChanged" />
+                <TextBox Grid.Column="3" Text="{Binding SelectedSetup.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Namn på den aktiva slumpprofilen" />
+                <Button Grid.Column="4" Content="+ Ny profil" Style="{StaticResource PrimaryButton}" Margin="10,0,0,0"
+                        Click="AddSetup_Click" />
+                <Button Grid.Column="5" Content="&#xE8C8;" FontFamily="Segoe Fluent Icons" Style="{StaticResource SecondaryButton}"
+                        Width="40" MinWidth="40" Padding="0" Margin="7,0,0,0" ToolTip="Duplicera aktiv slumpprofil"
+                        Click="DuplicateSetup_Click" />
+                <Button Grid.Column="6" Content="&#xE74D;" FontFamily="Segoe Fluent Icons" Style="{StaticResource SecondaryButton}"
+                        Width="40" MinWidth="40" Padding="0" Margin="7,0,0,0" ToolTip="Ta bort aktiv slumpprofil"
+                        Click="RemoveSetup_Click" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="280" />
                 <ColumnDefinition Width="16" />
@@ -137,15 +203,21 @@
 
                 <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,12">
                     <Grid>
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <Grid>
                             <TextBox x:Name="SearchBox" Padding="34,8,10,8" TextChanged="SearchBox_TextChanged"
                                      ToolTip="Sök i hela profilen. Bästa träffen öppnar automatiskt rätt deck." />
                             <TextBlock Text="&#xE721;" FontFamily="Segoe Fluent Icons" Foreground="{StaticResource AccentBrush}"
                                        Margin="11,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" IsHitTestVisible="False" />
                         </Grid>
-                        <Button Grid.Column="1" Content="Markera träffar" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="SelectVisible_Click" />
-                        <Button Grid.Column="2" Content="Rensa deck" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="ClearSelectedDeck_Click" />
+                        <ComboBox x:Name="SortCombo" Grid.Column="1" Width="150" Margin="8,0,0,0" SelectedIndex="0"
+                                  SelectionChanged="SortCombo_SelectionChanged" ToolTip="Ändrar endast visningsordningen i den här menyn">
+                            <ComboBoxItem Content="Deckordning" Tag="deck" />
+                            <ComboBoxItem Content="Namn A–Ö" Tag="asc" />
+                            <ComboBoxItem Content="Namn Ö–A" Tag="desc" />
+                        </ComboBox>
+                        <Button Grid.Column="2" Content="Markera träffar" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="SelectVisible_Click" />
+                        <Button Grid.Column="3" Content="Rensa deck" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="ClearSelectedDeck_Click" />
                     </Grid>
                 </Border>
 
@@ -185,7 +257,8 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
                                                     <CheckBox Style="{StaticResource PoolJingleCheck}" Width="260"
-                                                              IsChecked="{Binding IsIncluded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              IsChecked="{Binding DisplayIsIncluded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              IsEnabled="{Binding CanToggleIndividually}"
                                                               Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibility}}"
                                                               Click="PoolSelection_Click">
                                                         <Grid>
@@ -248,7 +321,7 @@
             </Border>
         </Grid>
 
-        <Grid Grid.Row="2" Margin="0,16,0,0">
+        <Grid Grid.Row="3" Margin="0,16,0,0">
             <TextBlock Text="Tomma deck, textblock och saknade ljudfiler används aldrig i poolen." Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Avbryt" Style="{StaticResource SecondaryButton}" MinWidth="104" Margin="0,0,8,0" IsCancel="True" />

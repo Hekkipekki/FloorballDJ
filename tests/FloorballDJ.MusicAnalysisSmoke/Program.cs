@@ -1,5 +1,7 @@
 using FloorballDJ.Services;
+using FloorballDJ.Models;
 using NAudio.Wave;
+using System.Reflection;
 
 var folder = Path.Combine(Path.GetTempPath(), "FloorballDJ", "MusicAnalysisSmoke", Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(folder);
@@ -16,6 +18,17 @@ try
     if (first.Bpm is < 105 or > 135) throw new InvalidOperationException($"Oväntad BPM: {first.Bpm:0.0}");
     if (first.SuggestedTransitionSeconds is <= 0 or >= 20) throw new InvalidOperationException("Övergångspunkten ligger utanför ljudet.");
     if (match.Score < 65) throw new InvalidOperationException($"Liknande testspår fick för låg matchning: {match.Score}");
+    var mixedPath = Path.Combine(folder, "mixed.wav");
+    var firstJingle = new Jingle { Title = "First", FilePath = firstPath, DurationSeconds = 20 };
+    var secondJingle = new Jingle { Title = "Second", FilePath = secondPath, DurationSeconds = 20 };
+    await new JingleMergeService().MergeManyAsync(
+        [new JingleMergeService.Segment(firstJingle, 0, 8), new JingleMergeService.Segment(secondJingle, 0, 8)],
+        [new JingleMergeService.Transition(6, 2, 2, JingleMergeService.TransitionMode.Crossfade)], mixedPath);
+    var readPeaks = typeof(FloorballDJ.Controls.WaveformControl).GetMethod("ReadPeaks",
+        BindingFlags.Static | BindingFlags.NonPublic) ?? throw new MissingMethodException("ReadPeaks");
+    var peaks = (Array?)readPeaks.Invoke(null, [mixedPath]);
+    if (peaks is null || peaks.Length < 2)
+        throw new InvalidOperationException("Den skapade mixen gav ingen waveform.");
     Console.WriteLine($"PASS BPM={first.Bpm:0.0}, key={first.Key} {first.Scale}/{first.CamelotCode}, energy={first.Energy:0}, match={match.Score}%");
 }
 finally

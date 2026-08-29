@@ -1,7 +1,7 @@
 <Window x:Class="FloorballDJ.Views.RevisionHistoryWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Autosparningshistorik" Width="760" Height="560" MinWidth="620" MinHeight="430"
+        Title="Autosparningshistorik" Width="1100" Height="620" MinWidth="820" MinHeight="430"
         WindowStartupLocation="CenterOwner">
     <Grid Margin="24,20">
         <Grid.RowDefinitions>
@@ -23,8 +23,9 @@
             <ListView.View>
                 <GridView>
                     <GridViewColumn Header="TIDPUNKT" Width="180" DisplayMemberBinding="{Binding TimestampText}" />
-                    <GridViewColumn Header="PROFIL" Width="260" DisplayMemberBinding="{Binding ProjectName}" />
-                    <GridViewColumn Header="INNEHÅLL" Width="175" DisplayMemberBinding="{Binding Summary}" />
+                    <GridViewColumn Header="HÄNDELSE" Width="420" DisplayMemberBinding="{Binding ChangeDescription}" />
+                    <GridViewColumn Header="PROFIL" Width="190" DisplayMemberBinding="{Binding ProjectName}" />
+                    <GridViewColumn Header="INNEHÅLL" Width="150" DisplayMemberBinding="{Binding Summary}" />
                     <GridViewColumn Header="STORLEK" Width="80" DisplayMemberBinding="{Binding SizeText}" />
                 </GridView>
             </ListView.View>

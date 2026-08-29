@@ -246,7 +246,7 @@ public partial class TeamDeckSettingsWindow : Window, INotifyPropertyChanged
 
         var keys = Teams.Select(team => ShortcutKey(team.Shortcut)).Where(key => key.Length > 0).ToHashSet();
         var conflicts = new List<string>();
-        foreach (var profile in _project.Settings.RandomPoolProfiles ?? [])
+        foreach (var profile in _project.Settings.ActiveRandomPoolProfiles)
             if (keys.Contains(ShortcutKey(profile.Shortcut))) conflicts.Add($"Slumpgrupp: {profile.Name}");
         if (keys.Contains(ShortcutKey(_project.Settings.AutoplayShortcut))) conflicts.Add("Autoplays standardspellista");
         foreach (var autoplay in _project.Settings.AutoplayProfiles ?? [])
@@ -261,7 +261,7 @@ public partial class TeamDeckSettingsWindow : Window, INotifyPropertyChanged
                 "\n\nVill du ersätta de befintliga kopplingarna?", "Ersätt snabbtangent",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
 
-        foreach (var profile in _project.Settings.RandomPoolProfiles ?? [])
+        foreach (var profile in _project.Settings.ActiveRandomPoolProfiles)
             if (keys.Contains(ShortcutKey(profile.Shortcut))) profile.Shortcut = null;
         if (keys.Contains(ShortcutKey(_project.Settings.RandomPoolShortcut))) _project.Settings.RandomPoolShortcut = null;
         if (keys.Contains(ShortcutKey(_project.Settings.AutoplayShortcut))) _project.Settings.AutoplayShortcut = null;

@@ -280,10 +280,17 @@ public sealed class WaveformControl : FrameworkElement
     {
         using var reader = new AudioFileReader(path);
         var count = Math.Clamp((int)Math.Ceiling(reader.TotalTime.TotalSeconds * 80), 6000, 240000);
-        var totalSamples = Math.Max(1L, reader.Length / 4);
+        // AudioFileReader.Read returns interleaved float samples. Derive the count from
+        // duration and decoded format instead of the source file's byte layout; WAV,
+        // MP3 and FLAC report Length differently.
+        var totalSamples = Math.Max(1L, (long)Math.Ceiling(reader.TotalTime.TotalSeconds *
+            reader.WaveFormat.SampleRate * reader.WaveFormat.Channels));
         var samplesPerPeak = Math.Max(1L, totalSamples / count);
         var result = new List<WavePeak>(count);
-        var buffer = new float[Math.Min(16384, (int)Math.Min(int.MaxValue, samplesPerPeak))];
+        // A fixed block avoids one decoder call per peak. Long generated mixes could
+        // otherwise require hundreds of thousands of tiny reads and look waveform-less
+        // for a long time while decoding continued in the background.
+        var buffer = new float[65536];
         long accumulated = 0;
         float minimum = 0, maximum = 0;
         int read;

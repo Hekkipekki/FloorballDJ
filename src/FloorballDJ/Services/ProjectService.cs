@@ -77,8 +77,10 @@ public sealed class ProjectService
             {
                 var project = await LoadAsync(path);
                 var file = new FileInfo(path);
+                var metadata = ReadRevisionMetadata(path);
                 revisions.Add(new ProjectRevision(path, ParseRevisionTimestamp(file), project.Name,
-                    project.Decks.Count, project.Decks.Sum(deck => deck.Jingles.Count(jingle => jingle.HasAudio)), file.Length));
+                    project.Decks.Count, project.Decks.Sum(deck => deck.Jingles.Count(jingle => jingle.HasAudio)), file.Length,
+                    metadata?.ChangeDescription ?? "Äldre återställningspunkt"));
             }
             catch { }
         }
@@ -92,11 +94,93 @@ public sealed class ProjectService
         Directory.CreateDirectory(directory);
         var revisionPath = Path.Combine(directory, $"{DateTime.Now:yyyyMMdd-HHmmss-fff}.floorballdj.json");
         File.Copy(projectPath, revisionPath, false);
+        var metadata = new RevisionMetadata { ChangeDescription = DescribeRevisionChange(projectPath, newPath) };
+        File.WriteAllText(GetRevisionMetadataPath(revisionPath), JsonSerializer.Serialize(metadata, JsonOptions));
 
         foreach (var oldRevision in Directory.EnumerateFiles(directory, "*.floorballdj.json")
                      .OrderByDescending(Path.GetFileName).Skip(100))
+        {
             try { File.Delete(oldRevision); } catch { }
+            try { File.Delete(GetRevisionMetadataPath(oldRevision)); } catch { }
+        }
     }
+
+    private static RevisionMetadata? ReadRevisionMetadata(string revisionPath)
+    {
+        try
+        {
+            var path = GetRevisionMetadataPath(revisionPath);
+            return File.Exists(path)
+                ? JsonSerializer.Deserialize<RevisionMetadata>(File.ReadAllText(path), JsonOptions)
+                : null;
+        }
+        catch { return null; }
+    }
+
+    private static string GetRevisionMetadataPath(string revisionPath) => revisionPath + ".meta.json";
+
+    private static string DescribeRevisionChange(string oldPath, string newPath)
+    {
+        try
+        {
+            var oldProject = JsonSerializer.Deserialize<FloorballProject>(File.ReadAllText(oldPath), JsonOptions);
+            var newProject = JsonSerializer.Deserialize<FloorballProject>(File.ReadAllText(newPath), JsonOptions);
+            if (oldProject is null || newProject is null) return "Profilen ändrades";
+
+            var oldJingles = oldProject.Decks.SelectMany(deck => deck.Jingles
+                    .Where(jingle => jingle.HasContent)
+                    .Select(jingle => (Deck: deck, Jingle: jingle)))
+                .ToDictionary(item => item.Jingle.Id);
+            var newJingles = newProject.Decks.SelectMany(deck => deck.Jingles
+                    .Where(jingle => jingle.HasContent)
+                    .Select(jingle => (Deck: deck, Jingle: jingle)))
+                .ToDictionary(item => item.Jingle.Id);
+
+            var added = newJingles.Keys.Except(oldJingles.Keys).Select(id => newJingles[id]).FirstOrDefault();
+            if (added.Jingle is not null) return $"Före: lade till ‘{DisplayTitle(added.Jingle)}’ i {added.Deck.Name}";
+            var removed = oldJingles.Keys.Except(newJingles.Keys).Select(id => oldJingles[id]).FirstOrDefault();
+            if (removed.Jingle is not null) return $"Före: tog bort ‘{DisplayTitle(removed.Jingle)}’ från {removed.Deck.Name}";
+
+            foreach (var id in oldJingles.Keys.Intersect(newJingles.Keys))
+            {
+                var before = oldJingles[id];
+                var after = newJingles[id];
+                if (!string.Equals(before.Jingle.Title, after.Jingle.Title, StringComparison.Ordinal))
+                    return $"Före: ändrade ‘{DisplayTitle(before.Jingle)}’ till ‘{DisplayTitle(after.Jingle)}’";
+                if (before.Deck.Id != after.Deck.Id || before.Jingle.Position != after.Jingle.Position)
+                    return $"Före: flyttade ‘{DisplayTitle(after.Jingle)}’";
+                if (JsonSerializer.Serialize(before.Jingle, JsonOptions) != JsonSerializer.Serialize(after.Jingle, JsonOptions))
+                    return $"Före: ändrade egenskaper för ‘{DisplayTitle(after.Jingle)}’";
+            }
+
+            if (oldProject.Decks.Count != newProject.Decks.Count)
+                return oldProject.Decks.Count < newProject.Decks.Count ? "Före: lade till ett deck" : "Före: tog bort ett deck";
+            for (var index = 0; index < Math.Min(oldProject.Decks.Count, newProject.Decks.Count); index++)
+            {
+                var before = oldProject.Decks[index];
+                var after = newProject.Decks[index];
+                if (!string.Equals(before.Name, after.Name, StringComparison.Ordinal))
+                    return $"Före: ändrade decknamn från ‘{before.Name}’ till ‘{after.Name}’";
+                if (before.Rows != after.Rows || before.Columns != after.Columns || before.PageCount != after.PageCount ||
+                    JsonSerializer.Serialize(before.PageLayouts, JsonOptions) != JsonSerializer.Serialize(after.PageLayouts, JsonOptions))
+                    return $"Före: ändrade layouten för {after.Name}";
+            }
+
+            if (JsonSerializer.Serialize(oldProject.Settings.RandomPoolSetups, JsonOptions) !=
+                JsonSerializer.Serialize(newProject.Settings.RandomPoolSetups, JsonOptions) ||
+                oldProject.Settings.ActiveRandomPoolSetupId != newProject.Settings.ActiveRandomPoolSetupId)
+                return "Före: ändrade slumpprofiler eller slumpgrupper";
+            if (!string.Equals(oldProject.Name, newProject.Name, StringComparison.Ordinal))
+                return $"Före: ändrade profilnamn till ‘{newProject.Name}’";
+            if (JsonSerializer.Serialize(oldProject.Settings, JsonOptions) != JsonSerializer.Serialize(newProject.Settings, JsonOptions))
+                return "Före: ändrade programinställningar";
+            return "Profilen ändrades";
+        }
+        catch { return "Profilen ändrades"; }
+    }
+
+    private static string DisplayTitle(Jingle jingle) =>
+        string.IsNullOrWhiteSpace(jingle.Title) ? Path.GetFileNameWithoutExtension(jingle.FilePath) : jingle.Title;
 
     private string GetRevisionDirectory(string projectPath)
     {
@@ -257,7 +341,7 @@ public sealed class ProjectService
             ProjectName = project.Name,
             MediaFileCount = copiedMediaCount,
             CustomFontCount = fontsIncluded,
-            RandomPoolProfileCount = copy.Settings.RandomPoolProfiles.Count,
+            RandomPoolProfileCount = copy.Settings.RandomPoolSetups.Sum(setup => setup.Profiles.Count),
             TeamDeckProfileCount = copy.Settings.TeamDeckProfiles.Count,
             IncludesColorPresets = presetsIncluded,
             MissingFiles = missingFiles
@@ -271,11 +355,11 @@ public sealed class ProjectService
             $"FloorballDJ flyttbackup\r\nSkapad: {manifest.CreatedAt:yyyy-MM-dd HH:mm:ss zzz}\r\nProfil: {project.Name}\r\n\r\n" +
             "På den andra datorn:\r\n1. Installera och starta FloorballDJ.\r\n2. Välj Profil > Återställ flyttbackup.\r\n3. Välj den här mappen.\r\n4. Välj datorns ljudutgångar under Verktyg > Inställningar.\r\n\r\n" +
             "Licens/provperiod är maskinbunden och följer inte med. Ljudfilerna är rena filkopior utan omkodning.\r\n\r\n" +
-            $"Slumpgrupper i den här profilen: {copy.Settings.RandomPoolProfiles.Count}. Team Deck: {copy.Settings.TeamDeckProfiles.Count}. De är profilbundna och följer med denna profil.\r\n\r\n" +
+            $"Slumpprofiler: {copy.Settings.RandomPoolSetups.Count}. Slumpgrupper totalt: {copy.Settings.RandomPoolSetups.Sum(setup => setup.Profiles.Count)}. Team Deck: {copy.Settings.TeamDeckProfiles.Count}. De är profilbundna och följer med denna profil.\r\n\r\n" +
             missingSummary);
 
         return new PortableBackupResult(directory, Path.Combine(directory, profileFileName), copiedMediaCount,
-            fontsIncluded, copy.Settings.RandomPoolProfiles.Count, copy.Settings.TeamDeckProfiles.Count, presetsIncluded, missingFiles);
+            fontsIncluded, copy.Settings.RandomPoolSetups.Sum(setup => setup.Profiles.Count), copy.Settings.TeamDeckProfiles.Count, presetsIncluded, missingFiles);
     }
 
     public async Task<PortableRestoreResult> RestorePortableBackupAsync(string backupDirectory)
@@ -328,7 +412,8 @@ public sealed class ProjectService
         await SaveAsync(restoredProject, profilePath);
         var missingCount = restoredProject.Decks.SelectMany(deck => deck.Jingles).Count(jingle => jingle.IsMissing);
         return new PortableRestoreResult(profilePath, destinationDirectory, fontsImported, presetsImported,
-            restoredProject.Settings.RandomPoolProfiles.Count, restoredProject.Settings.TeamDeckProfiles.Count, missingCount);
+            restoredProject.Settings.RandomPoolSetups.Sum(setup => setup.Profiles.Count),
+            restoredProject.Settings.TeamDeckProfiles.Count, missingCount);
     }
 
     private static string SafeChildPath(string parentDirectory, string relativePath)
@@ -562,6 +647,37 @@ public sealed class ProjectService
             profile.DeckIds = profile.DeckIds?.Distinct().ToList() ?? [];
             profile.JingleIds = profile.JingleIds?.Distinct().ToList() ?? [];
         }
+        project.Settings.RandomPoolSetups ??= [];
+        if (project.Settings.RandomPoolSetups.Count == 0)
+        {
+            project.Settings.RandomPoolSetups.Add(new RandomPoolSetup
+            {
+                Name = "Standard",
+                Profiles = project.Settings.RandomPoolProfiles
+            });
+        }
+        foreach (var setup in project.Settings.RandomPoolSetups)
+        {
+            if (setup.Id == Guid.Empty) setup.Id = Guid.NewGuid();
+            setup.Name = string.IsNullOrWhiteSpace(setup.Name) ? "Slumpprofil" : setup.Name.Trim();
+            setup.Profiles ??= [];
+            foreach (var profile in setup.Profiles)
+            {
+                if (profile.Id == Guid.Empty) profile.Id = Guid.NewGuid();
+                profile.Name = string.IsNullOrWhiteSpace(profile.Name) ? "Slumpgrupp" : profile.Name.Trim();
+                profile.Shortcut = ShortcutService.Normalize(profile.Shortcut);
+                profile.DeckIds = profile.DeckIds?.Distinct().ToList() ?? [];
+                profile.JingleIds = profile.JingleIds?.Distinct().ToList() ?? [];
+            }
+        }
+        var activeRandomSetup = project.Settings.RandomPoolSetups
+            .FirstOrDefault(setup => setup.Id == project.Settings.ActiveRandomPoolSetupId)
+            ?? project.Settings.RandomPoolSetups[0];
+        if (activeRandomSetup.Profiles.Count == 0 && project.Settings.RandomPoolProfiles.Count > 0)
+            activeRandomSetup.Profiles = project.Settings.RandomPoolProfiles;
+        project.Settings.ActiveRandomPoolSetupId = activeRandomSetup.Id;
+        // Keep the old field synchronized so profiles remain readable by older builds.
+        project.Settings.RandomPoolProfiles = activeRandomSetup.Profiles;
         project.Settings.TeamDeckProfiles ??= [];
         foreach (var team in project.Settings.TeamDeckProfiles)
         {
@@ -619,11 +735,17 @@ public sealed class ProjectService
     }
 }
 
-public sealed record ProjectRevision(string Path, DateTime Timestamp, string ProjectName, int DeckCount, int JingleCount, long FileSize)
+public sealed record ProjectRevision(string Path, DateTime Timestamp, string ProjectName, int DeckCount, int JingleCount,
+    long FileSize, string ChangeDescription)
 {
     public string TimestampText => Timestamp.ToString("yyyy-MM-dd  HH:mm:ss");
     public string Summary => $"{DeckCount} deck • {JingleCount} jinglar";
     public string SizeText => FileSize < 1024 ? $"{FileSize} B" : $"{FileSize / 1024d:0.#} KB";
+}
+
+public sealed class RevisionMetadata
+{
+    public string ChangeDescription { get; set; } = "Profilen ändrades";
 }
 
 public sealed class PortableBackupManifest

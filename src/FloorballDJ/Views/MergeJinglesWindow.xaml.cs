@@ -46,6 +46,7 @@ public partial class MergeJinglesWindow : Window
     private readonly JingleMergeService _merge = new();
     private readonly MusicAnalysisService _musicAnalysis = new();
     private readonly CancellationTokenSource _analysisCancellation = new();
+    private readonly bool _longMix;
     private readonly ObservableCollection<MergeChoice> _choices;
     private readonly ICollectionView _choiceView;
     private readonly DispatcherTimer _previewTimer;
@@ -77,6 +78,7 @@ public partial class MergeJinglesWindow : Window
         InitializeComponent();
         WindowPlacementService.MaximizeOnOwnerMonitor(this);
         _viewModel = viewModel;
+        _longMix = longMix;
         DataContext = this;
         _choices = new ObservableCollection<MergeChoice>(viewModel.Decks.SelectMany(deck => deck.Jingles
             .Where(jingle => jingle.HasAudio && File.Exists(jingle.FilePath))
@@ -197,7 +199,7 @@ public partial class MergeJinglesWindow : Window
 
         var hasNext = Clips.IndexOf(clip) < Clips.Count - 1;
         TransitionGroup.Visibility = hasNext ? Visibility.Visible : Visibility.Collapsed;
-        MixAssistGroup.Visibility = hasNext ? Visibility.Visible : Visibility.Collapsed;
+        MixAssistGroup.Visibility = _longMix && hasNext ? Visibility.Visible : Visibility.Collapsed;
         TransitionMarkerPanel.Visibility = hasNext ? Visibility.Visible : Visibility.Collapsed;
         ClipTimingHeader.Text = $"LJUD {Clips.IndexOf(clip) + 1} · KLIPPGRÄNSER";
         TransitionMarkerLabel.Text = $"START FÖR LJUD {Clips.IndexOf(clip) + 2}";
@@ -413,7 +415,7 @@ public partial class MergeJinglesWindow : Window
         if (MixAssistGroup is null || _activeClip is null) return;
         var index = Clips.IndexOf(_activeClip);
         var hasNext = index >= 0 && index < Clips.Count - 1;
-        MixAssistGroup.Visibility = hasNext ? Visibility.Visible : Visibility.Collapsed;
+        MixAssistGroup.Visibility = _longMix && hasNext ? Visibility.Visible : Visibility.Collapsed;
         if (!hasNext) return;
         var next = Clips[index + 1];
         CurrentAnalysisHeading.Text = $"LJUD {index + 1} · {_activeClip.Choice.Jingle.Title}";

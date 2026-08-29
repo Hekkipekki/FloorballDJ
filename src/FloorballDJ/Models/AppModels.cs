@@ -38,7 +38,17 @@ public sealed class AppSettings
     public List<Guid> RandomPoolDeckIds { get; set; } = [];
     public List<Guid> RandomPoolJingleIds { get; set; } = [];
     public List<RandomPoolProfile> RandomPoolProfiles { get; set; } = [];
+    public List<RandomPoolSetup> RandomPoolSetups { get; set; } = [];
+    public Guid? ActiveRandomPoolSetupId { get; set; }
     public List<TeamDeckProfile> TeamDeckProfiles { get; set; } = [];
+
+    [JsonIgnore]
+    public RandomPoolSetup? ActiveRandomPoolSetup =>
+        RandomPoolSetups.FirstOrDefault(setup => setup.Id == ActiveRandomPoolSetupId) ?? RandomPoolSetups.FirstOrDefault();
+
+    [JsonIgnore]
+    public IReadOnlyList<RandomPoolProfile> ActiveRandomPoolProfiles =>
+        ActiveRandomPoolSetup?.Profiles ?? RandomPoolProfiles;
 }
 
 public sealed class AutoplayProfile
@@ -57,6 +67,13 @@ public sealed class RandomPoolProfile
     public string? Shortcut { get; set; }
     public List<Guid> DeckIds { get; set; } = [];
     public List<Guid> JingleIds { get; set; } = [];
+}
+
+public sealed class RandomPoolSetup
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "Standard";
+    public List<RandomPoolProfile> Profiles { get; set; } = [];
 }
 
 public sealed class TeamDeckProfile

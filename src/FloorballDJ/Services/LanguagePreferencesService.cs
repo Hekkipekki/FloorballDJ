@@ -87,7 +87,10 @@ public static class LanguageService
         ["Rader och kolumner per sida"] = "Rows and columns per page",
         ["Lägg till sida"] = "Add page", ["Ta bort sista sidan"] = "Remove last page",
         ["Hela decket…"] = "Entire deck…", ["Välj knappar…"] = "Select buttons…",
-        ["Sortera alfabetiskt"] = "Sort alphabetically", ["Rader"] = "Rows", ["Kolumner"] = "Columns",
+        ["Sortera alfabetiskt"] = "Sort alphabetically", ["Deckordning"] = "Deck order",
+        ["Namn A–Ö"] = "Name A–Z", ["Namn Ö–A"] = "Name Z–A",
+        ["Ändrar endast visningsordningen i den här menyn"] = "Only changes the display order in this window",
+        ["Rader"] = "Rows", ["Kolumner"] = "Columns",
         ["Sekunder"] = "Seconds", ["Ljudfil"] = "Audio file", ["Titel"] = "Title",
         ["Förhandsvisa"] = "Preview", ["Förhandslyssning"] = "Preview", ["Teknisk information"] = "Technical information",
         ["Ljudmixer"] = "Audio mixer", ["Uppspelning"] = "Playback", ["Loop"] = "Loop",
@@ -138,6 +141,13 @@ public static class LanguageService
         ["Slumpmässig låtspelare"] = "Random song player", ["SLUMPGRUPPER"] = "RANDOM GROUPS",
         ["+ Ny grupp"] = "+ New group", ["Spara slumpgrupper"] = "Save random groups",
         ["POOLÖVERSIKT"] = "POOL OVERVIEW", ["Använd hela decket"] = "Use entire deck",
+        ["AKTIV SLUMPPROFIL"] = "ACTIVE RANDOM PROFILE",
+        ["Byt lag utan att byta musikprofil"] = "Switch team without changing the music profile",
+        ["+ Ny profil"] = "+ New profile",
+        ["Namn på den aktiva slumpprofilen"] = "Name of the active random profile",
+        ["Duplicera aktiv slumpprofil"] = "Duplicate active random profile",
+        ["Ta bort aktiv slumpprofil"] = "Delete active random profile",
+        ["HÄNDELSE"] = "EVENT",
         ["Team Deck"] = "Team Deck", ["Lagets måljinglar och spelarövergångar"] = "Team goal jingles and player transitions",
         ["LAG I PROFILEN"] = "TEAMS IN PROFILE", ["+ Nytt lag"] = "+ New team", ["Skapa ett lag"] = "Create a team",
         ["Lagnamn"] = "Team name", ["STANDARDJINGLE"] = "DEFAULT JINGLE", ["SPELARKNAPPAR"] = "PLAYER BUTTONS",
@@ -190,6 +200,7 @@ public static class LanguageService
             ?? TranslatePrefix(value, "Kunde inte spela ", "Could not play ")
             ?? TranslatePrefix(value, "Ljuduppspelningen avbröts: ", "Audio playback stopped: ")
             ?? TranslatePrefix(value, "Standardprofil öppnad: ", "Default profile opened: ")
+            ?? TranslatePrefix(value, "Aktiv profil: ", "Active profile: ")
             ?? TranslatePrefix(value, "Öppnade ", "Opened ")
             ?? TranslatePrefix(value, "Sparat ", "Saved ")
             ?? TranslatePrefix(value, "Autosparning misslyckades: ", "Autosave failed: ")

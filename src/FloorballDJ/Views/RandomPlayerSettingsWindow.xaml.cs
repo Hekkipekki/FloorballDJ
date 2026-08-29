@@ -21,13 +21,29 @@ public partial class RandomPlayerSettingsWindow : Window
         InitializeComponent();
         WindowPlacementService.MaximizeOnOwnerMonitor(this);
         _project = project;
-        var profiles = new ObservableCollection<RandomPlayerProfileEditor>(
-            (project.Settings.RandomPoolProfiles ?? []).Select(CreateEditor));
-        if (profiles.Count == 0) profiles.Add(CreateEditor(new RandomPoolProfile { Name = "Slumpgrupp 1" }));
-        ViewData = new RandomPlayerSettingsViewData { Profiles = profiles };
-        ViewData.SelectedProfile = profiles[0];
+        ProjectService.EnsureLayout(project);
+        var setups = new ObservableCollection<RandomPlayerSetupEditor>(
+            project.Settings.RandomPoolSetups.Select(CreateSetupEditor));
+        if (setups.Count == 0)
+            setups.Add(CreateSetupEditor(new RandomPoolSetup { Name = "Standard" }));
+        ViewData = new RandomPlayerSettingsViewData { Setups = setups };
+        ViewData.SelectedSetup = setups.FirstOrDefault(setup => setup.Id == project.Settings.ActiveRandomPoolSetupId)
+                                 ?? setups[0];
         DataContext = ViewData;
         Loaded += (_, _) => RefreshOverview();
+    }
+
+    private RandomPlayerSetupEditor CreateSetupEditor(RandomPoolSetup setup)
+    {
+        var profiles = new ObservableCollection<RandomPlayerProfileEditor>(
+            (setup.Profiles ?? []).Select(CreateEditor));
+        if (profiles.Count == 0) profiles.Add(CreateEditor(new RandomPoolProfile { Name = "Slumpgrupp 1" }));
+        return new RandomPlayerSetupEditor
+        {
+            Id = setup.Id == Guid.Empty ? Guid.NewGuid() : setup.Id,
+            Name = string.IsNullOrWhiteSpace(setup.Name) ? "Slumpprofil" : setup.Name.Trim(),
+            Profiles = profiles
+        };
     }
 
     private RandomPlayerProfileEditor CreateEditor(RandomPoolProfile profile)
@@ -48,6 +64,7 @@ public partial class RandomPlayerSettingsWindow : Window
                 Name = deck.Name,
                 IncludeWholeDeck = deckIds.Contains(deck.Id)
             };
+            var originalOrder = 0;
             foreach (var jingle in deck.Jingles.Where(jingle => jingle.HasAudio && File.Exists(jingle.FilePath)))
             {
                 var item = new RandomPlayerJingleEditor
@@ -56,7 +73,9 @@ public partial class RandomPlayerSettingsWindow : Window
                     Title = string.IsNullOrWhiteSpace(jingle.Title) ? Path.GetFileNameWithoutExtension(jingle.FilePath) : jingle.Title,
                     SearchText = $"{jingle.Title} {Path.GetFileNameWithoutExtension(jingle.FilePath)}",
                     DurationSeconds = Math.Max(0, jingle.EndSeconds.GetValueOrDefault(jingle.DurationSeconds) - jingle.StartSeconds),
-                    IsIncluded = jingleIds.Contains(jingle.Id)
+                    OriginalOrder = originalOrder++,
+                    IsIncluded = jingleIds.Contains(jingle.Id),
+                    IsWholeDeckIncluded = deckEditor.IncludeWholeDeck,
                 };
                 item.PropertyChanged += (_, args) =>
                 {
@@ -82,7 +101,78 @@ public partial class RandomPlayerSettingsWindow : Window
         RefreshOverview();
     }
 
-    private void DeckTabs_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshOverview();
+    private void SetupsCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        SearchBox?.Clear();
+        ApplySearch("");
+        RefreshOverview();
+    }
+
+    private void AddSetup_Click(object sender, RoutedEventArgs e)
+    {
+        var number = 1;
+        string name;
+        do name = $"Slumpprofil {number++}";
+        while (ViewData.Setups.Any(setup => string.Equals(setup.Name, name, StringComparison.CurrentCultureIgnoreCase)));
+        var setup = CreateSetupEditor(new RandomPoolSetup { Name = name });
+        ViewData.Setups.Add(setup);
+        ViewData.SelectedSetup = setup;
+    }
+
+    private void DuplicateSetup_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewData.SelectedSetup is not { } source) return;
+        var baseName = $"{source.Name} – kopia";
+        var name = baseName;
+        var suffix = 2;
+        while (ViewData.Setups.Any(setup => string.Equals(setup.Name, name, StringComparison.CurrentCultureIgnoreCase)))
+            name = $"{baseName} {suffix++}";
+        var setup = CreateSetupEditor(new RandomPoolSetup
+        {
+            Name = name,
+            Profiles = source.Profiles.Select(ToModel).ToList()
+        });
+        ViewData.Setups.Add(setup);
+        ViewData.SelectedSetup = setup;
+    }
+
+    private void RemoveSetup_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewData.SelectedSetup is not { } selected || ViewData.Setups.Count <= 1) return;
+        if (MessageBox.Show(this, $"Ta bort slumpprofilen ‘{selected.Name}’ och alla dess grupper?",
+                "Ta bort slumpprofil", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        var index = ViewData.Setups.IndexOf(selected);
+        ViewData.Setups.Remove(selected);
+        ViewData.SelectedSetup = ViewData.Setups[Math.Clamp(index, 0, ViewData.Setups.Count - 1)];
+    }
+
+    private void DeckTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        ApplySelectedSort();
+        RefreshOverview();
+    }
+
+    private void SortCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => ApplySelectedSort();
+
+    private void ApplySelectedSort()
+    {
+        if (DeckTabs is null || SortCombo is null) return;
+        if (DeckTabs.SelectedItem is not RandomPlayerDeckEditor deck ||
+            SortCombo.SelectedItem is not ComboBoxItem { Tag: string mode }) return;
+
+        IEnumerable<RandomPlayerJingleEditor> sorted = mode switch
+        {
+            "asc" => deck.Jingles.OrderBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase).ThenBy(item => item.OriginalOrder),
+            "desc" => deck.Jingles.OrderByDescending(item => item.Title, StringComparer.CurrentCultureIgnoreCase).ThenBy(item => item.OriginalOrder),
+            _ => deck.Jingles.OrderBy(item => item.OriginalOrder)
+        };
+        var ordered = sorted.ToArray();
+        for (var targetIndex = 0; targetIndex < ordered.Length; targetIndex++)
+        {
+            var currentIndex = deck.Jingles.IndexOf(ordered[targetIndex]);
+            if (currentIndex != targetIndex) deck.Jingles.Move(currentIndex, targetIndex);
+        }
+    }
 
     private void AddProfile_Click(object sender, RoutedEventArgs e)
     {
@@ -270,32 +360,41 @@ public partial class RandomPlayerSettingsWindow : Window
         SelectedSoundsText.Text = selectedSounds.ToString();
         SelectedDecksText.Text = selectedDecks.ToString();
         var total = ViewData.Profiles.Sum(profile => profile.SelectedSoundCount);
-        HeaderSummaryText.Text = $"{ViewData.Profiles.Count} {(ViewData.Profiles.Count == 1 ? "grupp" : "grupper")} • {total} valda ljud";
+        HeaderSummaryText.Text = $"{ViewData.Setups.Count} {(ViewData.Setups.Count == 1 ? "profil" : "profiler")} • " +
+                                 $"{ViewData.Profiles.Count} {(ViewData.Profiles.Count == 1 ? "grupp" : "grupper")} • {total} valda ljud";
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
-        var duplicate = ViewData.Profiles.Where(profile => profile.Shortcut is not null)
-            .GroupBy(profile => ShortcutService.Normalize(profile.Shortcut), StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault(group => group.Count() > 1);
-        if (duplicate is not null)
+        var duplicate = ViewData.Setups.SelectMany(setup => setup.Profiles
+                .Where(profile => profile.Shortcut is not null)
+                .GroupBy(profile => ShortcutService.Normalize(profile.Shortcut), StringComparer.OrdinalIgnoreCase)
+                .Where(group => group.Count() > 1)
+                .Select(group => (Setup: setup, Group: group)))
+            .FirstOrDefault();
+        if (duplicate.Group is not null)
         {
-            MessageBox.Show(this, $"Snabbtangenten {duplicate.Key} används av flera slumpgrupper.",
+            MessageBox.Show(this, $"Snabbtangenten {duplicate.Group.Key} används av flera slumpgrupper i ‘{duplicate.Setup.Name}’.",
                 "Dubblett av snabbtangent", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        foreach (var profile in ViewData.Profiles)
-            if (string.IsNullOrWhiteSpace(profile.Name)) profile.Name = "Slumpgrupp";
-
-        _project.Settings.RandomPoolProfiles = ViewData.Profiles.Select(profile => new RandomPoolProfile
+        foreach (var setup in ViewData.Setups)
         {
-            Id = profile.Id,
-            Name = profile.Name.Trim(),
-            Shortcut = ShortcutService.Normalize(profile.Shortcut),
-            DeckIds = profile.Decks.Where(deck => deck.IncludeWholeDeck).Select(deck => deck.DeckId).Distinct().ToList(),
-            JingleIds = profile.Decks.SelectMany(deck => deck.Jingles).Where(jingle => jingle.IsIncluded)
-                .Select(jingle => jingle.JingleId).Distinct().ToList()
+            if (string.IsNullOrWhiteSpace(setup.Name)) setup.Name = "Slumpprofil";
+            foreach (var profile in setup.Profiles)
+                if (string.IsNullOrWhiteSpace(profile.Name)) profile.Name = "Slumpgrupp";
+        }
+
+        _project.Settings.RandomPoolSetups = ViewData.Setups.Select(setup => new RandomPoolSetup
+        {
+            Id = setup.Id,
+            Name = setup.Name.Trim(),
+            Profiles = setup.Profiles.Select(ToModel).ToList()
         }).ToList();
+        _project.Settings.ActiveRandomPoolSetupId = ViewData.SelectedSetup?.Id
+                                                    ?? _project.Settings.RandomPoolSetups[0].Id;
+        _project.Settings.RandomPoolProfiles = _project.Settings.RandomPoolSetups
+            .First(setup => setup.Id == _project.Settings.ActiveRandomPoolSetupId).Profiles;
         _project.Settings.RandomPoolShortcut = null;
         _project.Settings.RandomPoolDeckIds = [];
         _project.Settings.RandomPoolJingleIds = [];
@@ -314,18 +413,55 @@ public partial class RandomPlayerSettingsWindow : Window
         }
         DialogResult = true;
     }
+
+    private static RandomPoolProfile ToModel(RandomPlayerProfileEditor profile) => new()
+    {
+        Id = profile.Id,
+        Name = string.IsNullOrWhiteSpace(profile.Name) ? "Slumpgrupp" : profile.Name.Trim(),
+        Shortcut = ShortcutService.Normalize(profile.Shortcut),
+        DeckIds = profile.Decks.Where(deck => deck.IncludeWholeDeck).Select(deck => deck.DeckId).Distinct().ToList(),
+        JingleIds = profile.Decks.SelectMany(deck => deck.Jingles).Where(jingle => jingle.IsIncluded)
+            .Select(jingle => jingle.JingleId).Distinct().ToList()
+    };
 }
 
 public sealed class RandomPlayerSettingsViewData : INotifyPropertyChanged
 {
+    private RandomPlayerSetupEditor? _selectedSetup;
     private RandomPlayerProfileEditor? _selectedProfile;
-    public required ObservableCollection<RandomPlayerProfileEditor> Profiles { get; init; }
+    public required ObservableCollection<RandomPlayerSetupEditor> Setups { get; init; }
+    public ObservableCollection<RandomPlayerProfileEditor> Profiles =>
+        SelectedSetup?.Profiles ?? EmptyProfiles;
+    private static ObservableCollection<RandomPlayerProfileEditor> EmptyProfiles { get; } = [];
     public ObservableCollection<RandomPoolOverviewItem> PoolItems { get; } = [];
+    public RandomPlayerSetupEditor? SelectedSetup
+    {
+        get => _selectedSetup;
+        set
+        {
+            if (ReferenceEquals(_selectedSetup, value)) return;
+            _selectedSetup = value;
+            Raise();
+            Raise(nameof(Profiles));
+            SelectedProfile = value?.Profiles.FirstOrDefault();
+        }
+    }
     public RandomPlayerProfileEditor? SelectedProfile
     {
         get => _selectedProfile;
         set { if (ReferenceEquals(_selectedProfile, value)) return; _selectedProfile = value; Raise(); }
     }
+    public event PropertyChangedEventHandler? PropertyChanged;
+    private void Raise([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+}
+
+public sealed class RandomPlayerSetupEditor : INotifyPropertyChanged
+{
+    private string _name = "Slumpprofil";
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public string Name { get => _name; set { if (_name == value) return; _name = value; Raise(); } }
+    public required ObservableCollection<RandomPlayerProfileEditor> Profiles { get; init; }
+    public string Summary => $"{Profiles.Count} {(Profiles.Count == 1 ? "grupp" : "grupper")}";
     public event PropertyChangedEventHandler? PropertyChanged;
     private void Raise([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
@@ -354,7 +490,15 @@ public sealed class RandomPlayerDeckEditor : INotifyPropertyChanged
     public bool IncludeWholeDeck
     {
         get => _includeWholeDeck;
-        set { if (_includeWholeDeck == value) return; _includeWholeDeck = value; Raise(); RefreshCounts(); SelectionChanged?.Invoke(); }
+        set
+        {
+            if (_includeWholeDeck == value) return;
+            _includeWholeDeck = value;
+            foreach (var jingle in Jingles) jingle.IsWholeDeckIncluded = value;
+            Raise();
+            RefreshCounts();
+            SelectionChanged?.Invoke();
+        }
     }
     public ObservableCollection<RandomPlayerJingleEditor> Jingles { get; } = [];
     public int SelectedCount => IncludeWholeDeck ? Jingles.Count : Jingles.Count(item => item.IsIncluded);
@@ -368,13 +512,43 @@ public sealed class RandomPlayerDeckEditor : INotifyPropertyChanged
 public sealed class RandomPlayerJingleEditor : INotifyPropertyChanged
 {
     private bool _isIncluded;
+    private bool _isWholeDeckIncluded;
     private bool _isVisible = true;
     public Guid JingleId { get; init; }
     public required string Title { get; init; }
+    public int OriginalOrder { get; init; }
     public required string SearchText { get; init; }
     public double DurationSeconds { get; init; }
     public string DurationDisplay => TimeSpan.FromSeconds(DurationSeconds).ToString(DurationSeconds >= 3600 ? @"h\:mm\:ss" : @"m\:ss");
-    public bool IsIncluded { get => _isIncluded; set { if (_isIncluded == value) return; _isIncluded = value; Raise(); } }
+    public bool IsIncluded
+    {
+        get => _isIncluded;
+        set
+        {
+            if (_isIncluded == value) return;
+            _isIncluded = value;
+            Raise();
+            Raise(nameof(DisplayIsIncluded));
+        }
+    }
+    public bool IsWholeDeckIncluded
+    {
+        get => _isWholeDeckIncluded;
+        set
+        {
+            if (_isWholeDeckIncluded == value) return;
+            _isWholeDeckIncluded = value;
+            Raise();
+            Raise(nameof(DisplayIsIncluded));
+            Raise(nameof(CanToggleIndividually));
+        }
+    }
+    public bool DisplayIsIncluded
+    {
+        get => IsWholeDeckIncluded || IsIncluded;
+        set { if (!IsWholeDeckIncluded) IsIncluded = value; }
+    }
+    public bool CanToggleIndividually => !IsWholeDeckIncluded;
     public bool IsVisible { get => _isVisible; set { if (_isVisible == value) return; _isVisible = value; Raise(); } }
     public event PropertyChangedEventHandler? PropertyChanged;
     private void Raise([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

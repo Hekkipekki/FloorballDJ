@@ -463,7 +463,7 @@ public partial class JinglePropertiesWindow : Window
     private bool ConfirmShortcutReplacement(string? shortcut, bool assigningCategory)
     {
         if (string.IsNullOrWhiteSpace(shortcut) || _project is null) return true;
-        var globalProfiles = (_project.Settings.RandomPoolProfiles ?? [])
+        var globalProfiles = _project.Settings.ActiveRandomPoolProfiles
             .Where(profile => string.Equals(ShortcutService.Normalize(profile.Shortcut), shortcut, StringComparison.OrdinalIgnoreCase))
             .ToArray();
         var conflictingJingles = _project.Decks.SelectMany(deck => deck.Jingles)
@@ -511,7 +511,7 @@ public partial class JinglePropertiesWindow : Window
             .Where(shortcut => shortcut is not null && _confirmedShortcutReplacements.Contains(shortcut))
             .Cast<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (activeReplacements.Count == 0) return;
-        foreach (var profile in _project.Settings.RandomPoolProfiles ?? [])
+        foreach (var profile in _project.Settings.ActiveRandomPoolProfiles)
             if (activeReplacements.Contains(ShortcutService.Normalize(profile.Shortcut) ?? "")) profile.Shortcut = null;
         foreach (var team in _project.Settings.TeamDeckProfiles ?? [])
             if (activeReplacements.Contains(ShortcutService.Normalize(team.Shortcut) ?? "")) team.Shortcut = null;

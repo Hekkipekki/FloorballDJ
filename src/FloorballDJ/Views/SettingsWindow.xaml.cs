@@ -25,7 +25,7 @@ public partial class SettingsWindow : Window
         _profilePreferences = profilePreferences;
         _originalLanguage = new LanguagePreferencesService().GetLanguage() ?? "en";
         var profileDrafts = new ObservableCollection<RandomPoolProfileDraft>(
-            (project.Settings.RandomPoolProfiles ?? []).Select(profile => CreateRandomProfileDraft(profile, project.Decks)));
+            project.Settings.ActiveRandomPoolProfiles.Select(profile => CreateRandomProfileDraft(profile, project.Decks)));
         if (profileDrafts.Count == 0)
             profileDrafts.Add(CreateRandomProfileDraft(new RandomPoolProfile { Name = "Slumpgrupp 1" }, project.Decks));
         var autoplayDrafts = new ObservableCollection<AutoplayProfileDraft>(
@@ -268,6 +268,16 @@ public partial class SettingsWindow : Window
             JingleIds = profile.Decks.SelectMany(deck => deck.Jingles).Where(jingle => jingle.IsIncluded)
                 .Select(jingle => jingle.JingleId).Distinct().ToList()
         }).ToList();
+        settings.RandomPoolSetups ??= [];
+        var activeRandomSetup = settings.RandomPoolSetups
+            .FirstOrDefault(setup => setup.Id == settings.ActiveRandomPoolSetupId);
+        if (activeRandomSetup is null)
+        {
+            activeRandomSetup = new RandomPoolSetup { Name = "Standard" };
+            settings.RandomPoolSetups.Add(activeRandomSetup);
+            settings.ActiveRandomPoolSetupId = activeRandomSetup.Id;
+        }
+        activeRandomSetup.Profiles = settings.RandomPoolProfiles;
         // De äldre fälten behålls tomma; gamla profiler migreras till listan när de öppnas.
         settings.RandomPoolShortcut = null;
         settings.RandomPoolDeckIds = [];
@@ -349,6 +359,20 @@ public partial class SettingsWindow : Window
             DeckIds = profile.DeckIds?.Distinct().ToList() ?? [],
             JingleIds = profile.JingleIds?.Distinct().ToList() ?? []
         }).ToList() ?? [];
+        target.RandomPoolSetups = source.RandomPoolSetups?.Select(setup => new RandomPoolSetup
+        {
+            Id = setup.Id,
+            Name = setup.Name,
+            Profiles = setup.Profiles?.Select(profile => new RandomPoolProfile
+            {
+                Id = profile.Id,
+                Name = profile.Name,
+                Shortcut = ShortcutService.Normalize(profile.Shortcut),
+                DeckIds = profile.DeckIds?.Distinct().ToList() ?? [],
+                JingleIds = profile.JingleIds?.Distinct().ToList() ?? []
+            }).ToList() ?? []
+        }).ToList() ?? [];
+        target.ActiveRandomPoolSetupId = source.ActiveRandomPoolSetupId;
         target.TeamDeckProfiles = source.TeamDeckProfiles?.Select(team => new TeamDeckProfile
         {
             Id = team.Id,

@@ -794,7 +794,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var randomProfile = (ViewModel.Settings.RandomPoolProfiles ?? [])
+            var randomProfile = ViewModel.Settings.ActiveRandomPoolProfiles
                 .FirstOrDefault(profile => ShortcutService.Matches(profile.Shortcut, e));
             if (randomProfile is not null)
             {

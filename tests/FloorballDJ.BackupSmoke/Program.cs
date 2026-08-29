@@ -44,6 +44,23 @@ project.Settings.RandomPoolProfiles =
         JingleIds = [jingle.Id]
     }
 ];
+var ibfRandomSetup = project.Settings.RandomPoolSetups.Single();
+ibfRandomSetup.Name = "IBF";
+ibfRandomSetup.Profiles = project.Settings.RandomPoolProfiles;
+project.Settings.ActiveRandomPoolSetupId = ibfRandomSetup.Id;
+project.Settings.RandomPoolSetups.Add(new RandomPoolSetup
+{
+    Name = "Scandic",
+    Profiles =
+    [
+        new RandomPoolProfile
+        {
+            Name = "Scandic Publik",
+            Shortcut = "Shift+3",
+            JingleIds = [jingle.Id]
+        }
+    ]
+});
 project.Settings.TeamDeckProfiles =
 [
     new TeamDeckProfile
@@ -81,7 +98,11 @@ Assert(portable.Settings.RandomPoolProfiles.Count == 1 &&
        portable.Settings.RandomPoolProfiles[0].Shortcut == "Shift+2" &&
        portable.Settings.RandomPoolProfiles[0].JingleIds.SequenceEqual([jingle.Id]),
     "Profilens egna slumpgrupp bevarades inte i flyttbackupen.");
-Assert(backup.RandomPoolProfileCount == 1, "Backupresultatet rapporterar fel antal profilbundna slumpgrupper.");
+Assert(portable.Settings.RandomPoolSetups.Count == 2 &&
+       portable.Settings.RandomPoolSetups.Single(setup => setup.Name == "Scandic").Profiles.Single().Shortcut == "Shift+3" &&
+       portable.Settings.ActiveRandomPoolSetup?.Name == "IBF",
+    "Separata slumpprofiler eller aktiv slumpprofil bevarades inte i flyttbackupen.");
+Assert(backup.RandomPoolProfileCount == 2, "Backupresultatet rapporterar fel antal profilbundna slumpgrupper.");
 Assert(backup.TeamDeckProfileCount == 1, "Backupresultatet rapporterar fel antal Team Deck.");
 Assert(portable.Settings.TeamDeckProfiles.Single().Name == "IBF Dalen" &&
        portable.Settings.TeamDeckProfiles.Single().DefaultJingleId == jingle.Id &&
@@ -99,10 +120,13 @@ Assert(File.Exists(imported.Decks[0].Jingles[0].FilePath), "Återställd ljudfil
 Assert(Hash(sourceAudio) == Hash(imported.Decks[0].Jingles[0].FilePath), "Återställd ljudfil skiljer sig från originalet.");
 Assert(imported.Decks[0].Jingles[0].StartSeconds == 1.5 && imported.Decks[0].Jingles[0].EndSeconds == 4.25,
     "Jinglens klippgränser bevarades inte.");
-Assert(restored.RandomPoolProfileCount == 1 &&
+Assert(restored.RandomPoolProfileCount == 2 &&
        imported.Settings.RandomPoolProfiles.Count == 1 &&
        imported.Settings.RandomPoolProfiles[0].Name == "IBF Mål",
     "Profilens slumpgrupp återställdes inte.");
+Assert(imported.Settings.RandomPoolSetups.Count == 2 &&
+       imported.Settings.ActiveRandomPoolSetup?.Name == "IBF",
+    "Profilens separata slumpuppsättningar återställdes inte.");
 Assert(restored.TeamDeckProfileCount == 1 && imported.Settings.TeamDeckProfiles.Single().Players.Single().Name == "Testspelare",
     "Profilens Team Deck återställdes inte.");
 
@@ -131,6 +155,18 @@ Assert(reloadedFirst.Settings.RandomPoolProfiles.Single().Name == "IBF Mål",
 Assert(reloadedSecond.Settings.RandomPoolProfiles.Single().Name == "Scandic Utvisning" &&
        reloadedSecond.Settings.RandomPoolProfiles.Single().Shortcut == "Ctrl+7",
     "Scandic-profilen fick fel slumpgrupp.");
+
+var revisionProject = ProjectService.CreateDefault();
+revisionProject.Name = "Revisionstest";
+var revisionPath = Path.Combine(testRoot, "revisions.floorballdj.json");
+await service.SaveAsync(revisionProject, revisionPath);
+revisionProject.Decks[0].Jingles[0].IsTextBlock = true;
+revisionProject.Decks[0].Jingles[0].Title = "Ny periodrubrik";
+await service.SaveAsync(revisionProject, revisionPath);
+var revisions = await service.GetRevisionsAsync(revisionPath);
+Assert(revisions.Count == 1 && revisions[0].ChangeDescription.Contains("lade till", StringComparison.OrdinalIgnoreCase) &&
+       revisions[0].ChangeDescription.Contains("Ny periodrubrik", StringComparison.Ordinal),
+    "Autosparhistoriken beskrev inte händelsen som skapade revisionen.");
 
 var pagedDeck = new Deck { Rows = 2, Columns = 3, PageCount = 2 };
 for (var index = 0; index < 12; index++) pagedDeck.Jingles.Add(new Jingle { Position = index });

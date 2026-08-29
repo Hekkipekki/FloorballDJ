@@ -47,6 +47,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             {
                 _isFadingOutCurrent = false;
                 Raise(nameof(NowPlayingLabel));
+                Status = $"Aktiv profil: {GetActiveProfileDisplayName()}";
             }
         };
         _audio.PlaybackFailed += (_, message) =>
@@ -475,6 +476,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         return fileName.EndsWith(profileSuffix, StringComparison.OrdinalIgnoreCase)
             ? fileName[..^profileSuffix.Length]
             : Path.GetFileNameWithoutExtension(fileName);
+    }
+
+    private string GetActiveProfileDisplayName()
+    {
+        if (!string.IsNullOrWhiteSpace(_currentPath) &&
+            !string.Equals(Path.GetFullPath(_currentPath), Path.GetFullPath(_projects.DefaultProjectPath),
+                StringComparison.OrdinalIgnoreCase))
+            return GetProfileDisplayName(_currentPath);
+        return string.IsNullOrWhiteSpace(Project.Name) ? "FloorballDJ" : Project.Name;
     }
 
     public Task<IReadOnlyList<ProjectRevision>> GetRevisionsAsync()
