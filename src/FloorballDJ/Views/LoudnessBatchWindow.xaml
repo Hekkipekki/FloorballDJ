@@ -1,6 +1,7 @@
 <Window x:Class="FloorballDJ.Views.LoudnessBatchWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:FloorballDJ.Controls"
         Title="Balansera ljudbibliotek" Width="1050" Height="700" MinWidth="820" MinHeight="520" WindowStartupLocation="CenterOwner"
         ToolTipService.InitialShowDelay="250" ToolTipService.ShowDuration="30000">
     <Grid Margin="22,16">
@@ -12,9 +13,9 @@
         </StackPanel>
         <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="14" Margin="0,14,0,12">
             <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="90"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                <TextBlock Text="Målnivå  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Önskad genomsnittlig upplevd ljudstyrka i LUFS. För idrottshall rekommenderas normalt −16 LUFS. Värden upp till 0 tillåts, men peak-taket och maximal Auto gain skyddar mot överstyrning."/>
+                <controls:InfoLabel Text="Målnivå" HelpText="Önskad genomsnittlig upplevd ljudstyrka i LUFS. För idrottshall rekommenderas normalt −16 LUFS. Värden upp till 0 tillåts, men peak-taket och maximal Auto gain skyddar mot överstyrning."/>
                 <TextBox x:Name="TargetBox" Grid.Column="1" Text="-16" TextAlignment="Center" ToolTip="Tillåtet intervall är −30 till 0 LUFS. Ett högt mål kan inte alltid nås utan att passera peak-taket."/>
-                <TextBlock Grid.Column="2" Text="Peak-tak  ⓘ" Style="{StaticResource FieldLabel}" Margin="18,0,0,0" ToolTip="Högsta tillåtna verkliga ljudtopp i dBTP. För idrottshall rekommenderas −2 dBTP för extra marginal till PA-systemet."/>
+                <controls:InfoLabel Grid.Column="2" Text="Peak-tak" Margin="18,0,0,0" HelpText="Högsta tillåtna verkliga ljudtopp i dBTP. För idrottshall rekommenderas −2 dBTP för extra marginal till PA-systemet."/>
                 <TextBox x:Name="PeakBox" Grid.Column="3" Text="-1" TextAlignment="Center" ToolTip="True-peak-tak i dBTP. FloorballDJ begränsar Auto gain så att den analyserade toppen inte beräknas passera detta värde."/>
                 <TextBlock x:Name="SummaryText" Grid.Column="4" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" Margin="18,0"/>
                 <StackPanel Grid.Column="5" Orientation="Horizontal">
@@ -37,9 +38,9 @@
                 </GridViewColumn>
                 <GridViewColumn Header="Deck" DisplayMemberBinding="{Binding Deck}" Width="120"/>
                 <GridViewColumn Header="Titel" DisplayMemberBinding="{Binding Title}" Width="260"/>
-                <GridViewColumn DisplayMemberBinding="{Binding Lufs}" Width="90"><GridViewColumn.Header><TextBlock Text="LUFS  ⓘ" ToolTip="Filens upplevda genomsnittliga ljudstyrka. Ett värde nära 0 är mycket starkt; exempelvis är −16 LUFS betydligt lugnare än −6 LUFS."/></GridViewColumn.Header></GridViewColumn>
-                <GridViewColumn DisplayMemberBinding="{Binding Peak}" Width="100"><GridViewColumn.Header><TextBlock Text="True peak  ⓘ" ToolTip="Filens högsta beräknade verkliga topp. Positiva värden över 0 dBTP visar risk för överstyrning vid konvertering eller uppspelning."/></GridViewColumn.Header></GridViewColumn>
-                <GridViewColumn DisplayMemberBinding="{Binding Gain}" Width="105"><GridViewColumn.Header><TextBlock Text="Auto gain  ⓘ" ToolTip="Den automatiska volymändringen vid uppspelning. Minus sänker en stark fil och plus höjer en tyst fil. Höjningen begränsas alltid av peak-taket. Originalfilen ändras inte."/></GridViewColumn.Header></GridViewColumn>
+                <GridViewColumn DisplayMemberBinding="{Binding Lufs}" Width="100"><GridViewColumn.Header><controls:InfoLabel Text="LUFS" HelpText="Filens upplevda genomsnittliga ljudstyrka. Ett värde nära 0 är mycket starkt; exempelvis är −16 LUFS betydligt lugnare än −6 LUFS."/></GridViewColumn.Header></GridViewColumn>
+                <GridViewColumn DisplayMemberBinding="{Binding Peak}" Width="120"><GridViewColumn.Header><controls:InfoLabel Text="True peak" HelpText="Filens högsta beräknade verkliga topp. Positiva värden över 0 dBTP visar risk för överstyrning vid konvertering eller uppspelning."/></GridViewColumn.Header></GridViewColumn>
+                <GridViewColumn DisplayMemberBinding="{Binding Gain}" Width="125"><GridViewColumn.Header><controls:InfoLabel Text="Auto gain" HelpText="Den automatiska volymändringen vid uppspelning. Minus sänker en stark fil och plus höjer en tyst fil. Höjningen begränsas alltid av peak-taket. Originalfilen ändras inte."/></GridViewColumn.Header></GridViewColumn>
                 <GridViewColumn Header="Status" DisplayMemberBinding="{Binding Status}" Width="230"/>
             </GridView></ListView.View>
         </ListView>

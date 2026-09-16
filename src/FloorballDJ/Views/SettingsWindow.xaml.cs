@@ -327,6 +327,7 @@ public partial class SettingsWindow : Window
         target.ButtonWidth = source.ButtonWidth;
         target.TitleFontSize = source.TitleFontSize;
         target.FontFamily = source.FontFamily;
+        target.ShowJingleDuration = source.ShowJingleDuration;
         target.OutputDeviceId = source.OutputDeviceId;
         target.SecondaryOutputDeviceId = source.SecondaryOutputDeviceId;
         target.MusicFolderPath = source.MusicFolderPath;

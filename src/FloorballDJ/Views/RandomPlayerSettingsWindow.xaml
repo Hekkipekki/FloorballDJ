@@ -113,11 +113,11 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
                     <TextBlock Text="AKTIV SLUMPPROFIL" Style="{StaticResource FieldLabel}" />
-                    <TextBlock Text="Byt lag utan att byta musikprofil" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,3,0,0" />
+                    <TextBlock Text="Byt lag utan att byta musikprofil" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,3,0,0" />
                 </StackPanel>
                 <ComboBox x:Name="SetupsCombo" Grid.Column="1" ItemsSource="{Binding Setups}"
                           SelectedItem="{Binding SelectedSetup, Mode=TwoWay}" DisplayMemberPath="Name"
-                          SelectionChanged="SetupsCombo_SelectionChanged" Foreground="#111820" />
+                          SelectionChanged="SetupsCombo_SelectionChanged" />
                 <Button Grid.Column="3" Content="&#xE70F;" FontFamily="Segoe Fluent Icons" Style="{StaticResource SecondaryButton}"
                         Width="40" MinWidth="40" Padding="0" Margin="7,0,0,0" ToolTip="Byt namn på aktiv slumpprofil" Click="RenameSetup_Click" />
                 <Button Grid.Column="4" Content="+ Ny profil" Style="{StaticResource PrimaryButton}" Margin="10,0,0,0"
@@ -242,7 +242,7 @@
                                 <StackPanel Orientation="Horizontal" Margin="4,1">
                                     <TextBlock Text="{Binding Name}" />
                                     <Border Background="#17273B" CornerRadius="9" Padding="6,1" Margin="7,0,0,0">
-                                        <TextBlock Text="{Binding SelectedCount}" FontSize="10" Foreground="{StaticResource AccentBrush}" />
+                                        <TextBlock Text="{Binding SelectedCount}" FontSize="12" Foreground="{StaticResource AccentBrush}" />
                                     </Border>
                                 </StackPanel>
                             </DataTemplate>
@@ -257,7 +257,7 @@
                                                 <CheckBox IsChecked="{Binding IncludeWholeDeck, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                           Content="Använd hela decket" FontWeight="SemiBold" Click="PoolSelection_Click" />
                                                 <TextBlock Text="Nya spelbara jinglar som senare läggs till i decket inkluderas automatiskt."
-                                                           Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="22,3,0,0" />
+                                                           Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="22,3,0,0" />
                                             </StackPanel>
                                             <TextBlock Text="{Binding MatchSummary}" HorizontalAlignment="Right" VerticalAlignment="Center"
                                                        Foreground="{StaticResource MutedBrush}" />
@@ -278,7 +278,7 @@
                                                         <Grid>
                                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                                             <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}" />
-                                                            <TextBlock Grid.Column="1" Text="{Binding DurationDisplay}" Foreground="{StaticResource MutedBrush}" FontFamily="Cascadia Mono" FontSize="10" Margin="8,0,0,0" />
+                                                            <TextBlock Grid.Column="1" Text="{Binding DurationDisplay}" Foreground="{StaticResource MutedBrush}" FontFamily="Cascadia Mono" FontSize="12" Margin="8,0,0,0" />
                                                         </Grid>
                                                     </CheckBox>
                                                 </DataTemplate>
@@ -294,7 +294,7 @@
 
             <Border Grid.Column="4" Style="{StaticResource CardBorder}" Padding="15">
                 <Grid>
-                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                     <StackPanel>
                         <TextBlock Text="POOLÖVERSIKT" Style="{StaticResource FieldLabel}" />
                         <TextBlock Text="Det här kan väljas slumpmässigt" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" />
@@ -303,30 +303,52 @@
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <Border Background="{StaticResource AccentSoftBrush}" CornerRadius="8" Padding="11">
                             <StackPanel><TextBlock x:Name="SelectedSoundsText" Text="0" FontSize="23" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" />
-                                <TextBlock Text="spelbara ljud" Foreground="{StaticResource MutedBrush}" FontSize="10" /></StackPanel>
+                                <TextBlock Text="spelbara ljud" Foreground="{StaticResource MutedBrush}" FontSize="12" /></StackPanel>
                         </Border>
                         <Border Grid.Column="2" Background="#101C2D" CornerRadius="8" Padding="11">
                             <StackPanel><TextBlock x:Name="SelectedDecksText" Text="0" FontSize="23" FontWeight="SemiBold" />
-                                <TextBlock Text="berörda deck" Foreground="{StaticResource MutedBrush}" FontSize="10" /></StackPanel>
+                                <TextBlock Text="berörda deck" Foreground="{StaticResource MutedBrush}" FontSize="12" /></StackPanel>
                         </Border>
                     </Grid>
-                    <ListBox x:Name="PoolItemsList" Grid.Row="2" ItemsSource="{Binding PoolItems}" BorderThickness="0" Background="Transparent">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="2,5">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}" />
-                                        <TextBlock Text="{Binding DeckName}" Foreground="{StaticResource MutedBrush}" FontSize="10" />
-                                    </StackPanel>
-                                    <TextBlock Grid.Column="1" Text="{Binding SourceLabel}" Foreground="{StaticResource AccentBrush}" FontSize="9" VerticalAlignment="Center" Margin="7,0,0,0" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                    <Border Grid.Row="3" Background="#101C2D" CornerRadius="8" Padding="12" Margin="0,12,0,0">
+                    <Grid Grid.Row="2">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                        <TextBlock Text="FÖRDELNING PER DECK" Style="{StaticResource FieldLabel}" FontSize="11" Margin="2,0,0,6" />
+                        <ListBox x:Name="PoolItemsList" Grid.Row="1" ItemsSource="{Binding PoolItems}" BorderThickness="0" Background="Transparent">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="2,6">
+                                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding DeckName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding DeckName}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding PercentageText}" Foreground="{StaticResource AccentBrush}" FontFamily="Cascadia Mono" FontSize="12" Margin="8,0,0,0" />
+                                        <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,5,0,0">
+                                            <ProgressBar Height="5" Maximum="100" Value="{Binding Percentage}" />
+                                            <TextBlock Text="{Binding CountText}" HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,4,0,0" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                    <Border Grid.Row="3" Background="#15243A" BorderBrush="#405677" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,12,0,0">
                         <StackPanel>
-                            <TextBlock Text="SÅ FUNGERAR TANGENTEN" Style="{StaticResource FieldLabel}" FontSize="9" />
+                            <TextBlock Text="DECKVARIATION" Style="{StaticResource FieldLabel}" FontSize="11" />
+                            <CheckBox Content="Undvik för många från samma deck" IsChecked="{Binding SelectedProfile.DeckVariationEnabled, Mode=TwoWay}"
+                                      FontWeight="SemiBold" Margin="0,8,0,0" />
+                            <Grid Margin="22,8,0,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="Max i följd" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                                <ComboBox Grid.Column="1" Width="58" ItemsSource="{Binding DeckVariationLimits}"
+                                          SelectedItem="{Binding SelectedProfile.MaxConsecutiveFromSameDeck, Mode=TwoWay}"
+                                          ToolTip="Efter detta antal väljs nästa ljud från ett annat deck om möjligt." />
+                            </Grid>
+                            <TextBlock Text="När gränsen nås prioriteras ett annat deltagande deck. Ospelade ljud väljs först när det är möjligt."
+                                       Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="22,8,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Row="4" Background="#101C2D" CornerRadius="8" Padding="12" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="SÅ FUNGERAR TANGENTEN" Style="{StaticResource FieldLabel}" FontSize="11" />
                             <TextBlock Text="1:a trycket spelar ett slumpvalt ljud. 2:a trycket tonar ut det. 3:e trycket väljer ett nytt ljud."
                                        Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0" />
                         </StackPanel>

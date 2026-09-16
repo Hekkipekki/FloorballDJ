@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
+using FloorballDJ.Controls;
 
 namespace FloorballDJ.Services;
 
@@ -49,17 +50,20 @@ public static class LanguageService
     {
         ["Inställningar"] = "Settings", ["ARBETSSTATION"] = "WORKSTATION",
         ["Anpassa ljud, profiler, slumpuppspelning och utseende efter din matchdag."] = "Configure audio, profiles, random playback and appearance for your match day.",
-        ["Ljud"] = "Audio", ["Utgångsenhet  ⓘ"] = "Output device  ⓘ", ["Utgångsenhet 2  ⓘ"] = "Output device 2  ⓘ",
-        ["Global fade in  ⓘ"] = "Global fade in  ⓘ", ["Global fade ut  ⓘ"] = "Global fade out  ⓘ",
-        ["Standard loudness  ⓘ"] = "Default loudness  ⓘ", ["Säkerhetslimiter  ⓘ"] = "Safety limiter  ⓘ",
+        ["Ljud"] = "Audio", ["Utgångsenhet"] = "Output device", ["Utgångsenhet 2"] = "Output device 2",
+        ["Global fade in"] = "Global fade in", ["Global fade ut"] = "Global fade out",
+        ["Standard loudness"] = "Default loudness", ["Säkerhetslimiter"] = "Safety limiter",
         ["Skydda utgången mot digital överstyrning"] = "Protect the output against digital clipping",
-        ["Limiter-tak  ⓘ"] = "Limiter ceiling  ⓘ", ["Automatiskt mixutrymme  ⓘ"] = "Automatic mix headroom  ⓘ",
+        ["Limiter-tak"] = "Limiter ceiling", ["Automatiskt mixutrymme"] = "Automatic mix headroom",
         ["Sänk säkert när flera ljud spelas samtidigt"] = "Safely reduce level when several sounds play together",
-        ["PA/Talk-dämpning  ⓘ"] = "PA/Talk ducking  ⓘ", ["Profiler"] = "Profiles",
-        ["Standardprofil  ⓘ"] = "Default profile  ⓘ", ["Senast använda"] = "Recently used",
+        ["PA/Talk-dämpning"] = "PA/Talk ducking", ["Profiler"] = "Profiles",
+        ["Standardprofil"] = "Default profile", ["Senast använda"] = "Recently used",
         ["Ingen standard"] = "No default", ["Autoplay-lista"] = "Autoplay playlist", ["Namn"] = "Name",
-        ["Snabbtangent"] = "Shortcut", ["Spellista  ⓘ"] = "Playlist  ⓘ", ["Volym (dB)  ⓘ"] = "Volume (dB)  ⓘ",
+        ["Snabbtangent"] = "Shortcut", ["Spellista"] = "Playlist", ["Volym (dB)"] = "Volume (dB)",
         ["Typografi"] = "Typography", ["Typsnitt"] = "Font", ["Titelstorlek"] = "Title size",
+        ["Visa jinglarnas längd i hörnet"] = "Show jingle duration in the corner",
+        ["Förhandsvisning"] = "Preview",
+        ["En längre jingletitel som får plats på flera rader"] = "A longer jingle title that wraps across several lines",
         ["Egna typsnitt"] = "Custom fonts", ["Öppna mapp"] = "Open folder", ["Uppdatera"] = "Refresh",
         ["Ändringarna används direkt när du sparar."] = "Changes are applied when you save.",
         ["Avbryt"] = "Cancel", ["Spara inställningar"] = "Save settings", ["Välj"] = "Choose", ["Välj…"] = "Choose…",
@@ -113,9 +117,9 @@ public static class LanguageService
         ["KORTKOMMANDON"] = "SHORTCUTS", ["FELSÖKNING"] = "TROUBLESHOOTING",
         ["Jingle-egenskaper"] = "Jingle properties", ["Jingle – förhandsvisning"] = "Jingle – preview",
         ["Nivå och normalisering"] = "Level and normalization", ["Manuell gain"] = "Manual gain",
-        ["Automatisk LUFS-anpassning"] = "Automatic LUFS normalization", ["Målnivå  ⓘ"] = "Target level  ⓘ",
-        ["Analysera ljudfil"] = "Analyze audio file", ["LOUDNESS  ⓘ"] = "LOUDNESS  ⓘ",
-        ["TRUE PEAK  ⓘ"] = "TRUE PEAK  ⓘ", ["AVANCERAT: EQ, KOMPRESSOR, PITCH OCH TEMPO"] = "ADVANCED: EQ, COMPRESSOR, PITCH AND TEMPO",
+        ["Automatisk LUFS-anpassning"] = "Automatic LUFS normalization", ["Målnivå"] = "Target level",
+        ["Analysera ljudfil"] = "Analyze audio file", ["LOUDNESS"] = "LOUDNESS",
+        ["TRUE PEAK"] = "TRUE PEAK", ["AVANCERAT: EQ, KOMPRESSOR, PITCH OCH TEMPO"] = "ADVANCED: EQ, COMPRESSOR, PITCH AND TEMPO",
         ["Tonkontroll och hastighet"] = "Tone control and speed", ["Kompressor"] = "Compressor",
         ["Bas"] = "Bass", ["Mellan"] = "Mid", ["Diskant"] = "Treble", ["Tröskel"] = "Threshold",
         ["Ratio"] = "Ratio", ["Attack"] = "Attack", ["Tempo / Rate"] = "Tempo / Rate",
@@ -142,6 +146,12 @@ public static class LanguageService
         ["Slumpmässig låtspelare"] = "Random song player", ["SLUMPGRUPPER"] = "RANDOM GROUPS",
         ["+ Ny grupp"] = "+ New group", ["Spara slumpgrupper"] = "Save random groups",
         ["POOLÖVERSIKT"] = "POOL OVERVIEW", ["Använd hela decket"] = "Use entire deck",
+        ["FÖRDELNING PER DECK"] = "DISTRIBUTION BY DECK", ["DECKVARIATION"] = "DECK VARIATION",
+        ["Undvik för många från samma deck"] = "Avoid too many from the same deck", ["Max i följd"] = "Maximum in a row",
+        ["Efter detta antal väljs nästa ljud från ett annat deck om möjligt."] = "After this many selections, the next sound comes from another deck when possible.",
+        ["När gränsen nås prioriteras ett annat deltagande deck. Ospelade ljud väljs först när det är möjligt."] = "When the limit is reached, another participating deck is prioritised. Unplayed sounds are chosen first when possible.",
+        ["Poolöversikt och deckvariation"] = "Pool overview and deck variation",
+        ["Poolöversikten visar hur många ljud och hur stor procentandel som kommer från varje deltagande deck. Aktivera Deckvariation om ett stort deck inte ska dominera. När det valda maxantalet från samma deck har spelats i följd väljs nästa ljud från ett annat deltagande deck om det finns något spelbart. Ospelade ljud prioriteras, men ett tidigare spelat ljud från ett annat deck kan användas som säkerhetsventil. Inställningen sparas separat för varje slumpgrupp."] = "The pool overview shows how many sounds and what percentage come from each participating deck. Enable Deck variation when one large deck should not dominate. After the selected maximum from the same deck has played in a row, the next sound is chosen from another participating deck when one is playable. Unplayed sounds are prioritised, but a previously played sound from another deck may be used as a safeguard. The setting is saved separately for each random group.",
         ["AKTIV SLUMPPROFIL"] = "ACTIVE RANDOM PROFILE",
         ["Byt lag utan att byta musikprofil"] = "Switch team without changing the music profile",
         ["+ Ny profil"] = "+ New profile",
@@ -309,6 +319,13 @@ public static class LanguageService
             SetIfTranslated(window.Title, translated => window.Title = translated);
         if (element is TextBlock text && !BindingOperations.IsDataBound(text, TextBlock.TextProperty) && !string.IsNullOrEmpty(text.Text))
             SetIfTranslated(text.Text, translated => text.Text = translated);
+        if (element is InfoLabel info)
+        {
+            if (!BindingOperations.IsDataBound(info, InfoLabel.TextProperty) && !string.IsNullOrEmpty(info.Text))
+                SetIfTranslated(info.Text, translated => info.Text = translated);
+            if (!BindingOperations.IsDataBound(info, InfoLabel.HelpTextProperty) && !string.IsNullOrEmpty(info.HelpText))
+                SetIfTranslated(info.HelpText, translated => info.HelpText = translated);
+        }
         if (element is ContentControl content && !BindingOperations.IsDataBound(content, ContentControl.ContentProperty) && content.Content is string contentText)
             SetIfTranslated(contentText, translated => content.Content = translated);
         if (element is HeaderedContentControl header && !BindingOperations.IsDataBound(header, HeaderedContentControl.HeaderProperty) && header.Header is string headerText)

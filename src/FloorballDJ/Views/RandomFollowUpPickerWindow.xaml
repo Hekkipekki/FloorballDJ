@@ -8,6 +8,31 @@
             <Setter Property="Padding" Value="14,7"/><Setter Property="Margin" Value="0,0,4,0"/>
             <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/><Setter Property="Background" Value="Transparent"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Surface" Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="Transparent" BorderThickness="1"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Surface" Property="Background" Value="{StaticResource PanelHoverBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Surface" Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                <Setter TargetName="Surface" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="{StaticResource AccentSoftBrush}"/><Setter Property="Foreground" Value="{StaticResource AccentBrush}"/></Trigger>
                 <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{StaticResource TextBrush}"/></Trigger>

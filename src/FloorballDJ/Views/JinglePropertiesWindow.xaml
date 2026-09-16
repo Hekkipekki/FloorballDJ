@@ -96,16 +96,16 @@
                             <Grid.ColumnDefinitions><ColumnDefinition Width="116" /><ColumnDefinition /><ColumnDefinition Width="74" /></Grid.ColumnDefinitions>
                             <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
                             <TextBlock Text="Manuell gain" Style="{StaticResource FieldLabel}" /><Slider x:Name="GainSlider" Grid.Column="1" Minimum="-24" Maximum="12" TickFrequency="1" /><TextBox x:Name="GainBox" Grid.Column="2" Margin="8,3,0,3" TextAlignment="Center" Style="{StaticResource PropertyValueBox}" />
-                            <TextBlock Grid.Row="1" Text="Normalisering  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Jämnar ut upplevd ljudstyrka mellan jinglar. Justeringen sker bara vid uppspelning och ändrar aldrig originalfilen." /><CheckBox x:Name="NormalizationCheck" Grid.Row="1" Grid.Column="1" Content="Automatisk LUFS-anpassning" VerticalAlignment="Center" ToolTip="Använd den beräknade Auto gain-justeringen när jingeln spelas." />
-                            <TextBlock Grid.Row="2" Text="Målnivå  ⓘ" Style="{StaticResource FieldLabel}" ToolTip="Önskad upplevd genomsnittsnivå. För idrottshall är −16 LUFS en bra utgångspunkt." /><TextBox x:Name="TargetLufsBox" Grid.Row="2" Grid.Column="1" Width="82" HorizontalAlignment="Left" TextAlignment="Center" Style="{StaticResource PropertyValueBox}" ToolTip="Målnivå i LUFS, exempelvis −16." /><TextBlock Grid.Row="2" Grid.Column="2" Text="LUFS" Style="{StaticResource FieldLabel}" />
+                            <controls:InfoLabel Grid.Row="1" Text="Normalisering" HelpText="Jämnar ut upplevd ljudstyrka mellan jinglar. Justeringen sker bara vid uppspelning och ändrar aldrig originalfilen." /><CheckBox x:Name="NormalizationCheck" Grid.Row="1" Grid.Column="1" Content="Automatisk LUFS-anpassning" VerticalAlignment="Center" ToolTip="Använd den beräknade Auto gain-justeringen när jingeln spelas." />
+                            <controls:InfoLabel Grid.Row="2" Text="Målnivå" HelpText="Önskad upplevd genomsnittsnivå. För idrottshall är −16 LUFS en bra utgångspunkt." /><TextBox x:Name="TargetLufsBox" Grid.Row="2" Grid.Column="1" Width="82" HorizontalAlignment="Left" TextAlignment="Center" Style="{StaticResource PropertyValueBox}" ToolTip="Målnivå i LUFS, exempelvis −16." /><TextBlock Grid.Row="2" Grid.Column="2" Text="LUFS" Style="{StaticResource FieldLabel}" />
                             <StackPanel Grid.Row="3" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,5">
                                 <Button x:Name="AnalyzeLoudnessButton" Content="Analysera ljudfil" Style="{StaticResource PrimaryButton}" Click="AnalyzeLoudness_Click" />
                                 <TextBlock x:Name="LoudnessStatusText" Text="Inte analyserad" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
                             </StackPanel>
                             <UniformGrid Grid.Row="4" Grid.ColumnSpan="3" Columns="3" Margin="0,4,0,0">
-                                <Border Style="{StaticResource CardBorder}" Padding="8" Margin="0,0,5,0" ToolTip="Uppmätt genomsnittlig upplevd ljudstyrka för den valda delen av filen."><StackPanel><TextBlock Text="LOUDNESS  ⓘ" Style="{StaticResource EyebrowText}"/><TextBlock x:Name="IntegratedLufsText" Text="– LUFS" FontFamily="Cascadia Mono" FontSize="15" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/></StackPanel></Border>
-                                <Border Style="{StaticResource CardBorder}" Padding="8" Margin="2,0" ToolTip="Högsta beräknade verkliga ljudtopp. Ett lägre värde ger mer säkerhetsmarginal."><StackPanel><TextBlock Text="TRUE PEAK  ⓘ" Style="{StaticResource EyebrowText}"/><TextBlock x:Name="TruePeakText" Text="– dBTP" FontFamily="Cascadia Mono" FontSize="15" FontWeight="Bold"/></StackPanel></Border>
-                                <Border Style="{StaticResource CardBorder}" Padding="8" Margin="5,0,0,0" ToolTip="Automatisk volymändring under uppspelning. Minus sänker och plus höjer. Höjningen begränsas av peak-säkerheten; originalfilen ändras inte."><StackPanel><TextBlock Text="AUTO GAIN  ⓘ" Style="{StaticResource EyebrowText}"/><TextBlock x:Name="SuggestedGainText" Text="– dB" FontFamily="Cascadia Mono" FontSize="15" FontWeight="Bold"/></StackPanel></Border>
+                                <Border Style="{StaticResource CardBorder}" Padding="8" Margin="0,0,5,0" ToolTip="Uppmätt genomsnittlig upplevd ljudstyrka för den valda delen av filen."><StackPanel><TextBlock Text="LOUDNESS" Style="{StaticResource EyebrowText}"/><TextBlock x:Name="IntegratedLufsText" Text="– LUFS" FontFamily="Cascadia Mono" FontSize="15" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/></StackPanel></Border>
+                                <Border Style="{StaticResource CardBorder}" Padding="8" Margin="2,0" ToolTip="Högsta beräknade verkliga ljudtopp. Ett lägre värde ger mer säkerhetsmarginal."><StackPanel><TextBlock Text="TRUE PEAK" Style="{StaticResource EyebrowText}"/><TextBlock x:Name="TruePeakText" Text="– dBTP" FontFamily="Cascadia Mono" FontSize="15" FontWeight="Bold"/></StackPanel></Border>
+                                <Border Style="{StaticResource CardBorder}" Padding="8" Margin="5,0,0,0" ToolTip="Automatisk volymändring under uppspelning. Minus sänker och plus höjer. Höjningen begränsas av peak-säkerheten; originalfilen ändras inte."><StackPanel><TextBlock Text="AUTO GAIN" Style="{StaticResource EyebrowText}"/><TextBlock x:Name="SuggestedGainText" Text="– dB" FontFamily="Cascadia Mono" FontSize="15" FontWeight="Bold"/></StackPanel></Border>
                             </UniformGrid>
                         </Grid>
                     </GroupBox>
@@ -115,7 +115,7 @@
                             <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
                             <TextBlock Text="Spelläge" Style="{StaticResource FieldLabel}" />
                             <ComboBox x:Name="PlayModeCombo" Grid.Column="1" Margin="0,3" Width="160" MinHeight="32" HorizontalAlignment="Left"
-                                      HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Foreground="#111820" Background="White" BorderBrush="#36E0B4" />
+                                      HorizontalContentAlignment="Center" VerticalContentAlignment="Center" BorderBrush="{StaticResource AccentBrush}" />
                             <TextBlock Grid.Row="1" Text="Alternativ" Style="{StaticResource FieldLabel}" />
                             <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                 <CheckBox x:Name="LoopCheck" Content="Loop" VerticalAlignment="Center" />
@@ -202,7 +202,7 @@
     </Grid>
     </ScrollViewer>
     <Grid Grid.Row="1" Margin="24,12,24,18">
-        <TextBlock Text="Markören är förhandslyssningens position. Start/Stopp sparar positionen." Foreground="{StaticResource MutedBrush}" FontSize="10" VerticalAlignment="Center" />
+        <TextBlock Text="Markören är förhandslyssningens position. Start/Stopp sparar positionen." Foreground="{StaticResource MutedBrush}" FontSize="12" VerticalAlignment="Center" />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="Avbryt" Style="{StaticResource SecondaryButton}" MinWidth="100" Margin="0,0,8,0" IsCancel="True" />
             <Button Content="Spara ändringar" Style="{StaticResource PrimaryButton}" MinWidth="140" IsDefault="True" Click="Save_Click" />

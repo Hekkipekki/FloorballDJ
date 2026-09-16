@@ -50,7 +50,9 @@ project.Settings.RandomPoolProfiles =
         JingleIds = [jingle.Id],
         FollowUpJingleIds = [jingle.Id],
         FollowUpFadeOutSeconds = 2.25,
-        FollowUpFadeInSeconds = .6
+        FollowUpFadeInSeconds = .6,
+        DeckVariationEnabled = true,
+        MaxConsecutiveFromSameDeck = 4
     }
 ];
 var ibfRandomSetup = project.Settings.RandomPoolSetups.Single();
@@ -113,7 +115,9 @@ Assert(portable.Settings.RandomPoolProfiles.Count == 1 &&
        portable.Settings.RandomPoolProfiles[0].JingleIds.SequenceEqual([jingle.Id]) &&
        portable.Settings.RandomPoolProfiles[0].FollowUpJingleIds.SequenceEqual([jingle.Id]) &&
        portable.Settings.RandomPoolProfiles[0].FollowUpFadeOutSeconds == 2.25 &&
-       portable.Settings.RandomPoolProfiles[0].FollowUpFadeInSeconds == .6,
+       portable.Settings.RandomPoolProfiles[0].FollowUpFadeInSeconds == .6 &&
+       portable.Settings.RandomPoolProfiles[0].DeckVariationEnabled &&
+       portable.Settings.RandomPoolProfiles[0].MaxConsecutiveFromSameDeck == 4,
     "Profilens egna slumpgrupp bevarades inte i flyttbackupen.");
 Assert(portable.Settings.RandomPoolSetups.Count == 2 &&
        portable.Settings.RandomPoolSetups.Single(setup => setup.Name == "Scandic").Profiles.Single().Shortcut == "Shift+3" &&
@@ -209,6 +213,37 @@ for (var index = 0; index < 6; index++)
 ProjectService.ResizeDeckLayout(shrinkingDeck, 1, 3);
 Assert(shrinkingDeck.PageCount == 2 && shrinkingDeck.Jingles.Take(6).All(jingle => jingle.HasContent),
     "Minskad layout skapade inte en ny sida för jinglar som inte längre fick plats.");
+
+var dominantDeckId = Guid.NewGuid();
+var alternativeDeckId = Guid.NewGuid();
+var dominantOne = new Jingle { Title = "Dominant 1", SessionPlayCount = 0 };
+var dominantTwo = new Jingle { Title = "Dominant 2", SessionPlayCount = 0 };
+var alternative = new Jingle { Title = "Alternativ", SessionPlayCount = 1 };
+var randomCandidates = new[]
+{
+    new RandomPoolCandidate(dominantOne, dominantDeckId),
+    new RandomPoolCandidate(dominantTwo, dominantDeckId),
+    new RandomPoolCandidate(alternative, alternativeDeckId)
+};
+var beforeLimit = RandomPoolSelectionService.GetEligibleCandidates(randomCandidates, true, null, true, 4,
+    new RandomDeckRunState(dominantDeckId, 3));
+Assert(beforeLimit.Length == 2 && beforeLimit.All(candidate => candidate.DeckId == dominantDeckId),
+    "Deckvariationen åsidosatte sessionsprioriteringen innan gränsen nåddes.");
+var afterLimit = RandomPoolSelectionService.GetEligibleCandidates(randomCandidates, true, null, true, 4,
+    new RandomDeckRunState(dominantDeckId, 4));
+Assert(afterLimit.Length == 1 && afterLimit[0].DeckId == alternativeDeckId,
+    "Deckvariationen tvingade inte fram ett annat deltagande deck efter gränsen.");
+var disabledVariation = RandomPoolSelectionService.GetEligibleCandidates(randomCandidates, true, null, false, 4,
+    new RandomDeckRunState(dominantDeckId, 4));
+Assert(disabledVariation.Length == 2 && disabledVariation.All(candidate => candidate.DeckId == dominantDeckId),
+    "Avstängd deckvariation ändrade det befintliga sessionsbaserade slumpvalet.");
+var singleDeckFallback = RandomPoolSelectionService.GetEligibleCandidates(randomCandidates.Take(2).ToArray(), true,
+    null, true, 4, new RandomDeckRunState(dominantDeckId, 4));
+Assert(singleDeckFallback.Length == 2 && singleDeckFallback.All(candidate => candidate.DeckId == dominantDeckId),
+    "Deckvariationen saknade säker fallback när bara ett deck kunde spelas.");
+var advancedRun = RandomPoolSelectionService.AdvanceRun(new RandomDeckRunState(dominantDeckId, 4), alternativeDeckId);
+Assert(advancedRun.DeckId == alternativeDeckId && advancedRun.ConsecutiveCount == 1,
+    "Deckvariationen återställde inte räknaren efter ett deckbyte.");
 
 Console.WriteLine("Portable backup smoke test passed.");
 return;

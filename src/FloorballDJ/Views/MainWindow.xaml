@@ -46,7 +46,7 @@
 
         <Style x:Key="JingleButton" TargetType="Button">
             <Setter Property="Margin" Value="4" />
-            <Setter Property="Padding" Value="12" />
+            <Setter Property="Padding" Value="8" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="VerticalContentAlignment" Value="Stretch" />
             <Setter Property="BorderThickness" Value="1" />
@@ -192,7 +192,7 @@
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="UTGÅNG  " FontSize="9" FontWeight="Bold" Foreground="{StaticResource MutedBrush}" />
+                    <TextBlock Text="UTGÅNG  " FontSize="11" FontWeight="Bold" Foreground="{StaticResource MutedBrush}" />
                     <TextBlock x:Name="OutputDeviceText" Text="Standardenhet" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                 </StackPanel>
             </StatusBarItem>
@@ -261,9 +261,9 @@
                                        Foreground="{StaticResource AccentBrush}" Opacity="0.78"
                                        VerticalAlignment="Center" Margin="0,0,8,0" />
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock x:Name="GlobalClockText" Text="00:00" FontFamily="Segoe UI Variable Display" FontSize="15"
+                                <TextBlock x:Name="GlobalClockText" Text="00:00" FontFamily="{StaticResource AppUiFont}" FontSize="15"
                                            FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
-                                <TextBlock x:Name="GlobalClockSecondsText" Text=":00" FontFamily="Segoe UI Variable Text" FontSize="10"
+                                <TextBlock x:Name="GlobalClockSecondsText" Text=":00" FontFamily="{StaticResource AppUiFont}" FontSize="12"
                                            FontWeight="Medium" Foreground="{StaticResource MutedBrush}"
                                            VerticalAlignment="Center" Margin="2,2,0,0" />
                             </StackPanel>
@@ -291,8 +291,8 @@
                     <Image Source="/FloorballDJ;component/Assets/FloorballDJ-Logo.png" Width="92" Height="92"
                            HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" />
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0">
-                        <TextBlock Text="{Binding NowPlayingLabel}" Foreground="{StaticResource AccentBrush}" FontSize="9" FontWeight="Bold" />
-                        <TextBlock Text="{Binding NowPlayingTitle}" FontFamily="Segoe UI Variable Display" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding NowPlayingTitle}" />
+                        <TextBlock Text="{Binding NowPlayingLabel}" Foreground="{StaticResource AccentBrush}" FontSize="11" FontWeight="Bold" />
+                        <TextBlock Text="{Binding NowPlayingTitle}" FontFamily="{StaticResource AppUiFont}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding NowPlayingTitle}" />
                     </StackPanel>
                 </Grid>
 
@@ -313,8 +313,8 @@
                 <StackPanel Grid.Column="4" VerticalAlignment="Center" Margin="8,0">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Cursor="Hand"
                                 MouseLeftButtonDown="MasterVolumeText_MouseLeftButtonDown" ToolTip="Klicka för att skriva in en exakt ljudnivå">
-                        <TextBlock Text="LJUDNIVÅ" Foreground="{StaticResource MutedBrush}" FontSize="9" FontWeight="Bold" />
-                        <TextBlock Text="{Binding ElementName=MasterVolumeSlider, Path=Value, StringFormat={}  {0:0.#} dB}" Foreground="{StaticResource MutedBrush}" FontSize="9" FontWeight="Bold" />
+                        <TextBlock Text="LJUDNIVÅ" Foreground="{StaticResource MutedBrush}" FontSize="11" FontWeight="Bold" />
+                        <TextBlock Text="{Binding ElementName=MasterVolumeSlider, Path=Value, StringFormat={}  {0:0.#} dB}" Foreground="{StaticResource MutedBrush}" FontSize="11" FontWeight="Bold" />
                     </StackPanel>
                     <Slider x:Name="MasterVolumeSlider" Minimum="-60" Maximum="6" Value="{Binding Settings.MasterVolumeDb, Mode=TwoWay}"
                             TickPlacement="BottomRight" TickFrequency="6" IsSnapToTickEnabled="False" IsMoveToPointEnabled="True" Height="34"
@@ -349,7 +349,7 @@
                             <ContextMenu x:Name="QueueContextMenu" Opened="QueueContextMenu_Opened" />
                         </Border.ContextMenu>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="KÖ" Foreground="{StaticResource MutedBrush}" FontSize="9" FontWeight="Bold" VerticalAlignment="Center" />
+                            <TextBlock Text="KÖ" Foreground="{StaticResource MutedBrush}" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding QueuedCount}" Foreground="{StaticResource AccentBrush}" FontSize="16" FontWeight="Bold" Margin="7,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Border>
@@ -523,14 +523,29 @@
                                                 <Border Width="30" Height="30" CornerRadius="15" Background="#22FFFFFF" HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="{Binding HasContent, Converter={StaticResource EmptyVisibility}}">
                                                     <TextBlock Text="+" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="18" FontWeight="Light" />
                                                 </Border>
-                                                <Grid Margin="8,7,8,5">
+                                                <Grid>
                                                     <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                                                     <TextBlock Grid.Row="0" Text="{Binding Title}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
                                                                TextAlignment="Center" HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                                                               FontWeight="SemiBold" LineHeight="20" MaxHeight="40" Margin="7,4,7,6" />
+                                                               FontWeight="SemiBold">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Margin" Value="0" />
+                                                                <Style.Triggers>
+                                                                    <MultiDataTrigger>
+                                                                        <MultiDataTrigger.Conditions>
+                                                                            <Condition Binding="{Binding HasAudio}" Value="True" />
+                                                                            <Condition Binding="{Binding DataContext.Settings.ShowJingleDuration, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" />
+                                                                        </MultiDataTrigger.Conditions>
+                                                                        <Setter Property="Margin" Value="0,18" />
+                                                                    </MultiDataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
                                                     <Border Grid.Row="1" Background="#E636E0B4" BorderBrush="#70FFFFFF" BorderThickness="1" CornerRadius="7"
                                                             Padding="7,2" HorizontalAlignment="Left" Margin="0,0,48,0">
-                                                        <TextBlock Text="{Binding Shortcut}" Foreground="#07140F" FontFamily="Cascadia Mono" FontSize="10" FontWeight="Bold" />
+                                                        <TextBlock Text="{Binding Shortcut}" Foreground="#07140F" FontFamily="Cascadia Mono" FontSize="12" FontWeight="Bold" />
                                                         <Border.Style>
                                                             <Style TargetType="Border">
                                                                 <Setter Property="Visibility" Value="Visible" />
@@ -543,16 +558,19 @@
                                                     </Border>
                                                 </Grid>
                                                 <Border Background="#28000000" CornerRadius="6" Padding="6,2" HorizontalAlignment="Right" VerticalAlignment="Bottom">
-                                                    <TextBlock Text="{Binding DurationSeconds, Converter={StaticResource Duration}}" FontFamily="Cascadia Mono" FontSize="9" />
+                                                    <TextBlock Text="{Binding DurationSeconds, Converter={StaticResource Duration}}" FontFamily="Cascadia Mono" FontSize="11" />
                                                     <Border.Style>
                                                         <Style TargetType="Border">
                                                             <Setter Property="Visibility" Value="Visible" />
-                                                            <Style.Triggers><DataTrigger Binding="{Binding HasAudio}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding HasAudio}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                                                <DataTrigger Binding="{Binding DataContext.Settings.ShowJingleDuration, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                                            </Style.Triggers>
                                                         </Style>
                                                     </Border.Style>
                                                 </Border>
                                                 <Border Background="#DDFF6475" CornerRadius="6" Padding="5,2" HorizontalAlignment="Left" VerticalAlignment="Bottom">
-                                                    <TextBlock Text="SAKNAS" Foreground="White" FontSize="8" FontWeight="Bold" />
+                                                    <TextBlock Text="SAKNAS" Foreground="White" FontSize="11" FontWeight="Bold" />
                                                     <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsMissing}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Border.Style>
                                                 </Border>
                                                 <Border Width="21" Height="21" CornerRadius="11" Background="#39F2A9" BorderBrush="White" BorderThickness="3"
@@ -569,7 +587,7 @@
                                                 </Border>
                                                 <Border Background="#E0425AE5" BorderBrush="#AFC4FF" BorderThickness="1" CornerRadius="8" Padding="6,2"
                                                         HorizontalAlignment="Left" VerticalAlignment="Top" ToolTip="Plats i uppspelningskön">
-                                                    <TextBlock Text="{Binding QueuePosition, StringFormat=⏱ {0}}" Foreground="White" FontSize="9" FontWeight="Bold" />
+                                                    <TextBlock Text="{Binding QueuePosition, StringFormat=⏱ {0}}" Foreground="White" FontSize="11" FontWeight="Bold" />
                                                     <Border.Style>
                                                         <Style TargetType="Border"><Setter Property="Visibility" Value="Visible" />
                                                             <Style.Triggers><DataTrigger Binding="{Binding QueuePosition}" Value="0"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
@@ -582,7 +600,7 @@
                                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                                         <TextBlock Text="↔" Foreground="{StaticResource AccentBrush}" FontFamily="Segoe UI Symbol"
                                                                    FontSize="27" FontWeight="Bold" HorizontalAlignment="Center" />
-                                                        <TextBlock x:Name="DropCueText" Text="BYT PLATS" Foreground="White" FontFamily="Segoe UI Variable Text"
+                                                        <TextBlock x:Name="DropCueText" Text="BYT PLATS" Foreground="White" FontFamily="{StaticResource AppUiFont}"
                                                                    FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" />
                                                     </StackPanel>
                                                 </Border>

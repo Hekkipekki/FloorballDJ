@@ -33,12 +33,12 @@
                                 <Grid>
                                     <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                                     <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Number}" FontFamily="Segoe UI Variable Display" FontSize="28" FontWeight="Bold"
+                                        <TextBlock Text="{Binding Number}" FontFamily="{StaticResource AppUiFont}" FontSize="28" FontWeight="Bold"
                                                    HorizontalAlignment="Center" />
-                                        <TextBlock Text="{Binding Name}" FontFamily="Segoe UI Variable Display" FontSize="16" FontWeight="SemiBold"
+                                        <TextBlock Text="{Binding Name}" FontFamily="{StaticResource AppUiFont}" FontSize="16" FontWeight="SemiBold"
                                                    TextAlignment="Center" TextWrapping="Wrap" Margin="0,4,0,0" />
                                     </StackPanel>
-                                    <TextBlock Grid.Row="1" Text="{Binding JingleTitle}" FontSize="10" Opacity="0.72" TextTrimming="CharacterEllipsis"
+                                    <TextBlock Grid.Row="1" Text="{Binding JingleTitle}" FontSize="12" Opacity="0.72" TextTrimming="CharacterEllipsis"
                                                HorizontalAlignment="Center" Margin="0,8,0,0" />
                                 </Grid>
                             </Button>

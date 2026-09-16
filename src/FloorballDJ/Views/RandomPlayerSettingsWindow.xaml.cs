@@ -58,7 +58,9 @@ public partial class RandomPlayerSettingsWindow : Window
             Shortcut = ShortcutService.Normalize(profile.Shortcut),
             FollowUpJingleIds = profile.FollowUpJingleIds?.Distinct().ToList() ?? [],
             FollowUpFadeOutSeconds = profile.FollowUpFadeOutSeconds,
-            FollowUpFadeInSeconds = profile.FollowUpFadeInSeconds
+            FollowUpFadeInSeconds = profile.FollowUpFadeInSeconds,
+            DeckVariationEnabled = profile.DeckVariationEnabled,
+            MaxConsecutiveFromSameDeck = profile.MaxConsecutiveFromSameDeck
         };
         foreach (var deck in _project.Decks.Where(deck => deck.Jingles.Any(jingle => jingle.HasAudio && File.Exists(jingle.FilePath))))
         {
@@ -218,7 +220,9 @@ public partial class RandomPlayerSettingsWindow : Window
             JingleIds = source.Decks.SelectMany(deck => deck.Jingles).Where(jingle => jingle.IsIncluded).Select(jingle => jingle.JingleId).ToList(),
             FollowUpJingleIds = source.FollowUpJingleIds.ToList(),
             FollowUpFadeOutSeconds = source.FollowUpFadeOutSeconds,
-            FollowUpFadeInSeconds = source.FollowUpFadeInSeconds
+            FollowUpFadeInSeconds = source.FollowUpFadeInSeconds,
+            DeckVariationEnabled = source.DeckVariationEnabled,
+            MaxConsecutiveFromSameDeck = source.MaxConsecutiveFromSameDeck
         });
         ViewData.Profiles.Add(copy);
         ViewData.SelectedProfile = copy;
@@ -378,6 +382,7 @@ public partial class RandomPlayerSettingsWindow : Window
         ViewData.PoolItems.Clear();
         var selectedSounds = 0;
         var selectedDecks = 0;
+        var deckDistribution = new List<(string Name, int Count)>();
         if (ViewData.SelectedProfile is { } selected)
         {
             foreach (var deck in selected.Decks)
@@ -386,11 +391,15 @@ public partial class RandomPlayerSettingsWindow : Window
                 var included = deck.Jingles.Where(item => deck.IncludeWholeDeck || item.IsIncluded).ToArray();
                 if (included.Length > 0) selectedDecks++;
                 selectedSounds += included.Length;
-                foreach (var item in included)
-                    ViewData.PoolItems.Add(new RandomPoolOverviewItem(item.Title, deck.Name,
-                        deck.IncludeWholeDeck ? "HELA DECKET" : "VALD"));
+                if (included.Length > 0) deckDistribution.Add((deck.Name, included.Length));
             }
             selected.RefreshSummary();
+        }
+        foreach (var deck in deckDistribution.OrderByDescending(item => item.Count)
+                     .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            var percentage = selectedSounds == 0 ? 0 : deck.Count * 100d / selectedSounds;
+            ViewData.PoolItems.Add(new RandomPoolOverviewItem(deck.Name, deck.Count, percentage));
         }
         SelectedSoundsText.Text = selectedSounds.ToString();
         SelectedDecksText.Text = selectedDecks.ToString();
@@ -460,7 +469,9 @@ public partial class RandomPlayerSettingsWindow : Window
             .Select(jingle => jingle.JingleId).Distinct().ToList(),
         FollowUpJingleIds = profile.FollowUpJingleIds.Distinct().ToList(),
         FollowUpFadeOutSeconds = profile.FollowUpFadeOutSeconds,
-        FollowUpFadeInSeconds = profile.FollowUpFadeInSeconds
+        FollowUpFadeInSeconds = profile.FollowUpFadeInSeconds,
+        DeckVariationEnabled = profile.DeckVariationEnabled,
+        MaxConsecutiveFromSameDeck = Math.Clamp(profile.MaxConsecutiveFromSameDeck, 2, 10)
     };
 }
 
@@ -473,6 +484,7 @@ public sealed class RandomPlayerSettingsViewData : INotifyPropertyChanged
         SelectedSetup?.Profiles ?? EmptyProfiles;
     private static ObservableCollection<RandomPlayerProfileEditor> EmptyProfiles { get; } = [];
     public ObservableCollection<RandomPoolOverviewItem> PoolItems { get; } = [];
+    public IReadOnlyList<int> DeckVariationLimits { get; } = Enumerable.Range(2, 9).ToArray();
     public RandomPlayerSetupEditor? SelectedSetup
     {
         get => _selectedSetup;
@@ -510,6 +522,8 @@ public sealed class RandomPlayerProfileEditor : INotifyPropertyChanged
 {
     private string _name = "Slumpgrupp";
     private string? _shortcut;
+    private bool _deckVariationEnabled;
+    private int _maxConsecutiveFromSameDeck = 4;
     public Guid Id { get; init; } = Guid.NewGuid();
     public string Name { get => _name; set { if (_name == value) return; _name = value; Raise(); } }
     public string? Shortcut { get => _shortcut; set { if (_shortcut == value) return; _shortcut = value; Raise(); Raise(nameof(ShortcutDisplay)); } }
@@ -518,6 +532,22 @@ public sealed class RandomPlayerProfileEditor : INotifyPropertyChanged
     public List<Guid> FollowUpJingleIds { get; set; } = [];
     public double FollowUpFadeOutSeconds { get; set; } = 1.5;
     public double FollowUpFadeInSeconds { get; set; } = 0.75;
+    public bool DeckVariationEnabled
+    {
+        get => _deckVariationEnabled;
+        set { if (_deckVariationEnabled == value) return; _deckVariationEnabled = value; Raise(); }
+    }
+    public int MaxConsecutiveFromSameDeck
+    {
+        get => _maxConsecutiveFromSameDeck;
+        set
+        {
+            var normalized = Math.Clamp(value, 2, 10);
+            if (_maxConsecutiveFromSameDeck == normalized) return;
+            _maxConsecutiveFromSameDeck = normalized;
+            Raise();
+        }
+    }
     public string FollowUpSummary => FollowUpJingleIds.Count == 0
         ? (LanguageService.IsEnglish ? "No follow-up" : "Ingen följdlåt")
         : LanguageService.IsEnglish ? $"{FollowUpJingleIds.Count} selected" : $"{FollowUpJingleIds.Count} valda";
@@ -601,4 +631,10 @@ public sealed class RandomPlayerJingleEditor : INotifyPropertyChanged
     private void Raise([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
-public sealed record RandomPoolOverviewItem(string Title, string DeckName, string SourceLabel);
+public sealed record RandomPoolOverviewItem(string DeckName, int SoundCount, double Percentage)
+{
+    public string CountText => LanguageService.IsEnglish
+        ? $"{SoundCount} {(SoundCount == 1 ? "sound" : "sounds")}"
+        : $"{SoundCount} ljud";
+    public string PercentageText => $"{Percentage:0.#} %";
+}

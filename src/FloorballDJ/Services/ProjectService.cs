@@ -679,6 +679,8 @@ public sealed class ProjectService
             profile.FollowUpJingleIds = profile.FollowUpJingleIds?.Distinct().ToList() ?? [];
             profile.FollowUpFadeOutSeconds = Math.Clamp(profile.FollowUpFadeOutSeconds, 0, 30);
             profile.FollowUpFadeInSeconds = Math.Clamp(profile.FollowUpFadeInSeconds, 0, 30);
+            profile.MaxConsecutiveFromSameDeck = profile.MaxConsecutiveFromSameDeck <= 0
+                ? 4 : Math.Clamp(profile.MaxConsecutiveFromSameDeck, 2, 10);
         }
         project.Settings.RandomPoolSetups ??= [];
         if (project.Settings.RandomPoolSetups.Count == 0)
@@ -704,6 +706,8 @@ public sealed class ProjectService
                 profile.FollowUpJingleIds = profile.FollowUpJingleIds?.Distinct().ToList() ?? [];
                 profile.FollowUpFadeOutSeconds = Math.Clamp(profile.FollowUpFadeOutSeconds, 0, 30);
                 profile.FollowUpFadeInSeconds = Math.Clamp(profile.FollowUpFadeInSeconds, 0, 30);
+                profile.MaxConsecutiveFromSameDeck = profile.MaxConsecutiveFromSameDeck <= 0
+                    ? 4 : Math.Clamp(profile.MaxConsecutiveFromSameDeck, 2, 10);
             }
         }
         var activeRandomSetup = project.Settings.RandomPoolSetups

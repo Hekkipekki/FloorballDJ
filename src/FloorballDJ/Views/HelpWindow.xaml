@@ -7,15 +7,15 @@
         <Style x:Key="HelpGroup" TargetType="GroupBox" BasedOn="{StaticResource ModernGroupBox}">
             <Setter Property="Margin" Value="0,0,0,13" />
         </Style>
-        <Style x:Key="HelpBody" TargetType="TextBlock">
+        <Style x:Key="HelpBody" TargetType="TextBlock" BasedOn="{StaticResource BodyText}">
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="LineHeight" Value="21" />
-            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         </Style>
         <Style x:Key="HelpMuted" TargetType="TextBlock" BasedOn="{StaticResource HelpBody}">
             <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
         </Style>
         <Style x:Key="HelpNavItem" TargetType="ListBoxItem">
+            <Setter Property="FontSize" Value="13" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="13,10" />
             <Setter Property="Margin" Value="0,2" />
@@ -52,7 +52,7 @@
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                 <StackPanel>
                     <TextBlock Text="HJÄLPCENTER" Style="{StaticResource EyebrowText}" />
-                    <TextBlock Text="Så använder du FloorballDJ" Style="{StaticResource SectionTitle}" FontSize="29" Margin="0,3,0,2" />
+                    <TextBlock Text="Så använder du FloorballDJ" Style="{StaticResource SectionTitle}" FontSize="28" Margin="0,3,0,2" />
                     <TextBlock Text="Kom igång, lär dig arbetsflödet och slå upp funktioner under matchen." Foreground="{StaticResource MutedBrush}" />
                 </StackPanel>
                 <Border Grid.Column="1" Background="{StaticResource AccentSoftBrush}" CornerRadius="9" Padding="13,8" VerticalAlignment="Center">
@@ -69,7 +69,7 @@
                     <TextBlock Text="SÖK I HJÄLPCENTRET" Style="{StaticResource FieldLabel}" Margin="9,0,0,7" />
                     <TextBox x:Name="HelpSearchBox" Grid.Row="1" Padding="10,7" Margin="0,0,0,12"
                              TextChanged="HelpSearchBox_TextChanged" ToolTip="Sök efter en funktion eller uppgift" />
-                    <ScrollViewer x:Name="NavigationSections" Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="NavigationSections" Grid.Row="2" VerticalScrollBarVisibility="Auto">
                         <StackPanel>
                             <TextBlock Text="GRUNDLÄGGANDE" Style="{StaticResource FieldLabel}" Margin="9,2,0,4" />
                             <ListBox x:Name="HelpNavigation" SelectionChanged="HelpNavigation_SelectionChanged"
@@ -113,10 +113,10 @@
 
             <Grid Grid.Column="1" Margin="24,18,24,8">
                 <!-- 01 Snabbstart -->
-                <ScrollViewer x:Name="QuickStartPage" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="QuickStartPage" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="SNABBSTART" Style="{StaticResource EyebrowText}" />
-                        <TextBlock Text="Från tom profil till matchklar" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <TextBlock Text="Från tom profil till matchklar" Style="{StaticResource SectionTitle}" FontSize="24" Margin="0,3,0,14" />
                         <GroupBox Header="1. Välj ljudutgång" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Öppna <Run FontWeight="Bold">Verktyg → Inställningar</Run>. Välj publikens ljudutgång och vid behov Utgångsenhet 2 för hörlurar. Börja med låg programvolym och kalibrera mot mixerbordet eller hallens PA.</TextBlock>
                         </GroupBox>
@@ -139,10 +139,10 @@
                 </ScrollViewer>
 
                 <!-- 02 Uppspelning -->
-                <ScrollViewer x:Name="PlaybackPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="PlaybackPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="UPPSPELNING" Style="{StaticResource EyebrowText}" />
-                        <TextBlock Text="Spela tryggt under match" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <TextBlock Text="Spela tryggt under match" Style="{StaticResource SectionTitle}" FontSize="24" Margin="0,3,0,14" />
                         <GroupBox Header="Jingleknappar" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Klicka på en knapp för att spela. Den aktiva knappen ser intryckt ut och pulserar. Klicka på samma knapp igen för att tona ut den. Klicka på en annan Solo-jingle för att crossfadea enligt global eller egen fade-tid.</TextBlock>
                         </GroupBox>
@@ -173,10 +173,10 @@
                 </ScrollViewer>
 
                 <!-- 03 Decks -->
-                <ScrollViewer x:Name="DecksPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="DecksPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="DECKS OCH JINGLAR" Style="{StaticResource EyebrowText}" />
-                        <TextBlock Text="Bygg en tydlig matchlayout" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <TextBlock Text="Bygg en tydlig matchlayout" Style="{StaticResource SectionTitle}" FontSize="24" Margin="0,3,0,14" />
                         <GroupBox Header="Lägga till och flytta" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Klicka på en tom plats för att välja filer eller dra en/flera ljudfiler från Utforskaren. Högerklicka på en tom plats och välj Lägg till textblock för en rubrik eller avdelare som inte kan spelas, köas eller visas i Autoplay. Dra en befintlig knapp eller ett textblock till en annan plats för att byta plats. Ändringar autosparas.</TextBlock>
                         </GroupBox>
@@ -202,10 +202,10 @@
                 </ScrollViewer>
 
                 <!-- 04 Autoplay -->
-                <ScrollViewer x:Name="AutoplayPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="AutoplayPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="AUTOPLAY OCH KÖER" Style="{StaticResource EyebrowText}" />
-                        <TextBlock Text="Musiklistor som spelar vidare" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <TextBlock Text="Musiklistor som spelar vidare" Style="{StaticResource SectionTitle}" FontSize="24" Margin="0,3,0,14" />
                         <GroupBox Header="Bygg kön" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Öppna Autoplay-fliken. Välj Alla eller filtrera på ett deck, sök efter titel och dubbelklicka eller använd vänsterpilen för att lägga till. Högerpilen vid deckfiltren flyttar till nästa flik när alla inte ryms. Alla kan även visa råa filer från vald musikmapp; deckfilter använder jinglarna med deras sparade start/slut och egenskaper.</TextBlock>
                         </GroupBox>
@@ -228,15 +228,18 @@
                 </ScrollViewer>
 
                 <!-- 05 Slumpgrupper -->
-                <ScrollViewer x:Name="RandomPoolsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="RandomPoolsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="SLUMPGRUPPER" Style="{StaticResource EyebrowText}" />
-                        <TextBlock Text="Situationsstyrd musik med en enda tangent" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <TextBlock Text="Situationsstyrd musik med en enda tangent" Style="{StaticResource SectionTitle}" FontSize="24" Margin="0,3,0,14" />
                         <GroupBox Header="När slumpgrupper passar" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Använd <Run FontWeight="Bold">Verktyg → Slumpmässig låtspelare</Run> när samma matchsituation kan använda flera olika ljud, exempelvis Utvisning hemma, Utvisning borta, Mål eller Publik. Varje grupp får en egen snabbtangent och väljer bara bland ljuden du lagt i gruppens pool.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Skapa profil och grupp" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">En slumpprofil är en komplett uppsättning grupper. Skapa separata profiler när flera lag delar samma musikprofil men behöver olika pooler och tangenter. Välj aktiv slumpprofil högst upp, skapa en grupp, ge den ett tydligt situationsnamn och välj en unik snabbtangent.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Poolöversikt och deckvariation" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Poolöversikten visar hur många ljud och hur stor procentandel som kommer från varje deltagande deck. Aktivera <Run FontWeight="Bold">Deckvariation</Run> om ett stort deck inte ska dominera. När det valda maxantalet från samma deck har spelats i följd väljs nästa ljud från ett annat deltagande deck om det finns något spelbart. Ospelade ljud prioriteras, men ett tidigare spelat ljud från ett annat deck kan användas som säkerhetsventil. Inställningen sparas separat för varje slumpgrupp.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Välj och sortera ljud" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Sökfältet söker i alla deck och öppnar automatiskt decket med bästa träffen. Välj hela decket eller markera enskilda ljud. Knapparna <Run FontWeight="Bold">Deck</Run>, <Run FontWeight="Bold">A–Ö</Run> och <Run FontWeight="Bold">Ö–A</Run> ändrar bara visningsordningen och gör det enklare att kontrollera poolen; de ändrar inte deckets verkliga ordning.</TextBlock>
@@ -261,10 +264,10 @@
                 </ScrollViewer>
 
                 <!-- 06 Ljud -->
-                <ScrollViewer x:Name="AudioPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="AudioPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="LJUD OCH BALANSERING" Style="{StaticResource EyebrowText}" />
-                        <TextBlock Text="Jämn nivå utan att ändra filerna" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <TextBlock Text="Jämn nivå utan att ändra filerna" Style="{StaticResource SectionTitle}" FontSize="24" Margin="0,3,0,14" />
                         <GroupBox Header="Begreppen" Style="{StaticResource HelpGroup}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="LUFS – " />upplevd genomsnittlig ljudstyrka. −16 LUFS är starkare än −20 men svagare än −10.</TextBlock>
@@ -291,10 +294,10 @@
                 </ScrollViewer>
 
                 <!-- 06 Jinglebyggaren -->
-                <ScrollViewer x:Name="JingleBuilderPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="JingleBuilderPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="JINGLEBYGGAREN" Style="{StaticResource EyebrowText}" />
-                        <TextBlock Text="Skapa mållåtar och egna ljudsekvenser" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <TextBlock Text="Skapa mållåtar och egna ljudsekvenser" Style="{StaticResource SectionTitle}" FontSize="24" Margin="0,3,0,14" />
                         <GroupBox Header="Öppna och välj ljud" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Öppna <Run FontWeight="Bold">Verktyg → Bygg egen jingle</Run>. De första ljuden kan hämtas från profilens decks. Välj <Run FontWeight="Bold">Öppna rå ljudfil</Run> om materialet inte redan finns som jingle. <Run FontWeight="Bold">Lägg till ljud</Run> skapar fler delar och flikarna högst upp växlar mellan dem. Pilarna ändrar ordningen.</TextBlock>
                         </GroupBox>
@@ -337,10 +340,10 @@
                 </ScrollViewer>
 
                 <!-- 07 Egenskaper -->
-                <ScrollViewer x:Name="PropertiesPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="PropertiesPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="JINGLE-EGENSKAPER" Style="{StaticResource EyebrowText}" />
-                        <TextBlock Text="Klipp, förhandslyssna och forma ljudet" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <TextBlock Text="Klipp, förhandslyssna och forma ljudet" Style="{StaticResource SectionTitle}" FontSize="24" Margin="0,3,0,14" />
                         <GroupBox Header="Waveforms och position" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Klicka i Full waveform för att hoppa. Den inzoomade tiasekundersvyn följer markören; håll vänster musknapp och dra för precision. Play/Paus/Stopp styr endast förhandslyssningen i egenskapsfönstret.</TextBlock>
                         </GroupBox>
@@ -363,10 +366,10 @@
                 </ScrollViewer>
 
                 <!-- 08 Team Deck -->
-                <ScrollViewer x:Name="TeamDeckPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="TeamDeckPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="TEAM DECK" Style="{StaticResource EyebrowText}" />
-                        <TextBlock Text="Standardjingle först – spelarövergång sedan" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <TextBlock Text="Standardjingle först – spelarövergång sedan" Style="{StaticResource SectionTitle}" FontSize="24" Margin="0,3,0,14" />
                         <GroupBox Header="Vad Team Deck gör" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Team Deck är en profilbunden snabbvy för ett lag. En gemensam snabbtangent startar lagets standardjingle, vanligtvis en goal horn eller mållåt, och öppnar därefter en stream deck-liknande vy med en knapp för varje spelare. Standardjingeln startar alltid direkt med 0 sekunders hörbar fade in.</TextBlock>
                         </GroupBox>
@@ -392,10 +395,10 @@
                 </ScrollViewer>
 
                 <!-- 09 Profiler -->
-                <ScrollViewer x:Name="ProfilesPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="ProfilesPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="PROFILER OCH BACKUP" Style="{StaticResource EyebrowText}" />
-                        <TextBlock Text="Spara, flytta och återställ arbetet" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <TextBlock Text="Spara, flytta och återställ arbetet" Style="{StaticResource SectionTitle}" FontSize="24" Margin="0,3,0,14" />
                         <GroupBox Header="Profilmenyn" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Nytt projekt skapar en tom profil. Öppna eller Importera profil laddar en .floorballdj.json-profil. Importera profil kan också konvertera Snap Jingle Player XML och anpassar då decks/layout efter innehållet. Dialogen Spara profil föreslår programmets mapp <Run FontWeight="Bold">Profiler</Run>; byggaren föreslår <Run FontWeight="Bold">Skapade jinglar</Run>. Under Senast använda profiler visas de fem senaste giltiga profilerna; en stjärna markerar standardprofilen. För flera identiska varianter öppnar du grundprofilen och använder Spara som med ett nytt namn för varje kopia.</TextBlock>
                         </GroupBox>
@@ -424,10 +427,10 @@
                 </ScrollViewer>
 
                 <!-- 10 Kortkommandon -->
-                <ScrollViewer x:Name="ShortcutsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="ShortcutsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="KORTKOMMANDON" Style="{StaticResource EyebrowText}" />
-                        <TextBlock Text="Snabb kontroll utan att leta" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <TextBlock Text="Snabb kontroll utan att leta" Style="{StaticResource SectionTitle}" FontSize="24" Margin="0,3,0,14" />
                         <GroupBox Header="Globalt" Style="{StaticResource HelpGroup}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Space          " />tona ut/återuppta; med deck-kö startar nästa Space nästa köade ljud.</TextBlock>
@@ -460,10 +463,10 @@
                 </ScrollViewer>
 
                 <!-- 11 Licens -->
-                <ScrollViewer x:Name="LicensingPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="LicensingPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="LICENS OCH PROVPERIOD" Style="{StaticResource EyebrowText}" />
-                        <TextBlock Text="Aktivering och offlineanvändning" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <TextBlock Text="Aktivering och offlineanvändning" Style="{StaticResource SectionTitle}" FontSize="24" Margin="0,3,0,14" />
                         <GroupBox Header="Fjorton dagars provperiod" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Första starten kräver internet. Provperioden kopplas till datorn och börjar när licenstjänsten godkänner första starten. Återstående dagar visas i statusraden längst ned. Om perioden tar slut medan FloorballDJ är öppet visas en varning och en 24-timmars nedräkning. Därefter sparas profilen och programmet stängs automatiskt.</TextBlock>
                         </GroupBox>
@@ -486,10 +489,10 @@
                 </ScrollViewer>
 
                 <!-- 12 Felsökning -->
-                <ScrollViewer x:Name="TroubleshootingPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="TroubleshootingPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="FELSÖKNING" Style="{StaticResource EyebrowText}" />
-                        <TextBlock Text="Vanliga problem och säkra kontroller" Style="{StaticResource SectionTitle}" FontSize="25" Margin="0,3,0,14" />
+                        <TextBlock Text="Vanliga problem och säkra kontroller" Style="{StaticResource SectionTitle}" FontSize="24" Margin="0,3,0,14" />
                         <GroupBox Header="Inget ljud" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Kontrollera vald utgång, Windows-volym, programvolym och att Förlyssning inte är aktiv. Testa Windows standardenhet. Om Utgångsenhet 2 kopplas bort, stäng Förlyssning och välj en aktiv enhet igen.</TextBlock>
                         </GroupBox>

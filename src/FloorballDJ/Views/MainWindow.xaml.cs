@@ -69,6 +69,7 @@ public partial class MainWindow : Window
     private string? _activeRandomShortcut;
     private Guid? _activeRandomJingleId;
     private bool _randomShortcutAwaitingNext;
+    private readonly Dictionary<Guid, RandomDeckRunState> _randomDeckRuns = [];
     private Guid? _pendingRandomFollowUpSourceId;
     private Guid[] _pendingRandomFollowUpIds = [];
     private double _pendingRandomFollowUpFadeOutSeconds;
@@ -852,7 +853,7 @@ public partial class MainWindow : Window
                                      jingle.HasAudio && File.Exists(jingle.FilePath))
                     .DistinctBy(jingle => jingle.Id).ToArray();
                 if (TryHandleRandomShortcut(e, pool, followUps, randomProfile.FollowUpFadeOutSeconds,
-                        randomProfile.FollowUpFadeInSeconds)) return;
+                        randomProfile.FollowUpFadeInSeconds, randomProfile)) return;
             }
 
             var categoryAnchor = ViewModel.Decks.SelectMany(deck => deck.Jingles)
@@ -948,7 +949,7 @@ public partial class MainWindow : Window
 
     private bool TryHandleRandomShortcut(KeyEventArgs e, IReadOnlyCollection<Jingle> candidates,
         IReadOnlyCollection<Jingle>? followUps = null, double followUpFadeOutSeconds = 1.5,
-        double followUpFadeInSeconds = 0.75)
+        double followUpFadeInSeconds = 0.75, RandomPoolProfile? profile = null)
     {
         if (candidates.Count == 0) return false;
         e.Handled = true;
@@ -969,18 +970,23 @@ public partial class MainWindow : Window
             return true;
         }
 
-        // Under en aktiv session ska slumpval i första hand gå igenom allt
-        // ospelat i poolen. När hela poolen är spelad får alla delta igen.
-        var preferredCandidates = ViewModel.Settings.TrackSession
-            ? candidateArray.Where(candidate => candidate.SessionPlayCount == 0).ToArray()
-            : candidateArray;
-        if (preferredCandidates.Length == 0) preferredCandidates = candidateArray;
-
-        var nextCandidates = preferredCandidates.Length > 1 && sameRandomShortcut && _activeRandomJingleId is Guid previousId
-            ? preferredCandidates.Where(candidate => candidate.Id != previousId).ToArray()
-            : preferredCandidates;
-        if (nextCandidates.Length == 0) nextCandidates = preferredCandidates;
-        var selected = nextCandidates[Random.Shared.Next(nextCandidates.Length)];
+        var candidateIds = candidateArray.Select(candidate => candidate.Id).ToHashSet();
+        var deckCandidates = ViewModel.Decks.SelectMany(deck => deck.Jingles
+                .Where(jingle => candidateIds.Contains(jingle.Id))
+                .Select(jingle => new RandomPoolCandidate(jingle, deck.Id)))
+            .DistinctBy(candidate => candidate.Jingle.Id)
+            .ToArray();
+        _randomDeckRuns.TryGetValue(profile?.Id ?? Guid.Empty, out var deckRun);
+        var eligibleCandidates = RandomPoolSelectionService.GetEligibleCandidates(
+            deckCandidates,
+            ViewModel.Settings.TrackSession,
+            sameRandomShortcut ? _activeRandomJingleId : null,
+            profile?.DeckVariationEnabled == true,
+            profile?.MaxConsecutiveFromSameDeck ?? 4,
+            profile is null ? null : deckRun);
+        if (eligibleCandidates.Length == 0) return false;
+        var selectedCandidate = eligibleCandidates[Random.Shared.Next(eligibleCandidates.Length)];
+        var selected = selectedCandidate.Jingle;
         _activeRandomShortcut = pressedRandomShortcut;
         _activeRandomJingleId = selected.Id;
         _randomShortcutAwaitingNext = false;
@@ -989,7 +995,12 @@ public partial class MainWindow : Window
         _pendingRandomFollowUpFadeOutSeconds = Math.Clamp(followUpFadeOutSeconds, 0, 30);
         _pendingRandomFollowUpFadeInSeconds = Math.Clamp(followUpFadeInSeconds, 0, 30);
         _randomFollowUpTransitionStarted = false;
-        try { ViewModel.Play(selected); }
+        try
+        {
+            ViewModel.Play(selected);
+            if (profile is not null)
+                _randomDeckRuns[profile.Id] = RandomPoolSelectionService.AdvanceRun(deckRun, selectedCandidate.DeckId);
+        }
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "Kunde inte spela", MessageBoxButton.OK, MessageBoxImage.Warning); }
         return true;
     }
@@ -2237,6 +2248,7 @@ public partial class MainWindow : Window
         _activeRandomShortcut = null;
         _activeRandomJingleId = null;
         _randomShortcutAwaitingNext = false;
+        _randomDeckRuns.Clear();
         ViewModel.RequestSave();
     }
 

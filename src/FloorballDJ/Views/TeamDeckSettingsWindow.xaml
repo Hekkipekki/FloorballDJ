@@ -5,26 +5,12 @@
         WindowStartupLocation="CenterOwner">
     <Window.Resources>
         <Style x:Key="TeamJingleCombo" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
-            <Setter Property="Background" Value="White" />
-            <Setter Property="Foreground" Value="#111820" />
-            <Setter Property="TextElement.Foreground" Value="#111820" />
+            <Setter Property="Background" Value="{StaticResource PanelRaisedBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{StaticResource TextBrush}" />
         </Style>
-        <Style x:Key="TeamJingleComboItem" TargetType="ComboBoxItem">
-            <Setter Property="Background" Value="White" />
-            <Setter Property="Foreground" Value="#111820" />
-            <Setter Property="Padding" Value="10,7" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Style.Triggers>
-                <Trigger Property="IsHighlighted" Value="True">
-                    <Setter Property="Background" Value="#BEEFE3" />
-                    <Setter Property="Foreground" Value="#07151B" />
-                </Trigger>
-                <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#8CE5CF" />
-                    <Setter Property="Foreground" Value="#07151B" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+        <Style x:Key="TeamJingleComboItem" TargetType="ComboBoxItem"
+               BasedOn="{StaticResource {x:Type ComboBoxItem}}" />
     </Window.Resources>
     <Grid Margin="22,18,22,16">
         <Grid.RowDefinitions>
@@ -121,23 +107,23 @@
                                 <ColumnDefinition Width="150" /><ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="ÖVERGÅNGSPUNKT" Style="{StaticResource FieldLabel}" FontSize="10" />
+                                <TextBlock Text="ÖVERGÅNGSPUNKT" Style="{StaticResource FieldLabel}" FontSize="12" />
                                 <TextBox Text="{Binding TransitionDisplay, Mode=OneWay}" Tag="Transition" TextAlignment="Center"
                                          ToolTip="Tid från standardjingelns klippta start. Skriv Auto för övergång nära jingelns slut."
                                          LostFocus="TeamTiming_LostFocus" KeyDown="TeamTiming_KeyDown" />
-                                <TextBlock Text="När spelarjingeln börjar" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,4,0,0" />
+                                <TextBlock Text="När spelarjingeln börjar" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,4,0,0" />
                             </StackPanel>
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="FADE OUT LAGJINGLE" Style="{StaticResource FieldLabel}" FontSize="10" />
+                                <TextBlock Text="FADE OUT LAGJINGLE" Style="{StaticResource FieldLabel}" FontSize="12" />
                                 <TextBox Text="{Binding DefaultFadeOutDisplay, Mode=OneWay}" Tag="FadeOut" TextAlignment="Center"
                                          LostFocus="TeamTiming_LostFocus" KeyDown="TeamTiming_KeyDown" />
-                                <TextBlock Text="Rekommenderat 1,5 s" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,4,0,0" />
+                                <TextBlock Text="Rekommenderat 1,5 s" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,4,0,0" />
                             </StackPanel>
                             <StackPanel Grid.Column="4">
-                                <TextBlock Text="FADE IN SPELARE" Style="{StaticResource FieldLabel}" FontSize="10" />
+                                <TextBlock Text="FADE IN SPELARE" Style="{StaticResource FieldLabel}" FontSize="12" />
                                 <TextBox Text="{Binding PlayerFadeInDisplay, Mode=OneWay}" Tag="FadeIn" TextAlignment="Center"
                                          LostFocus="TeamTiming_LostFocus" KeyDown="TeamTiming_KeyDown" />
-                                <TextBlock Text="Rekommenderat 0,75 s" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,4,0,0" />
+                                <TextBlock Text="Rekommenderat 0,75 s" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,4,0,0" />
                             </StackPanel>
                             <TextBlock Grid.Column="5" Margin="18,12,0,0" VerticalAlignment="Center" TextWrapping="Wrap"
                                        Foreground="{StaticResource MutedBrush}"
@@ -169,15 +155,15 @@
                                                 <ColumnDefinition Width="42" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel>
-                                                <TextBlock Text="NUMMER" Style="{StaticResource FieldLabel}" FontSize="10" />
+                                                <TextBlock Text="NUMMER" Style="{StaticResource FieldLabel}" FontSize="12" />
                                                 <TextBox Text="{Binding Number, UpdateSourceTrigger=PropertyChanged}" TextAlignment="Center" />
                                             </StackPanel>
                                             <StackPanel Grid.Column="2">
-                                                <TextBlock Text="SPELARE" Style="{StaticResource FieldLabel}" FontSize="10" />
+                                                <TextBlock Text="SPELARE" Style="{StaticResource FieldLabel}" FontSize="12" />
                                                 <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
                                             </StackPanel>
                                             <StackPanel Grid.Column="4">
-                                                <TextBlock Text="ÖVERGÅNGSJINGLE" Style="{StaticResource FieldLabel}" FontSize="10" />
+                                                <TextBlock Text="ÖVERGÅNGSJINGLE" Style="{StaticResource FieldLabel}" FontSize="12" />
                                                 <Grid>
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                                     <ComboBox Style="{StaticResource TeamJingleCombo}" ItemContainerStyle="{StaticResource TeamJingleComboItem}"
@@ -190,7 +176,7 @@
                                                 </Grid>
                                             </StackPanel>
                                             <StackPanel Grid.Column="6">
-                                                <TextBlock Text="STARTPOSITION" Style="{StaticResource FieldLabel}" FontSize="10" />
+                                                <TextBlock Text="STARTPOSITION" Style="{StaticResource FieldLabel}" FontSize="12" />
                                                 <TextBox Text="{Binding StartDisplay, Mode=OneWay}" TextAlignment="Center"
                                                          ToolTip="Absolut startposition i ljudfilen, t.ex. 1:12.500 eller 72,5 sekunder"
                                                          LostFocus="PlayerStart_LostFocus" KeyDown="PlayerStart_KeyDown" />

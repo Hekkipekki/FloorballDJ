@@ -7,15 +7,27 @@ namespace FloorballDJ.Models;
 
 public enum JinglePlayMode { Mix, Solo, Duck }
 
-public sealed class AppSettings
+public sealed class AppSettings : INotifyPropertyChanged
 {
+    public event PropertyChangedEventHandler? PropertyChanged;
+    private double _titleFontSize = 15;
+    private string _fontFamily = "Segoe UI Variable Display";
+    private bool _showJingleDuration = true;
+
+    private void SetAppearance<T>(ref T field, T value, [CallerMemberName] string? name = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value)) return;
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
     public int DeckCount { get; set; } = 4;
     public int Rows { get; set; } = 4;
     public int Columns { get; set; } = 5;
     public double ButtonHeight { get; set; } = 120;
     public double ButtonWidth { get; set; } = 220;
-    public double TitleFontSize { get; set; } = 15;
-    public string FontFamily { get; set; } = "Segoe UI Variable Display";
+    public double TitleFontSize { get => _titleFontSize; set => SetAppearance(ref _titleFontSize, double.IsFinite(value) && value > 0 ? value : 15); }
+    public string FontFamily { get => _fontFamily; set => SetAppearance(ref _fontFamily, value); }
+    public bool ShowJingleDuration { get => _showJingleDuration; set => SetAppearance(ref _showJingleDuration, value); }
     public string? OutputDeviceId { get; set; }
     public string? SecondaryOutputDeviceId { get; set; }
     public string? MusicFolderPath { get; set; }
@@ -74,6 +86,12 @@ public sealed class RandomPoolProfile
     public List<Guid> FollowUpJingleIds { get; set; } = [];
     public double FollowUpFadeOutSeconds { get; set; } = 1.5;
     public double FollowUpFadeInSeconds { get; set; } = 0.75;
+    /// <summary>
+    /// When enabled, a dominant deck may only supply this many consecutive
+    /// random selections before another participating deck is forced.
+    /// </summary>
+    public bool DeckVariationEnabled { get; set; }
+    public int MaxConsecutiveFromSameDeck { get; set; } = 4;
 }
 
 public sealed class RandomPoolSetup

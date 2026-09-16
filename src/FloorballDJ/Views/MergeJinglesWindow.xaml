@@ -40,18 +40,11 @@
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
                 <TextBlock Text="Mall" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
-                <ComboBox x:Name="TemplateCombo" Width="190" SelectionChanged="TemplateCombo_SelectionChanged"
-                          Foreground="#111820" Background="White">
-                    <ComboBox.ItemContainerStyle>
-                        <Style TargetType="ComboBoxItem">
-                            <Setter Property="Foreground" Value="#111820"/><Setter Property="Background" Value="White"/><Setter Property="Padding" Value="10,7"/>
-                            <Style.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter Property="Background" Value="#BEEFE3"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#8CE5CF"/></Trigger></Style.Triggers>
-                        </Style>
-                    </ComboBox.ItemContainerStyle>
-                    <ComboBoxItem Content="Mållåt – tydlig övergång" Tag="Goal" Foreground="#111820" />
-                    <ComboBoxItem Content="Utvisning – snabb växling" Tag="Penalty" Foreground="#111820" />
-                    <ComboBoxItem Content="Mjuk musikövergång" Tag="Smooth" Foreground="#111820" />
-                    <ComboBoxItem Content="Egen" Tag="Custom" Foreground="#111820" />
+                <ComboBox x:Name="TemplateCombo" Width="190" SelectionChanged="TemplateCombo_SelectionChanged">
+                    <ComboBoxItem Content="Mållåt – tydlig övergång" Tag="Goal" />
+                    <ComboBoxItem Content="Utvisning – snabb växling" Tag="Penalty" />
+                    <ComboBoxItem Content="Mjuk musikövergång" Tag="Smooth" />
+                    <ComboBoxItem Content="Egen" Tag="Custom" />
                 </ComboBox>
             </StackPanel>
         </Grid>
@@ -88,14 +81,7 @@
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="VÄLJ LJUDFIL" Style="{StaticResource EyebrowText}" Margin="0,0,0,5"/>
                                 <ComboBox x:Name="SourceCombo" DisplayMemberPath="Display" SelectionChanged="SourceCombo_SelectionChanged"
-                                          Foreground="#111820" Background="White" MaxDropDownHeight="420">
-                                    <ComboBox.ItemContainerStyle>
-                                        <Style TargetType="ComboBoxItem">
-                                            <Setter Property="Foreground" Value="#111820"/><Setter Property="Background" Value="White"/><Setter Property="Padding" Value="10,7"/>
-                                            <Style.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter Property="Background" Value="#BEEFE3"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#8CE5CF"/></Trigger></Style.Triggers>
-                                        </Style>
-                                    </ComboBox.ItemContainerStyle>
-                                </ComboBox>
+                                          MaxDropDownHeight="420" />
                             </StackPanel>
                             <Button Grid.Column="3" Content="Öppna rå ljudfil…" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
                                     VerticalAlignment="Bottom" Click="OpenFile_Click" />
@@ -208,16 +194,10 @@
                         <WrapPanel>
                             <StackPanel x:Name="FadeOutPanel" Orientation="Horizontal" Margin="0,0,24,7">
                                 <TextBlock Text="Typ" Width="75" Style="{StaticResource FieldLabel}"/>
-                                <ComboBox x:Name="TransitionModeCombo" Width="225" SelectionChanged="TransitionSetting_Changed" Foreground="#111820" Background="White">
-                                    <ComboBox.ItemContainerStyle>
-                                        <Style TargetType="ComboBoxItem">
-                                            <Setter Property="Foreground" Value="#111820"/><Setter Property="Background" Value="White"/><Setter Property="Padding" Value="10,7"/>
-                                            <Style.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter Property="Background" Value="#BEEFE3"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#8CE5CF"/></Trigger></Style.Triggers>
-                                        </Style>
-                                    </ComboBox.ItemContainerStyle>
-                                    <ComboBoxItem Content="Crossfade" Tag="Crossfade" Foreground="#111820"/>
-                                    <ComboBoxItem Content="Fade out → fade in" Tag="SequentialFade" Foreground="#111820"/>
-                                    <ComboBoxItem Content="Mixljud – spela samtidigt" Tag="MixSound" Foreground="#111820"/>
+                                <ComboBox x:Name="TransitionModeCombo" Width="225" SelectionChanged="TransitionSetting_Changed">
+                                    <ComboBoxItem Content="Crossfade" Tag="Crossfade"/>
+                                    <ComboBoxItem Content="Fade out → fade in" Tag="SequentialFade"/>
+                                    <ComboBoxItem Content="Mixljud – spela samtidigt" Tag="MixSound"/>
                                 </ComboBox>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,0,24,7">
