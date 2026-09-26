@@ -143,6 +143,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             {
                 await LoadAsync(defaultProfilePath);
                 Status = $"Standardprofil öppnad: {GetProfileDisplayName(defaultProfilePath)}";
+                StartNewSession();
                 ConfigureAudio();
                 return;
             }
@@ -153,7 +154,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             try { await LoadAsync(_projects.DefaultProjectPath); Status = "Senaste projektet återställt"; }
             catch { Status = "Ett nytt projekt skapades"; }
         }
+        StartNewSession();
         ConfigureAudio();
+    }
+
+    private void StartNewSession()
+    {
+        // Saved profiles from older runs may contain play counts. Clear them only
+        // at application startup, not on ordinary saves or changes of deck.
+        foreach (var jingle in Decks.SelectMany(deck => deck.Jingles))
+            jingle.SessionPlayCount = 0;
+        Settings.TrackSession = true;
+        Raise(nameof(Settings));
     }
 
     public void Play(Jingle jingle)

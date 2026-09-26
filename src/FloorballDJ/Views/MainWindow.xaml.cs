@@ -130,9 +130,7 @@ public partial class MainWindow : Window
             // Windows aktivitetsfält, även vid hög DPI eller ändrad skärmuppsättning.
             WindowState = WindowState.Maximized;
             await ViewModel.InitializeAsync();
-            // En ny programkörning är alltid en ny matchsession. Tidigare
-            // sessionmarkeringar är endast runtime-data och börjar därför tomma.
-            ViewModel.Settings.TrackSession = true;
+            // InitializeAsync starts a fresh session after loading the profile.
             RefreshOutputName();
             if (Environment.GetCommandLineArgs().Contains("--smoke-test", StringComparer.OrdinalIgnoreCase))
             {
