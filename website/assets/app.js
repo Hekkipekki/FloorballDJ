@@ -49,8 +49,8 @@
     }
     if (downloadHero) downloadHero.href = config.downloadUrl;
     if (downloadNote) downloadNote.textContent = english
-      ? "The trial starts automatically the first time the app opens. The beta is not code-signed yet, so Windows may show a SmartScreen warning."
-      : "Provperioden startar automatiskt första gången programmet öppnas. Betaversionen är ännu inte kodsignerad, så Windows kan visa en SmartScreen-varning.";
+      ? "The trial starts automatically the first time the app opens. The app is not code-signed yet, so Windows may show a SmartScreen warning."
+      : "Provperioden startar automatiskt första gången programmet öppnas. Programmet är ännu inte kodsignerat, så Windows kan visa en SmartScreen-varning.";
   } else {
     downloadButton?.addEventListener("click", (event) => event.preventDefault());
   }

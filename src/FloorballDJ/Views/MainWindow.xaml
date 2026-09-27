@@ -97,6 +97,9 @@
         </Style>
 
         <Style x:Key="DeckTab" TargetType="TabItem">
+            <Setter Property="controls:DeckTabsPanel.TabWidth" Value="{Binding TabWidth}" />
+            <Setter Property="controls:DeckTabsPanel.TabHeight" Value="{Binding TabHeight}" />
+            <Setter Property="controls:DeckTabsPanel.StartsNewRow" Value="{Binding TabStartsNewRow}" />
             <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="BorderBrush" Value="Transparent" />
@@ -105,7 +108,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
                         <Border x:Name="Surface" Background="Transparent" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="16,9" Margin="0,0,2,0">
-                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Stretch" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -136,8 +139,11 @@
                                     <Button DockPanel.Dock="Left" Content="&#xE768;  AUTOPLAY" Style="{StaticResource SecondaryButton}" MinHeight="34" Height="34"
                                             Padding="14,4" Margin="5,3,8,3" Foreground="{StaticResource AccentBrush}" Background="{StaticResource AccentSoftBrush}"
                                             BorderBrush="{StaticResource AccentBrush}" Click="Autoplay_Click" />
-                                    <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" PanningMode="HorizontalOnly">
-                                        <TabPanel IsItemsHost="True" Background="Transparent" />
+                                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" MaxHeight="240">
+                                        <controls:DeckTabsPanel IsItemsHost="True" Background="Transparent"
+                                            ItemWidth="{Binding DataContext.Settings.DeckTabWidth, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            ItemHeight="{Binding DataContext.Settings.DeckTabHeight, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            MaxColumns="{Binding DataContext.Settings.DeckTabsPerRow, RelativeSource={RelativeSource AncestorType=Window}}" />
                                     </ScrollViewer>
                                 </DockPanel>
                             </Border>
@@ -377,8 +383,8 @@
                 </TabControl.ItemsSource>
                 <TabControl.ItemTemplate>
                     <DataTemplate>
-                        <StackPanel HorizontalAlignment="Center">
-                            <TextBlock Text="{Binding Name}" HorizontalAlignment="Center" />
+                        <StackPanel HorizontalAlignment="Stretch">
+                            <TextBlock Text="{Binding Name}" TextAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
                             <ItemsControl ItemsSource="{Binding PageNumbers}" HorizontalAlignment="Center" Margin="0,2,0,-4">
                                 <ItemsControl.Style>
                                     <Style TargetType="ItemsControl">
@@ -524,27 +530,11 @@
                                                     <TextBlock Text="+" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="18" FontWeight="Light" />
                                                 </Border>
                                                 <Grid>
-                                                    <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                                                    <TextBlock Grid.Row="0" Text="{Binding Title}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                                    <TextBlock Text="{Binding Title}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
                                                                TextAlignment="Center" HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                                                               FontWeight="SemiBold">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Margin" Value="0" />
-                                                                <Style.Triggers>
-                                                                    <MultiDataTrigger>
-                                                                        <MultiDataTrigger.Conditions>
-                                                                            <Condition Binding="{Binding HasAudio}" Value="True" />
-                                                                            <Condition Binding="{Binding DataContext.Settings.ShowJingleDuration, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" />
-                                                                        </MultiDataTrigger.Conditions>
-                                                                        <Setter Property="Margin" Value="0,18" />
-                                                                    </MultiDataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                    <Border Grid.Row="1" Background="#E636E0B4" BorderBrush="#70FFFFFF" BorderThickness="1" CornerRadius="7"
-                                                            Padding="7,2" HorizontalAlignment="Left" Margin="0,0,48,0">
+                                                               FontWeight="SemiBold" />
+                                                    <Border Background="#E636E0B4" BorderBrush="#70FFFFFF" BorderThickness="1" CornerRadius="7"
+                                                            Padding="7,2" HorizontalAlignment="Left" VerticalAlignment="Bottom">
                                                         <TextBlock Text="{Binding Shortcut}" Foreground="#07140F" FontFamily="Cascadia Mono" FontSize="12" FontWeight="Bold" />
                                                         <Border.Style>
                                                             <Style TargetType="Border">

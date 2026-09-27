@@ -43,7 +43,7 @@ public partial class UpdateWindow : Window
                 StateIcon.Text = "✓";
                 StateTitle.Text = "Du använder senaste versionen";
                 VersionText.Text = $"Installerad version: {_updates.CurrentVersion}";
-                SummaryText.Text = "Ingen nyare version finns på den valda betakanalen.";
+                SummaryText.Text = "Ingen nyare publicerad version finns tillgänglig.";
             }
         }
         catch (Exception ex)

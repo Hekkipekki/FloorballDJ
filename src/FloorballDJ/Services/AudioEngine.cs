@@ -31,6 +31,7 @@ public sealed class AudioEngine : IDisposable
         public double PlaybackStartSeconds { get; init; }
         public bool Paused { get; set; }
         public bool PauseRequested { get; set; }
+        public bool CanResumeSpaceFade { get; set; }
         public float PeakLeft { get; set; }
         public float PeakRight { get; set; }
         public bool IsDisposed { get; private set; }
@@ -345,7 +346,7 @@ public sealed class AudioEngine : IDisposable
     {
         lock (_gate)
         {
-            var voice = _voices.LastOrDefault(candidate => candidate.UsesSecondaryDevice && !candidate.IsDisposed && !candidate.StopRequested);
+            var voice = _voices.LastOrDefault(candidate => candidate.UsesSecondaryDevice && !candidate.IsDisposed);
             if (voice is null) return;
             var start = TimeSpan.FromSeconds(voice.PlaybackStartSeconds);
             var end = voice.Jingle.EndSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : voice.Reader.TotalTime;
@@ -374,7 +375,6 @@ public sealed class AudioEngine : IDisposable
             if (voice.Paused || voice.PauseRequested)
             {
                 voice.CancelFade();
-                voice.FadeVolume.SetTarget(0, 0);
                 voice.Output.Play();
                 voice.Paused = false;
                 voice.PauseRequested = false;
@@ -398,7 +398,7 @@ public sealed class AudioEngine : IDisposable
         try
         {
             voice.FadeVolume.SetTarget(0, Math.Clamp(seconds, 0, 30));
-            if (!await WaitForFadeAsync(seconds, cancellationToken, drainOutputBuffer: true)) return;
+            if (!await WaitForRenderedFadeAsync(voice, cancellationToken)) return;
             lock (_gate)
             {
                 if (voice.IsDisposed || cancellationToken.IsCancellationRequested || !_voices.Contains(voice)) return;
@@ -434,19 +434,39 @@ public sealed class AudioEngine : IDisposable
         }
     }
 
-    public async Task FadeOutAllAsync(double seconds)
+    public bool TryResumeSpaceFade()
+    {
+        var resumed = false;
+        lock (_gate)
+        {
+            foreach (var voice in _voices.Where(v => !v.IsDisposed && v.StopRequested && v.CanResumeSpaceFade))
+            {
+                voice.CancelFade();
+                voice.StopRequested = false;
+                voice.CanResumeSpaceFade = false;
+                // Reverse from the current gain, never jump to silence or seek.
+                voice.FadeVolume.SetTarget(1, .08);
+                resumed = true;
+            }
+            if (resumed) RefreshActiveVolumes();
+        }
+        if (resumed) PublishSnapshot();
+        return resumed;
+    }
+
+    public async Task FadeOutAllAsync(double seconds, bool allowSpaceResume = false)
     {
         List<Voice> voices;
         lock (_gate) voices = [.. _voices];
-        await Task.WhenAll(voices.Select(voice => FadeOutVoiceAsync(voice, seconds)));
+        await Task.WhenAll(voices.Select(voice => FadeOutVoiceAsync(voice, seconds, allowSpaceResume)));
         PublishSnapshot();
     }
 
-    public async Task FadeOutPrimaryOutputAsync(double seconds)
+    public async Task FadeOutPrimaryOutputAsync(double seconds, bool allowSpaceResume = false)
     {
         List<Voice> voices;
         lock (_gate) voices = _voices.Where(voice => !voice.UsesSecondaryDevice).ToList();
-        await Task.WhenAll(voices.Select(voice => FadeOutVoiceAsync(voice, seconds)));
+        await Task.WhenAll(voices.Select(voice => FadeOutVoiceAsync(voice, seconds, allowSpaceResume)));
         PublishSnapshot();
     }
 
@@ -489,7 +509,7 @@ public sealed class AudioEngine : IDisposable
                     reachedEnd.Add(voice);
                 }
             }
-            var primaryOutputVoice = _voices.LastOrDefault(candidate => !candidate.UsesSecondaryDevice && !candidate.IsDisposed && !candidate.StopRequested);
+            var primaryOutputVoice = _voices.LastOrDefault(candidate => !candidate.UsesSecondaryDevice && !candidate.IsDisposed);
             snapshot = CreateSnapshot(primaryOutputVoice, "Redo för nästa jingle");
         }
         foreach (var voice in reachedEnd)
@@ -553,18 +573,19 @@ public sealed class AudioEngine : IDisposable
         finally { voice.EndFade(cancellationToken); }
     }
 
-    private async Task FadeOutVoiceAsync(Voice voice, double seconds)
+    private async Task FadeOutVoiceAsync(Voice voice, double seconds, bool allowSpaceResume = false)
     {
         if (voice.IsDisposed) return;
         var cancellationToken = voice.BeginFade();
         try
         {
             voice.PauseRequested = false;
+            voice.CanResumeSpaceFade = allowSpaceResume;
             // Markera avsiktlig toning direkt. Annars kan filen nå sitt naturliga slut
             // under fade-jobbet och felaktigt utlösa PlaybackCompleted en extra gång.
             voice.StopRequested = true;
-            voice.FadeVolume.SetTarget(0, Math.Clamp(seconds, 0, 30));
-            if (!await WaitForFadeAsync(seconds, cancellationToken, drainOutputBuffer: true)) return;
+            voice.FadeVolume.SetTarget(0, voice.Paused ? 0 : Math.Clamp(seconds, 0, 30));
+            if (!await WaitForRenderedFadeAsync(voice, cancellationToken)) return;
 
             lock (_gate)
             {
@@ -576,6 +597,19 @@ public sealed class AudioEngine : IDisposable
             voice.Dispose();
         }
         finally { voice.EndFade(cancellationToken); }
+    }
+
+    private static async Task<bool> WaitForRenderedFadeAsync(Voice voice, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // The audio callback, not wall-clock time, decides when the ramp is
+            // complete. Then allow the 50 ms WASAPI buffer to drain.
+            await voice.FadeVolume.TransitionCompleted.WaitAsync(cancellationToken);
+            await Task.Delay(60, cancellationToken);
+            return true;
+        }
+        catch (OperationCanceledException) { return false; }
     }
 
     private static async Task<bool> WaitForFadeAsync(double seconds, CancellationToken cancellationToken, bool drainOutputBuffer)
@@ -633,7 +667,8 @@ public sealed class AudioEngine : IDisposable
         var duration = end > start ? end - start : TimeSpan.Zero;
         var position = voice.Reader.CurrentTime > start ? voice.Reader.CurrentTime - start : TimeSpan.Zero;
         return new(voice.Jingle.Id, voice.Jingle.Title, voice.Jingle.FilePath, position, duration,
-            LinearToDb(voice.PeakLeft), LinearToDb(voice.PeakRight), voice.Output.PlaybackState == PlaybackState.Playing, voice.Paused);
+            LinearToDb(voice.PeakLeft), LinearToDb(voice.PeakRight), voice.Output.PlaybackState == PlaybackState.Playing, voice.Paused,
+            voice.StopRequested || voice.PauseRequested);
     }
     private static float DbToLinear(double db) => (float)Math.Pow(10, db / 20);
     private static float LinearToDb(float value) => value <= 0.0001f ? -60 : Math.Max(-60, 20f * MathF.Log10(value));

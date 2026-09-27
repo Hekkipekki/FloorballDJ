@@ -1,0 +1,28 @@
+<Window x:Class="FloorballDJ.Views.DeckTabSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Anpassa flik" Width="480" Height="380" WindowStartupLocation="CenterOwner">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24,20">
+            <TextBlock x:Name="DeckNameText" Style="{StaticResource SectionTitle}" TextWrapping="Wrap" />
+            <TextBlock Text="Gäller bara denna flik. 0 använder standardmåttet från Inställningar." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,8,0,18" />
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="16" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Bredd (64–400 px)" Margin="0,0,0,5" />
+                    <TextBox x:Name="WidthBox" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Höjd (36–120 px)" Margin="0,0,0,5" />
+                    <TextBox x:Name="HeightBox" />
+                </StackPanel>
+            </Grid>
+            <CheckBox x:Name="NewRowBox" Content="Börja på ny rad" Margin="0,16,0,20" />
+            <WrapPanel HorizontalAlignment="Right">
+                <Button Content="Återställ" Click="Reset_Click" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" />
+                <Button Content="Avbryt" IsCancel="True" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" />
+                <Button Content="Använd" IsDefault="True" Click="Save_Click" Style="{StaticResource PrimaryButton}" Margin="0,0,0,8" />
+            </WrapPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

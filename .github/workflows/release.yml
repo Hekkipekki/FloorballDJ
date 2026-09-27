@@ -107,7 +107,9 @@ jobs:
             "artifacts/installer/$version/FloorballDJ-Setup.exe",
             "artifacts/installer/$version/FloorballDJ-Setup.exe.sha256"
           )
-          $arguments = @("release", "create", $tag) + $assets + @("--repo", $releaseRepository, "--title", "FloorballDJ $version", "--generate-notes")
+          $arguments = @("release", "create", $tag) + $assets + @("--repo", $releaseRepository, "--title", "FloorballDJ $version")
+          $notesPath = "docs/releases/$version.md"
+          if (Test-Path $notesPath) { $arguments += @("--notes-file", $notesPath) } else { $arguments += "--generate-notes" }
           if (("${{ github.event_name }}" -eq "workflow_dispatch" -and "${{ inputs.prerelease }}" -eq "true") -or $version -match '-') {
             $arguments += "--prerelease"
           }
@@ -127,7 +129,7 @@ jobs:
           git checkout -B $defaultBranch "origin/$defaultBranch"
           $manifest = [ordered]@{
             version = $version
-            channel = if ("${{ inputs.prerelease }}" -eq "true" -or $version -match '-') { "beta" } else { "stable" }
+            channel = if ($version -match '-rc\.') { "rc" } elseif ("${{ inputs.prerelease }}" -eq "true" -or $version -match '-') { "beta" } else { "stable" }
             installerUrl = $installerUrl
             downloadPage = "https://floorballdj.netlify.app/licens/#download"
             releaseNotesUrl = "https://floorballdj.netlify.app/changelog/"
@@ -138,7 +140,7 @@ jobs:
           $manifest | ConvertTo-Json | Set-Content -LiteralPath website/update.json -Encoding utf8
           $configPath = "website/assets/site-config.js"
           $config = Get-Content -LiteralPath $configPath -Raw
-          $displayVersion = $version -replace '-beta\.', ' beta '
+          $displayVersion = $version -replace '-beta\.', ' beta ' -replace '-rc\.', ' RC'
           $config = $config -replace 'downloadUrl:\s*"[^"]*"', "downloadUrl: `"$installerUrl`""
           $config = $config -replace 'currentVersion:\s*"[^"]*"', "currentVersion: `"$displayVersion`""
           Set-Content -LiteralPath $configPath -Value $config -Encoding utf8

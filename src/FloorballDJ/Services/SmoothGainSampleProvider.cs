@@ -12,8 +12,19 @@ internal sealed class SmoothGainSampleProvider : ISampleProvider
     private readonly object _gate = new();
     private float _currentGain;
     private float _targetGain;
-    private float _gainStepPerFrame;
+    private float _startGain;
+    private long _totalFrames;
     private long _framesRemaining;
+    private TaskCompletionSource _transition = CompletedTransition();
+
+    private static TaskCompletionSource CompletedTransition()
+    {
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        completion.SetResult();
+        return completion;
+    }
+
+    public Task TransitionCompleted { get { lock (_gate) return _transition.Task; } }
 
     public SmoothGainSampleProvider(ISampleProvider source, float initialGain = 1)
     {
@@ -27,16 +38,19 @@ internal sealed class SmoothGainSampleProvider : ISampleProvider
     {
         lock (_gate)
         {
+            _transition.TrySetResult();
+            _transition = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             _targetGain = Math.Clamp(targetGain, 0, 4);
             _framesRemaining = (long)Math.Round(Math.Max(0, transitionSeconds) * WaveFormat.SampleRate);
+            _totalFrames = _framesRemaining;
+            _startGain = _currentGain;
             if (_framesRemaining <= 0)
             {
                 _currentGain = _targetGain;
-                _gainStepPerFrame = 0;
+                _transition.TrySetResult();
                 return;
             }
 
-            _gainStepPerFrame = (_targetGain - _currentGain) / _framesRemaining;
         }
     }
 
@@ -56,8 +70,16 @@ internal sealed class SmoothGainSampleProvider : ISampleProvider
                     buffer[sample] *= _currentGain;
 
                 if (_framesRemaining <= 0) continue;
-                _currentGain += _gainStepPerFrame;
-                if (--_framesRemaining == 0) _currentGain = _targetGain;
+                // Calculate from the original gain, avoiding accumulated float error
+                // during long fades. Smoothstep reaches both endpoints gently.
+                var progress = 1.0 - (double)--_framesRemaining / _totalFrames;
+                var blend = progress * progress * (3 - 2 * progress);
+                _currentGain = (float)(_startGain + (_targetGain - _startGain) * blend);
+                if (_framesRemaining == 0)
+                {
+                    _currentGain = _targetGain;
+                    _transition.TrySetResult();
+                }
             }
         }
         return read;

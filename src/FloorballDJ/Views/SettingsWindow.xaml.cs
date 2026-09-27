@@ -328,6 +328,9 @@ public partial class SettingsWindow : Window
         target.TitleFontSize = source.TitleFontSize;
         target.FontFamily = source.FontFamily;
         target.ShowJingleDuration = source.ShowJingleDuration;
+        target.DeckTabWidth = source.DeckTabWidth;
+        target.DeckTabHeight = source.DeckTabHeight;
+        target.DeckTabsPerRow = source.DeckTabsPerRow;
         target.OutputDeviceId = source.OutputDeviceId;
         target.SecondaryOutputDeviceId = source.SecondaryOutputDeviceId;
         target.MusicFolderPath = source.MusicFolderPath;

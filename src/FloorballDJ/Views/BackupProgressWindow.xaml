@@ -1,13 +1,14 @@
 <Window x:Class="FloorballDJ.Views.BackupProgressWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Flyttbackup" Width="590" Height="330" MinWidth="520" MinHeight="300"
-        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False">
+        Title="Flyttbackup" Width="620" Height="440" MinWidth="400" MinHeight="280"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize" ShowInTaskbar="False">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <Grid Margin="26">
-        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <StackPanel>
             <TextBlock Text="KOMPLETT FLYTTBACKUP" Style="{StaticResource EyebrowText}"/>
-            <TextBlock x:Name="HeadingText" Text="Arbetar med backupen" Style="{StaticResource SectionTitle}" FontSize="27" Margin="0,5,0,5"/>
+            <TextBlock x:Name="HeadingText" Text="Arbetar med backupen" Style="{StaticResource SectionTitle}" FontSize="27" TextWrapping="Wrap" Margin="0,5,0,5"/>
             <TextBlock x:Name="DescriptionText" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"/>
         </StackPanel>
         <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="20" Margin="0,20,0,16">
@@ -15,14 +16,14 @@
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                 <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                    <TextBlock x:Name="PhaseText" Text="Förbereder…" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="PhaseText" Text="Förbereder…" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,12,0"/>
                     <TextBlock x:Name="PercentText" Grid.Column="1" Text="0 %" Foreground="{StaticResource AccentBrush}" FontFamily="Cascadia Mono" FontWeight="Bold"/>
                 </Grid>
                 <ProgressBar x:Name="WorkProgress" Grid.Row="1" Height="10" Minimum="0" Maximum="100" Margin="0,16,0,0"/>
                 <Grid Grid.Row="2" Margin="0,10,0,0">
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                    <TextBlock x:Name="DetailText" Margin="0,0,16,0" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock x:Name="FileCountText" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontFamily="Cascadia Mono"/>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <TextBlock x:Name="DetailText" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="FileCountText" Grid.Row="1" Margin="0,8,0,0" Foreground="{StaticResource MutedBrush}" FontFamily="Cascadia Mono"/>
                 </Grid>
                 <TextBlock Grid.Row="3" Text="Fönstret stängs automatiskt när arbetet är klart. Stäng inte av datorn under tiden."
                            Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,18,0,0"/>
@@ -33,4 +34,5 @@
             <TextBlock Text="FloorballDJ arbetar fortfarande" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
         </StackPanel>
     </Grid>
+    </ScrollViewer>
 </Window>

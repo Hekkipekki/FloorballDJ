@@ -13,6 +13,12 @@ public sealed class AppSettings : INotifyPropertyChanged
     private double _titleFontSize = 15;
     private string _fontFamily = "Segoe UI Variable Display";
     private bool _showJingleDuration = true;
+    private double _deckTabWidth;
+    private double _deckTabHeight;
+    private int _deckTabsPerRow;
+    public double DeckTabWidth { get => _deckTabWidth; set => SetAppearance(ref _deckTabWidth, double.IsFinite(value) ? Math.Clamp(value, 0, 400) : 0); }
+    public double DeckTabHeight { get => _deckTabHeight; set => SetAppearance(ref _deckTabHeight, double.IsFinite(value) ? Math.Clamp(value, 0, 120) : 0); }
+    public int DeckTabsPerRow { get => _deckTabsPerRow; set => SetAppearance(ref _deckTabsPerRow, Math.Clamp(value, 0, 24)); }
 
     private void SetAppearance<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {
@@ -288,6 +294,12 @@ public sealed class Jingle : INotifyPropertyChanged
 public sealed class Deck : INotifyPropertyChanged
 {
     private string _name = "Deck";
+    private double _tabWidth;
+    private double _tabHeight;
+    private bool _tabStartsNewRow;
+    public double TabWidth { get => _tabWidth; set { _tabWidth = double.IsFinite(value) ? Math.Clamp(value, 0, 400) : 0; Raise(); } }
+    public double TabHeight { get => _tabHeight; set { _tabHeight = double.IsFinite(value) ? Math.Clamp(value, 0, 120) : 0; Raise(); } }
+    public bool TabStartsNewRow { get => _tabStartsNewRow; set { _tabStartsNewRow = value; Raise(); } }
     private int _rows;
     private int _columns;
     private int _pageCount = 1;
@@ -445,4 +457,5 @@ public sealed record PlaybackSnapshot(
     float PeakLeftDb,
     float PeakRightDb,
     bool IsPlaying,
-    bool IsPaused);
+    bool IsPaused,
+    bool IsFadingOut = false);

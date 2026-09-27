@@ -139,6 +139,20 @@
                     </StackPanel>
                 </GroupBox>
 
+                <GroupBox Header="Deckflikar" Style="{StaticResource ModernGroupBox}" Margin="0,0,0,16">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                        <TextBlock Text="Flikbredd" Style="{StaticResource FieldLabel}"/>
+                        <TextBox Grid.Column="1" Text="{Binding Draft.DeckTabWidth, Converter={StaticResource FlexibleDouble}, Mode=TwoWay}" Margin="0,5"/>
+                        <TextBlock Grid.Row="1" Text="Flikhöjd" Style="{StaticResource FieldLabel}"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Draft.DeckTabHeight, Converter={StaticResource FlexibleDouble}, Mode=TwoWay}" Margin="0,5"/>
+                        <TextBlock Grid.Row="2" Text="Max flikar per rad" Style="{StaticResource FieldLabel}"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Draft.DeckTabsPerRow, Mode=TwoWay}" Margin="0,5"/>
+                        <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Text="0 = automatiskt. Bredd och höjd anges i pixlar. Flikarna radbryts även när fönstret blir smalare."
+                                   TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,8,0,0"/>
+                    </Grid>
+                </GroupBox>
                 <GroupBox Header="Typografi" Style="{StaticResource ModernGroupBox}">
                     <Grid Margin="2,7,2,2">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
@@ -171,15 +185,7 @@
                                            TextWrapping="Wrap" TextTrimming="CharacterEllipsis" TextAlignment="Center" VerticalAlignment="Center"
                                            Foreground="Black" FontWeight="SemiBold"
                                            FontFamily="{Binding Draft.FontFamily, Converter={StaticResource PreviewFontFamily}}"
-                                           FontSize="{Binding Draft.TitleFontSize}">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Draft.ShowJingleDuration}" Value="True"><Setter Property="Margin" Value="0,18" /></DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
+                                           FontSize="{Binding Draft.TitleFontSize}" />
                                 <Border Background="#28000000" CornerRadius="6" Padding="6,2" HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                         Visibility="{Binding Draft.ShowJingleDuration, Converter={StaticResource PreviewVisibility}}">
                                     <TextBlock Text="02:49" Foreground="Black" FontFamily="Cascadia Mono" FontSize="11" />

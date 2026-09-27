@@ -894,9 +894,15 @@ public partial class MainWindow : Window
 
         if (e.Key != Key.Space || Keyboard.Modifiers != ModifierKeys.None) return;
         e.Handled = true;
+        if (e.IsRepeat) return;
+        if (_audio.TryResumeSpaceFade())
+        {
+            ClearSpaceResume();
+            return;
+        }
         if (ViewModel.UseSecondaryOutput)
         {
-            await _audio.FadeOutPrimaryOutputAsync(ViewModel.Settings.FadeOutSeconds);
+            await _audio.FadeOutPrimaryOutputAsync(ViewModel.Settings.FadeOutSeconds, allowSpaceResume: true);
             return;
         }
         var autoplayActive = ViewModel.AutoplayModeActive;
@@ -906,7 +912,7 @@ public partial class MainWindow : Window
             if (ViewModel.NowPlaying.JingleId is not null)
             {
                 ViewModel.MarkFadingOut();
-                await _audio.FadeOutAllAsync(ViewModel.Settings.FadeOutSeconds);
+                await _audio.FadeOutAllAsync(ViewModel.Settings.FadeOutSeconds, allowSpaceResume: true);
                 return;
             }
             ViewModel.PlayNextDeckQueued();
@@ -923,7 +929,7 @@ public partial class MainWindow : Window
             _spaceResumeExpires = DateTimeOffset.Now.AddMinutes(2);
             ViewModel.IsSpaceResumePending = _spaceResumeJingle is not null;
             ViewModel.MarkFadingOut();
-            await _audio.FadeOutAllAsync(ViewModel.Settings.FadeOutSeconds);
+            await _audio.FadeOutAllAsync(ViewModel.Settings.FadeOutSeconds, allowSpaceResume: true);
         }
         else if (_spaceResumeJingle is not null && DateTimeOffset.Now <= _spaceResumeExpires)
         {
@@ -1167,6 +1173,7 @@ public partial class MainWindow : Window
 
         var menu = new ContextMenu();
         menu.Items.Add(CreateDeckMenuItem("Byt namn…", deck, RenameDeck_Click));
+        menu.Items.Add(CreateDeckMenuItem("Anpassa flik…", deck, CustomizeDeckTab_Click));
         menu.Items.Add(CreateDeckMenuItem("Lägg till nytt deck efter detta", deck, AddDeck_Click));
         menu.Items.Add(CreateDeckMenuItem("Ta bort deck", deck, RemoveDeck_Click));
         menu.Items.Add(new Separator());
@@ -1212,6 +1219,17 @@ public partial class MainWindow : Window
         var item = new MenuItem { Header = header, Tag = deck };
         item.Click += handler;
         return item;
+    }
+
+    private async void CustomizeDeckTab_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetContextDeck(sender) is not { } deck) return;
+        var dialog = new DeckTabSettingsWindow(deck) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+        deck.TabWidth = dialog.TabWidth;
+        deck.TabHeight = dialog.TabHeight;
+        deck.TabStartsNewRow = dialog.StartsNewRow;
+        await SaveSafelyAsync();
     }
 
     private async void RenameDeck_Click(object sender, RoutedEventArgs e)
@@ -1583,19 +1601,19 @@ public partial class MainWindow : Window
 
     private (int InsertionIndex, TabItem? Target, bool AfterTarget) GetDeckDropPosition(Point pointer)
     {
-        TabItem? lastTab = null;
+        var tabs = new List<(int Index, TabItem Tab, Point Origin)>();
         for (var index = 0; index < DeckTabsControl.Items.Count; index++)
         {
             if (DeckTabsControl.ItemContainerGenerator.ContainerFromIndex(index) is not TabItem candidate) continue;
-            lastTab = candidate;
             var origin = candidate.TransformToAncestor(DeckTabsControl).Transform(new Point(0, 0));
-            if (pointer.X < origin.X + candidate.ActualWidth / 2)
-                return (index, candidate, false);
+            tabs.Add((index, candidate, origin));
         }
-
-        return lastTab is null
-            ? (-1, null, false)
-            : (DeckTabsControl.Items.Count, lastTab, true);
+        if (tabs.Count == 0) return (-1, null, false);
+        var nearest = tabs.MinBy(tab => Math.Abs(pointer.Y - (tab.Origin.Y + tab.Tab.ActualHeight / 2)));
+        var row = tabs.Where(tab => Math.Abs(tab.Origin.Y - nearest.Origin.Y) < 1).ToArray();
+        foreach (var tab in row)
+            if (pointer.X < tab.Origin.X + tab.Tab.ActualWidth / 2) return (tab.Index, tab.Tab, false);
+        return (row[^1].Index + 1, row[^1].Tab, true);
     }
 
     private void EndDeckDrag()

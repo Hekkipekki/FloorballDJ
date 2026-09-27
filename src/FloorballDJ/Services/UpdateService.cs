@@ -146,7 +146,7 @@ public sealed class UpdateService
             DateTimeOffset? publishedAt = null;
             if (release.TryGetProperty("published_at", out var published) && published.TryGetDateTimeOffset(out var parsed))
                 publishedAt = parsed;
-            var manifest = new UpdateManifest(version, "beta",
+            var manifest = new UpdateManifest(version, version.Contains("-rc.", StringComparison.OrdinalIgnoreCase) ? "rc" : version.Contains('-') ? "beta" : "stable",
                 installer.GetProperty("browser_download_url").GetString() ?? "",
                 "https://floorballdj.netlify.app/licens/#download",
                 "https://floorballdj.netlify.app/changelog/",

@@ -75,6 +75,29 @@ internal static class Program
         Check(double.IsPositiveInfinity(title.MaxHeight) && title.ActualWidth > button.ActualWidth * .85, "Expanded title area");
         var duration = Descendants(button).OfType<TextBlock>().First(t => t.Text == "02:49");
         Check(((UIElement)VisualTreeHelper.GetParent(duration)).Visibility == Visibility.Collapsed, "Hidden duration");
+        var titleOrigin = title.TransformToAncestor(button).Transform(new Point());
+        var titleSize = title.RenderSize;
+        jingle.Shortcut = "Ctrl+1";
+        vm.Settings.ShowJingleDuration = true;
+        app.Dispatcher.Invoke(() => { }, DispatcherPriority.DataBind);
+        mainContent.UpdateLayout();
+        Check(title.TransformToAncestor(button).Transform(new Point()) == titleOrigin && title.RenderSize == titleSize,
+            "Corner badges must not reserve title space");
+        vm.Settings.DeckTabWidth = 160;
+        vm.Settings.DeckTabHeight = 54;
+        vm.Settings.DeckTabsPerRow = 2;
+        app.Dispatcher.Invoke(() => { }, DispatcherPriority.DataBind);
+        mainContent.UpdateLayout();
+        var tabsPanel = Descendants(mainContent).OfType<FloorballDJ.Controls.DeckTabsPanel>().Single();
+        Check(tabsPanel.ActualHeight >= 108 && VisualTreeHelper.GetOffset(tabsPanel.Children[2]).Y >= 54,
+            "Live multirow deck settings");
+        vm.Decks[1].TabWidth = 220;
+        vm.Decks[1].TabHeight = 70;
+        vm.Decks[1].TabStartsNewRow = true;
+        app.Dispatcher.Invoke(() => { }, DispatcherPriority.DataBind);
+        mainContent.UpdateLayout();
+        Check(tabsPanel.Children[1].RenderSize.Width == 220 && tabsPanel.Children[1].RenderSize.Height >= 70 &&
+            VisualTreeHelper.GetOffset(tabsPanel.Children[1]).Y >= 54, "Live per-deck sizing and row break");
         var mainImage = new RenderTargetBitmap(1280, 720, 96, 96, PixelFormats.Pbgra32);
         mainImage.Render(mainContent);
         var mainEncoder = new PngBitmapEncoder();
@@ -82,6 +105,17 @@ internal static class Program
         using (var file = File.Create(Path.Combine(root, "main.png"))) mainEncoder.Save(file);
         Console.WriteLine("PASS: existing button updates, expanded title area, hidden duration.");
         Console.WriteLine(Path.Combine(root, "main.png"));
+        var tabDialog = new DeckTabSettingsWindow(vm.Decks[1]);
+        var tabContent = (FrameworkElement)tabDialog.Content;
+        tabContent.Measure(new Size(480, 350));
+        tabContent.Arrange(new Rect(0, 0, 480, 350));
+        tabContent.UpdateLayout();
+        var tabImage = new RenderTargetBitmap(480, 350, 96, 96, PixelFormats.Pbgra32);
+        tabImage.Render(tabContent);
+        var tabEncoder = new PngBitmapEncoder();
+        tabEncoder.Frames.Add(BitmapFrame.Create(tabImage));
+        using (var file = File.Create(Path.Combine(root, "tab-dialog.png"))) tabEncoder.Save(file);
+        Console.WriteLine(Path.Combine(root, "tab-dialog.png"));
         vm.Dispose();
         app.Shutdown();
     }

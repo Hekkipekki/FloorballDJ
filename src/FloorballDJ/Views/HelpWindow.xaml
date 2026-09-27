@@ -56,7 +56,7 @@
                     <TextBlock Text="Kom igång, lär dig arbetsflödet och slå upp funktioner under matchen." Foreground="{StaticResource MutedBrush}" />
                 </StackPanel>
                 <Border Grid.Column="1" Background="{StaticResource AccentSoftBrush}" CornerRadius="9" Padding="13,8" VerticalAlignment="Center">
-                    <TextBlock Text="BETA-GUIDE" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" FontSize="11" />
+                    <TextBlock Text="RC-GUIDE" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" FontSize="11" />
                 </Border>
             </Grid>
         </Border>

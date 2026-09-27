@@ -43,7 +43,7 @@ Projekt sparas som indenterad UTF-8 JSON med ändelsen `.floorballdj.json`. Det 
 När Inno Setup 7 finns installerat kan en komplett Windows-installerare byggas med:
 
 ```powershell
-.\scripts\Build-Installer.ps1 -Version 0.40.0-beta
+.\scripts\Build-Installer.ps1 -Version 0.40.0-rc.1
 ```
 
 Se `DISTRIBUTION.md` för GitHub Releases, kontrollsummor och kodsignering.
