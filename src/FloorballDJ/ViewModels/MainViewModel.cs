@@ -10,15 +10,21 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 {
     private readonly ProjectService _projects;
     private readonly ProfilePreferencesService _profilePreferences;
+    private double? _localTitleFontSize;
     private readonly AudioEngine _audio;
     private readonly DispatcherTimer _timer;
     private FloorballProject _project = ProjectService.CreateDefault();
     private Deck? _selectedDeck;
     private PlaybackSnapshot _nowPlaying = new(null, "Redo för nästa jingle", "", TimeSpan.Zero, TimeSpan.Zero, -60, -60, false, false);
+    private string _remainingText = "--:--.-";
+    private double _positionFraction;
+    private string _snapshotLanguage = LanguageService.CurrentLanguage;
     private string _status = "Redo";
     private bool _isFadingOutCurrent;
     private bool _useSecondaryOutput;
     private PlaybackSnapshot _previewPlaying = new(null, "Ingen förlyssning", "", TimeSpan.Zero, TimeSpan.Zero, -60, -60, false, false);
+    private string _previewTimeText = "--:-- / --:--";
+    private double _previewPositionFraction;
     private double _previewVolumeDb;
     private bool _queueLoopEnabled = true;
     private bool _queueShuffleEnabled;
@@ -32,7 +38,23 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private Guid? _previewOnlyJingleId;
     private string? _currentPath;
     private CancellationTokenSource? _saveRequestCancellation;
+    private readonly Dispatcher _ownerDispatcher = Dispatcher.CurrentDispatcher;
+    private SaveContext? _pendingAutosave;
+    private Task _autosaveTask = Task.CompletedTask;
+    private bool _autosaveRunning;
+    private bool _hasSaveRequest;
+    private bool _saveDirty;
+    private long _saveVersion;
+    private long _projectGeneration;
+    private sealed record SaveContext(ProjectService.PreparedSave Save, FloorballProject Project, long Generation, long Version);
     private bool _disposed;
+    private CancellationTokenSource _profileWorkCancellation = new();
+    private CancellationTokenSource? _xmlImportCancellation;
+    private CancellationTokenSource? _queuePrefetchCancellation;
+    internal long QueueRevision { get; private set; }
+    internal CancellationToken ProfileWorkCancellation => _disposed ? new CancellationToken(true) : _profileWorkCancellation.Token;
+    internal AudioMetadataService Metadata { get; init; } = AudioMetadataService.Shared;
+    private readonly JingleShortcutIndex _shortcuts;
 
     public event EventHandler? PrimaryPlaybackStarted;
 
@@ -40,7 +62,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         _projects = projects;
         _profilePreferences = profilePreferences;
+        _localTitleFontSize = profilePreferences.GetLocalTitleFontSize();
+        if (_localTitleFontSize.HasValue) _project.Settings.TitleFontSize = _localTitleFontSize.Value;
+        _project.Settings.PropertyChanged += LocalAppearanceChanged;
         _audio = audio;
+        PlaybackQueue.CollectionChanged += (_, _) =>
+        {
+            QueueRevision++;
+            CancelQueuePrefetch();
+        };
+        _shortcuts = new JingleShortcutIndex(_project.Decks);
         _selectedDeck = _project.Decks.FirstOrDefault();
         _audio.SnapshotChanged += (_, snapshot) =>
         {
@@ -48,7 +79,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (!snapshot.IsFadingOut && _isFadingOutCurrent)
             {
                 _isFadingOutCurrent = false;
-                Raise(nameof(NowPlayingLabel));
                 Status = snapshot.JingleId is null
                     ? $"Aktiv profil: {GetActiveProfileDisplayName()}"
                     : $"Spelar: {snapshot.Title}";
@@ -76,33 +106,124 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _timer.Start();
     }
 
-    public FloorballProject Project { get => _project; private set { if (Set(ref _project, value)) RaiseAll(); } }
+    public FloorballProject Project
+    {
+        get => _project;
+        private set
+        {
+            if (ReferenceEquals(_project, value)) return;
+            _profileWorkCancellation.Cancel();
+            _profileWorkCancellation.Dispose();
+            _profileWorkCancellation = new();
+            CancelDelayedSave();
+            SupersedePendingAutosave();
+            _projectGeneration++;
+            _saveDirty = false;
+            Shortcuts.SetDecks(value.Decks);
+            _project.Settings.PropertyChanged -= LocalAppearanceChanged;
+            ApplyLocalTypography(value.Settings);
+            value.Settings.PropertyChanged += LocalAppearanceChanged;
+            if (Set(ref _project, value)) RaiseAll();
+        }
+    }
+    internal JingleShortcutIndex Shortcuts
+    {
+        get
+        {
+            // Also handle replacing Decks on the current project rather than the project itself.
+            _shortcuts.SetDecks(Decks);
+            return _shortcuts;
+        }
+    }
     public AppSettings Settings => Project.Settings;
     public ObservableCollection<Deck> Decks => Project.Decks;
     public Deck? SelectedDeck { get => _selectedDeck; set => Set(ref _selectedDeck, value); }
-    public PlaybackSnapshot NowPlaying { get => _nowPlaying; private set { if (Set(ref _nowPlaying, value)) { Raise(nameof(RemainingText)); Raise(nameof(PositionFraction)); Raise(nameof(NowPlayingTitle)); Raise(nameof(NowPlayingLabel)); } } }
+    public PlaybackSnapshot NowPlaying
+    {
+        get => _nowPlaying;
+        private set
+        {
+            var previous = _nowPlaying;
+            var languageChanged = _snapshotLanguage != LanguageService.CurrentLanguage;
+            _snapshotLanguage = LanguageService.CurrentLanguage;
+            if (languageChanged) Raise(nameof(PrimaryLimiterButtonText));
+            if (previous != value)
+            {
+                var remaining = _remainingText;
+                var fraction = _positionFraction;
+                _nowPlaying = value;
+                if (previous.Position != value.Position || previous.Duration != value.Duration)
+                {
+                    _remainingText = value.Duration <= TimeSpan.Zero ? "--:--.-" : Format(value.Duration - value.Position);
+                    _positionFraction = value.Duration.TotalSeconds <= 0 ? 0 : Math.Clamp(value.Position.TotalSeconds / value.Duration.TotalSeconds, 0, 1);
+                }
+                // Commit all derived values before observers receive the snapshot.
+                Raise(nameof(NowPlaying));
+                if (remaining != _remainingText) Raise(nameof(RemainingText));
+                if (!fraction.Equals(_positionFraction)) Raise(nameof(PositionFraction));
+                if (previous.JingleId != value.JingleId) Raise(nameof(NowPlayingJingleId));
+                if (previous.FilePath != value.FilePath) Raise(nameof(NowPlayingFilePath));
+                if (previous.IsPaused != value.IsPaused) Raise(nameof(NowPlayingIsPaused));
+                if (previous.Title != value.Title && !languageChanged) Raise(nameof(NowPlayingTitle));
+                if (previous.IsFadingOut != value.IsFadingOut && !languageChanged) Raise(nameof(NowPlayingLabel));
+            }
+            if (languageChanged)
+            {
+                Raise(nameof(NowPlayingTitle));
+                Raise(nameof(NowPlayingLabel));
+                Raise(nameof(Status));
+            }
+        }
+    }
+    public Guid? NowPlayingJingleId => NowPlaying.JingleId;
+    public string NowPlayingFilePath => NowPlaying.FilePath;
+    public bool NowPlayingIsPaused => NowPlaying.IsPaused;
     public string NowPlayingTitle => LanguageService.Translate(NowPlaying.Title);
-    public string RemainingText => NowPlaying.Duration <= TimeSpan.Zero ? "--:--.-" : Format(NowPlaying.Duration - NowPlaying.Position);
-    public double PositionFraction => NowPlaying.Duration.TotalSeconds <= 0 ? 0 : Math.Clamp(NowPlaying.Position.TotalSeconds / NowPlaying.Duration.TotalSeconds, 0, 1);
+    public string RemainingText => _remainingText;
+    public double PositionFraction => _positionFraction;
     public string Status { get => LanguageService.Translate(_status); set => Set(ref _status, value); }
     public string NowPlayingLabel => LanguageService.Translate(NowPlaying.IsFadingOut ? "FADEAS UT" : "SPELAR NU");
     public bool UseSecondaryOutput { get => _useSecondaryOutput; set => Set(ref _useSecondaryOutput, value); }
+    private bool _primaryLimiterBypassed;
+    public bool PrimaryLimiterBypassed
+    {
+        get => _primaryLimiterBypassed;
+        set
+        {
+            if (!Set(ref _primaryLimiterBypassed, value)) return;
+            _audio.SetPrimaryLimiterBypassed(value);
+            Raise(nameof(PrimaryLimiterButtonText));
+            Status = value ? "Huvudutgångens limiter är tillfälligt av. Normalisering och förlyssningsskydd behålls."
+                : "Huvudutgångens limiter följer profilens inställning igen.";
+        }
+    }
+    public string PrimaryLimiterButtonText => LanguageService.Translate(PrimaryLimiterBypassed ? "LIMITER AV" : "LIMITER");
     public PlaybackSnapshot PreviewPlaying
     {
         get => _previewPlaying;
         private set
         {
-            if (!Set(ref _previewPlaying, value)) return;
-            Raise(nameof(PreviewPositionFraction));
-            Raise(nameof(PreviewTimeText));
-            Raise(nameof(HasPreview));
+            var previous = _previewPlaying;
+            if (previous == value) return;
+            var fraction = _previewPositionFraction;
+            var text = _previewTimeText;
+            _previewPlaying = value;
+            if (previous.Position != value.Position || previous.Duration != value.Duration)
+            {
+                _previewPositionFraction = value.Duration.TotalSeconds <= 0 ? 0 : Math.Clamp(value.Position.TotalSeconds / value.Duration.TotalSeconds, 0, 1);
+                _previewTimeText = value.Duration <= TimeSpan.Zero ? "--:-- / --:--" : $"{Format(value.Position)} / {Format(value.Duration)}";
+            }
+            Raise(nameof(PreviewPlaying));
+            if (!fraction.Equals(_previewPositionFraction)) Raise(nameof(PreviewPositionFraction));
+            if (text != _previewTimeText) Raise(nameof(PreviewTimeText));
+            if (previous.Title != value.Title) Raise(nameof(PreviewTitle));
+            if ((previous.JingleId is null) != (value.JingleId is null)) Raise(nameof(HasPreview));
         }
     }
+    public string PreviewTitle => PreviewPlaying.Title;
     public bool HasPreview => PreviewPlaying.JingleId is not null;
-    public double PreviewPositionFraction => PreviewPlaying.Duration.TotalSeconds <= 0 ? 0 :
-        Math.Clamp(PreviewPlaying.Position.TotalSeconds / PreviewPlaying.Duration.TotalSeconds, 0, 1);
-    public string PreviewTimeText => PreviewPlaying.Duration <= TimeSpan.Zero ? "--:-- / --:--" :
-        $"{Format(PreviewPlaying.Position)} / {Format(PreviewPlaying.Duration)}";
+    public double PreviewPositionFraction => _previewPositionFraction;
+    public string PreviewTimeText => _previewTimeText;
     public double PreviewVolumeDb
     {
         get => _previewVolumeDb;
@@ -135,6 +256,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public int QueuedCount => AutoplayModeActive ? PlaybackQueue.Count : DeckPlaybackQueue.Count;
     public AudioEngine Audio => _audio;
     public string CurrentProjectPath => _currentPath ?? _projects.DefaultProjectPath;
+    public string ProfileDisplayName => GetActiveProfileDisplayName();
 
     public async Task InitializeAsync()
     {
@@ -160,8 +282,31 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         ConfigureAudio();
     }
 
+    private void ApplyLocalTypography(AppSettings settings)
+    {
+        var size = _localTitleFontSize ?? Math.Clamp(settings.TitleFontSize, 9, 40);
+        if (!_localTitleFontSize.HasValue)
+        {
+            try { _profilePreferences.SetLocalTitleFontSize(size); }
+            catch { Status = "Kunde inte spara datorns titelstorlek"; }
+            _localTitleFontSize = size;
+        }
+        settings.TitleFontSize = size;
+    }
+
+    private void LocalAppearanceChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(AppSettings.TitleFontSize) || sender is not AppSettings settings) return;
+        var size = Math.Clamp(settings.TitleFontSize, 9, 40);
+        if (_localTitleFontSize == size) return;
+        _localTitleFontSize = size;
+        try { _profilePreferences.SetLocalTitleFontSize(size); }
+        catch { Status = "Kunde inte spara datorns titelstorlek"; }
+    }
+
     private void StartNewSession()
     {
+        ApplyLocalTypography(Settings);
         // Saved profiles from older runs may contain play counts. Clear them only
         // at application startup, not on ordinary saves or changes of deck.
         foreach (var jingle in Decks.SelectMany(deck => deck.Jingles))
@@ -237,6 +382,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         double? transitionFadeOutSeconds = null, TimeSpan? initialClipPosition = null,
         double? playbackStartSecondsOverride = null, double playbackGainOffsetDb = 0)
     {
+        var performance = PerformanceDiagnostics.BeginOperation("ViewModelPlayRequested");
+        using var duration = performance.Measure("ViewModelPlay");
         _previewOnlyJingleId = previewOnly ? jingle.Id : null;
         PlaybackAction action;
         try
@@ -279,7 +426,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public void ConfigureAudio() => _audio.Configure(Settings.OutputDeviceId, Settings.SecondaryOutputDeviceId, Settings.MasterVolumeDb,
         Settings.DuckLevelDb, Settings.FadeInSeconds, Settings.FadeOutSeconds,
         Settings.MasterLimiterEnabled, Settings.MasterLimiterCeilingDbtp, Settings.AutoMixHeadroomEnabled,
-        Settings.TalkDuckLevelDb);
+        Settings.TalkDuckLevelDb, Settings.KeepPrimaryOutputActive);
     public void SetSecondaryOutput(bool enabled)
     {
         UseSecondaryOutput = enabled;
@@ -292,6 +439,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         AutoplayModeActive = active;
         Raise(nameof(QueuedCount));
         if (active) return;
+        _queuePrefetchCancellation?.Cancel();
         _activeQueueJingleId = null;
         _queueTransitionStarted = false;
         ActiveQueueItem = null;
@@ -384,7 +532,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                     crossfade ? QueueTransitionSeconds * 0.25d : null,
                     crossfade ? QueueTransitionSeconds * 0.75d : null,
                     playbackGainOffsetDb: _playbackQueueGainOffsetDb))
+            {
+                PrefetchNextQueued();
                 return true;
+            }
         }
         _activeQueueJingleId = null;
         ActiveQueueItem = null;
@@ -403,6 +554,48 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             _activeQueueJingleId = null;
             ActiveQueueItem = null;
         }
+        else PrefetchNextQueued();
+    }
+
+    internal string? NextQueuePrefetchPath()
+    {
+        if (!AutoplayModeActive || PlaybackQueue.Count == 0 || (_queuePlaybackIndex >= PlaybackQueue.Count && !QueueLoopEnabled)) return null;
+        if (!QueueShuffleEnabled) return PlaybackQueue[_queuePlaybackIndex % PlaybackQueue.Count].FilePath;
+        // A hint only: never draw a random number or mutate session/queue state.
+        var candidates = Settings.TrackSession ? PlaybackQueue.Where(item => item.SessionPlayCount == 0).ToArray() : PlaybackQueue.ToArray();
+        if (candidates.Length == 0) candidates = PlaybackQueue.ToArray();
+        return (candidates.FirstOrDefault(item => item.Id != _activeQueueJingleId) ?? candidates[0]).FilePath;
+    }
+
+    private void PrefetchNextQueued()
+    {
+        _queuePrefetchCancellation?.Cancel();
+        var path = NextQueuePrefetchPath();
+        if (string.IsNullOrWhiteSpace(path)) return;
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(ProfileWorkCancellation);
+        _queuePrefetchCancellation = cancellation;
+        _ = PrefetchAsync(path, cancellation);
+    }
+
+    internal void CancelQueuePrefetch() => _queuePrefetchCancellation?.Cancel();
+
+    private async Task PrefetchAsync(string path, CancellationTokenSource cancellation)
+    {
+        try
+        {
+            // Yield until the current start has returned; this is optional work.
+            await Task.Yield();
+            await MediaPrefixPrefetcher.Shared.ReadAsync(path, cancellation.Token);
+        }
+        catch (OperationCanceledException) { }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        catch (ArgumentException) { }
+        finally
+        {
+            if (ReferenceEquals(_queuePrefetchCancellation, cancellation)) _queuePrefetchCancellation = null;
+            cancellation.Dispose();
+        }
     }
 
     private void TryStartQueueTransition()
@@ -417,6 +610,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public void ReplaceQueue(IEnumerable<Jingle> items, double gainOffsetDb = 0)
     {
+        _queuePrefetchCancellation?.Cancel();
         foreach (var item in PlaybackQueue) item.AutoplayQueuePosition = 0;
         PlaybackQueue.Clear();
         _playbackQueueGainOffsetDb = Math.Clamp(gainOffsetDb, -60, 12);
@@ -471,48 +665,160 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public void ApplyLayout()
     {
         ProjectService.EnsureLayout(Project);
+        Shortcuts.Refresh();
         SelectedDeck ??= Decks.FirstOrDefault();
         RaiseAll();
     }
 
     public async Task SaveAsync(string? path = null)
     {
-        _currentPath = path ?? _currentPath ?? _projects.DefaultProjectPath;
-        await _projects.SaveAsync(Project, _currentPath);
-        TrackProfile(_currentPath);
+        _ownerDispatcher.VerifyAccess();
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        CancelDelayedSave();
+        SupersedePendingAutosave();
+        _saveDirty = true;
+        _currentPath = Path.GetFullPath(path ?? CurrentProjectPath);
+        var context = CaptureSave();
+        await context.Save.SaveAsync().ConfigureAwait(false);
+        await _ownerDispatcher.InvokeAsync(() => ReportSaveCompleted(context)).Task.ConfigureAwait(false);
+    }
+
+    // Closing/profile replacement awaits the newest edits, including requests
+    // arriving while an earlier save is still writing. Explicit saves are never dropped.
+    public async Task FlushSavesAsync()
+    {
+        do
+        {
+            await SaveAsync();
+            if (_autosaveRunning) await _autosaveTask;
+        }
+        while (_saveDirty || _hasSaveRequest || _pendingAutosave is not null);
+    }
+
+    private async Task FlushRequestedSavesAsync()
+    {
+        if (_saveDirty || _hasSaveRequest || _pendingAutosave is not null) await FlushSavesAsync();
+        else if (_autosaveRunning) await _autosaveTask;
+    }
+
+    private SaveContext CaptureSave() => new(_projects.PrepareSave(Project, CurrentProjectPath), Project, _projectGeneration, _saveVersion);
+
+    private bool IsCurrentSave(SaveContext context) => !_disposed &&
+        context.Generation == _projectGeneration && ReferenceEquals(context.Project, Project) &&
+        string.Equals(context.Save.Path, Path.GetFullPath(CurrentProjectPath), StringComparison.OrdinalIgnoreCase);
+
+    private void ReportSaveCompleted(SaveContext context)
+    {
+        if (!IsCurrentSave(context)) return;
+        if (context.Version == _saveVersion) _saveDirty = false;
+        TrackProfile(context.Save.Path);
         Status = $"Sparat {DateTime.Now:HH:mm:ss}";
+    }
+
+    private void CancelDelayedSave()
+    {
+        _hasSaveRequest = false;
+        var cancellation = _saveRequestCancellation;
+        _saveRequestCancellation = null;
+        cancellation?.Cancel();
+        cancellation?.Dispose();
+    }
+
+    private void SupersedePendingAutosave()
+    {
+        _pendingAutosave?.Save.Supersede();
+        _pendingAutosave = null;
     }
 
     public void RequestSave()
     {
         if (_disposed) return;
+        _ownerDispatcher.VerifyAccess();
+        _hasSaveRequest = true;
+        _saveDirty = true;
+        _saveVersion++;
         var cancellation = new CancellationTokenSource();
         var previous = Interlocked.Exchange(ref _saveRequestCancellation, cancellation);
         previous?.Cancel();
         previous?.Dispose();
-        _ = SaveAfterDelayAsync(cancellation.Token);
+        _ = SaveAfterDelayAsync(cancellation.Token, Project, _projectGeneration);
     }
 
-    private async Task SaveAfterDelayAsync(CancellationToken cancellationToken)
+    private async Task SaveAfterDelayAsync(CancellationToken cancellationToken, FloorballProject project, long generation)
     {
         try
         {
             await Task.Delay(175, cancellationToken);
-            await SaveAsync();
+            await _ownerDispatcher.InvokeAsync(() =>
+            {
+                if (_disposed || cancellationToken.IsCancellationRequested || generation != _projectGeneration ||
+                    !ReferenceEquals(project, Project)) return;
+                var context = CaptureSave();
+                _hasSaveRequest = false;
+                SupersedePendingAutosave();
+                _pendingAutosave = context;
+                if (!_autosaveRunning) _autosaveTask = DrainAutosavesAsync();
+            });
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) { Status = $"Autosparning misslyckades: {ex.Message}"; }
+        catch (Exception ex)
+        {
+            if (!_ownerDispatcher.HasShutdownStarted)
+                _ = _ownerDispatcher.BeginInvoke(() =>
+                {
+                    if (!_disposed && generation == _projectGeneration && ReferenceEquals(project, Project))
+                        Status = $"Autosparning misslyckades: {ex.Message}";
+                });
+        }
+    }
+
+    private async Task DrainAutosavesAsync()
+    {
+        _autosaveRunning = true;
+        try
+        {
+            while (_pendingAutosave is { } context)
+            {
+                _pendingAutosave = null;
+                try { await context.Save.SaveAsync(); ReportSaveCompleted(context); }
+                catch (Exception ex)
+                {
+                    if (IsCurrentSave(context)) Status = $"Autosparning misslyckades: {ex.Message}";
+                }
+            }
+        }
+        finally { _autosaveRunning = false; }
     }
 
     public async Task LoadAsync(string path)
     {
+        await FlushRequestedSavesAsync();
+        var performance = PerformanceDiagnostics.BeginOperation("ProfileLoadRequested");
+        using var duration = performance.Measure("ProfileLoad");
         ClearDeckQueue();
-        Project = await _projects.LoadAsync(path);
+        FloorballProject loaded;
+        var fullPath = Path.GetFullPath(path);
+        while (true)
+        {
+            var version = _saveVersion;
+            loaded = await _projects.LoadAsync(fullPath);
+            await FlushRequestedSavesAsync();
+            // Reloading the current file must include edits saved during the read.
+            if (_saveVersion == version || !string.Equals(fullPath, Path.GetFullPath(CurrentProjectPath), StringComparison.OrdinalIgnoreCase)) break;
+        }
+        Project = loaded;
         ProjectService.EnsureLayout(Project);
+        Shortcuts.Refresh();
         SelectedDeck = Decks.FirstOrDefault();
-        _currentPath = path;
+        _currentPath = Path.GetFullPath(path);
         TrackProfile(path);
         ConfigureAudio();
+        if (performance.Enabled)
+        {
+            performance.Mark("ProfileDeckCount", Decks.Count);
+            performance.Mark("ProfileJingleCount", Decks.Sum(deck => deck.Jingles.Count(jingle => jingle.HasAudio)));
+            performance.Mark("ProfileSlotCount", Decks.Sum(deck => deck.Jingles.Count));
+        }
         Status = $"Öppnade {Path.GetFileName(path)}";
     }
 
@@ -545,10 +851,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public async Task RestoreRevisionAsync(string revisionPath)
     {
+        await FlushRequestedSavesAsync();
         var targetPath = CurrentProjectPath;
         ClearDeckQueue();
-        Project = await _projects.LoadAsync(revisionPath);
+        var restored = await _projects.LoadAsync(revisionPath);
+        await FlushRequestedSavesAsync();
+        Project = restored;
         ProjectService.EnsureLayout(Project);
+        Shortcuts.Refresh();
         SelectedDeck = Decks.FirstOrDefault();
         _currentPath = targetPath;
         ReplaceQueue([]);
@@ -557,14 +867,36 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Status = $"Återställde revision från {DateTime.Now:HH:mm:ss}";
     }
 
-    public void ImportLegacyXml(string path)
+    public async Task<bool> ImportLegacyXmlAsync(string path)
     {
-        ClearDeckQueue();
-        Project = LegacyXmlImporter.Import(path);
-        SelectedDeck = Decks.FirstOrDefault();
-        _currentPath = null;
-        ConfigureAudio();
-        Status = "Äldre XML importerad";
+        _ownerDispatcher.VerifyAccess();
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var project = Project;
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(ProfileWorkCancellation);
+        var token = cancellation.Token;
+        var previous = _xmlImportCancellation;
+        _xmlImportCancellation = cancellation;
+        previous?.Cancel();
+        try
+        {
+            await FlushRequestedSavesAsync();
+            if (token.IsCancellationRequested || !ReferenceEquals(project, Project)) return false;
+            var imported = await LegacyXmlImporter.ImportAsync(path, Metadata, token);
+            if (_disposed || token.IsCancellationRequested || !ReferenceEquals(project, Project)) return false;
+            await FlushRequestedSavesAsync();
+            if (_disposed || token.IsCancellationRequested || !ReferenceEquals(project, Project)) return false;
+            ClearDeckQueue();
+            Project = imported;
+            Shortcuts.Refresh();
+            SelectedDeck = Decks.FirstOrDefault();
+            _currentPath = null;
+            ConfigureAudio();
+            Status = "Äldre XML importerad";
+            return true;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception) when (token.IsCancellationRequested) { return false; }
+        finally { if (ReferenceEquals(_xmlImportCancellation, cancellation)) _xmlImportCancellation = null; }
     }
 
     public async Task<string> BackupAsync() => await _projects.BackupAsync(Project);
@@ -577,6 +909,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (deck is not null && index >= 0) deck.Jingles[index] = jingle;
         }
         Raise(nameof(Project));
+        Shortcuts.Refresh();
         Raise(nameof(SelectedDeck));
         _audio.RefreshVolumes();
     }
@@ -586,9 +919,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        Settings.PropertyChanged -= LocalAppearanceChanged;
+        _profileWorkCancellation.Cancel();
+        _profileWorkCancellation.Dispose();
         _timer.Stop();
-        _saveRequestCancellation?.Cancel();
-        _saveRequestCancellation?.Dispose();
+        CancelDelayedSave();
+        SupersedePendingAutosave();
+        _shortcuts.Dispose();
         _audio.Dispose();
     }
 }

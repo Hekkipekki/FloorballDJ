@@ -48,6 +48,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
                             <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <controls:InfoLabel Text="Utgångsenhet" HelpText="Huvudutgången som publiken hör. Windows standardenhet följer den utgång som är vald i Windows." />
                         <ComboBox x:Name="OutputDeviceCombo" Grid.Column="1" ItemsSource="{Binding Devices}" DisplayMemberPath="Name" SelectedValuePath="Id"
@@ -71,6 +72,10 @@
                         <CheckBox Grid.Row="7" Grid.Column="1" IsChecked="{Binding Draft.AutoMixHeadroomEnabled}" Content="Sänk säkert när flera ljud spelas samtidigt" VerticalAlignment="Center" ToolTip="Låt normalt detta vara aktiverat. Auto gain för en enskild låt hålls fast och ändras inte under vanlig crossfade." />
                         <controls:InfoLabel Grid.Row="8" Text="PA/Talk-dämpning" HelpText="Hur mycket musiken sänks när PA/Talk är aktiv. −15 dB brukar lämna tydligt utrymme för tal utan att musiken försvinner helt." />
                         <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding Draft.TalkDuckLevelDb, Converter={StaticResource FlexibleDouble}, Mode=TwoWay}" Margin="0,5" ToolTip="dB, rekommenderad start: −15" />
+                        <controls:InfoLabel Grid.Row="9" Text="Håll huvudutgången aktiv"
+                                            HelpText="Skickar digital tystnad även mellan låtar för att motverka ljudkortets viloläge. Prova vid brus eller knäppar efter tystnad. Gäller huvudutgången och kan öka batteriförbrukningen. Effekten beror på ljudkort och drivrutin." />
+                        <CheckBox x:Name="KeepPrimaryOutputActiveCheck" Grid.Row="9" Grid.Column="1" IsChecked="{Binding Draft.KeepPrimaryOutputActive}"
+                                  Content="Behåll en tyst ljudström mellan låtar" VerticalAlignment="Center" Margin="0,5" />
                     </Grid>
                 </GroupBox>
 
@@ -164,7 +169,7 @@
                                 <DataTemplate><TextBlock Text="{Binding DisplayName}" FontFamily="{Binding PreviewFont}" Foreground="{StaticResource TextBrush}" FontSize="14" /></DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
-                        <TextBlock Grid.Row="1" Text="Titelstorlek" Style="{StaticResource FieldLabel}" /><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Draft.TitleFontSize, Converter={StaticResource FlexibleDouble}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,5" ToolTip="Pixlar (9–40)" />
+                        <TextBlock Grid.Row="1" Text="Titelstorlek (denna dator)" Style="{StaticResource FieldLabel}" /><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Draft.TitleFontSize, Converter={StaticResource FlexibleDouble}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,5" ToolTip="Pixlar (9–40). Sparas bara på denna dator, även när du byter profil." />
                         <TextBlock Grid.Row="2" Text="Egna typsnitt" Style="{StaticResource FieldLabel}" />
                         <Grid Grid.Row="2" Grid.Column="1" Margin="0,5">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>

@@ -21,7 +21,12 @@ public sealed class AudioAnalysisService
 {
     public Task<LoudnessAnalysis> AnalyzeAsync(string path, double startSeconds = 0, double? endSeconds = null,
         CancellationToken cancellationToken = default)
-        => Task.Run(() => Analyze(path, startSeconds, endSeconds, cancellationToken), cancellationToken);
+        => Task.Run(() =>
+        {
+            var performance = PerformanceDiagnostics.BeginOperation("LoudnessAnalysisRequested");
+            using var duration = performance.Measure("LoudnessAnalysis");
+            return Analyze(path, startSeconds, endSeconds, cancellationToken);
+        }, cancellationToken);
 
     private static LoudnessAnalysis Analyze(string path, double startSeconds, double? endSeconds, CancellationToken cancellationToken)
     {

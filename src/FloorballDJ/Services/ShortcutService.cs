@@ -21,10 +21,14 @@ public static class ShortcutService
     public static string? FromKeyEvent(KeyEventArgs e)
     {
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        return FromKey(key, Keyboard.Modifiers);
+    }
+
+    internal static string? FromKey(Key key, ModifierKeys modifiers)
+    {
         if (key == Key.None || IsModifierKey(key)) return null;
 
         var parts = new List<string>();
-        var modifiers = Keyboard.Modifiers;
         if (modifiers.HasFlag(ModifierKeys.Control)) parts.Add("Ctrl");
         if (modifiers.HasFlag(ModifierKeys.Alt)) parts.Add("Alt");
         if (modifiers.HasFlag(ModifierKeys.Shift)) parts.Add("Shift");
@@ -40,6 +44,13 @@ public static class ShortcutService
         return stored is not null && pressed is not null &&
                Canonical(stored).Equals(Canonical(pressed), StringComparison.OrdinalIgnoreCase);
     }
+
+    internal static string? Canonicalize(string? shortcut)
+        => Normalize(shortcut) is string normalized ? Canonical(normalized) : null;
+
+    internal static bool MatchesCanonical(string? shortcut, string? pressed)
+        => pressed is not null && Canonicalize(shortcut) is string stored &&
+           stored.Equals(pressed, StringComparison.OrdinalIgnoreCase);
 
     public static string ModifierPrompt()
     {

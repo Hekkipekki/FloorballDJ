@@ -17,7 +17,7 @@ public sealed class DjEffectsSampleProvider : ISampleProvider
     private readonly double _attackCoefficient;
     private readonly double _releaseCoefficient;
     private readonly float _ceiling;
-    private readonly bool _limiterEnabled;
+    private volatile bool _limiterEnabled;
     private float _maximumReductionDb;
 
     public DjEffectsSampleProvider(ISampleProvider source, Jingle settings, double limiterCeilingDbtp, bool limiterEnabled = true)
@@ -41,11 +41,14 @@ public sealed class DjEffectsSampleProvider : ISampleProvider
 
     public WaveFormat WaveFormat { get; }
     public float MaximumReductionDb => _maximumReductionDb;
+    internal bool LimiterEnabled => _limiterEnabled;
+    internal void SetLimiterEnabled(bool enabled) => _limiterEnabled = enabled;
 
     public int Read(float[] buffer, int offset, int count)
     {
         var read = _source.Read(buffer, offset, count);
         var channels = WaveFormat.Channels;
+        var limiterEnabled = _limiterEnabled;
         for (var index = 0; index < read; index++)
         {
             var channel = index % channels;
@@ -63,7 +66,7 @@ public sealed class DjEffectsSampleProvider : ISampleProvider
                     sample *= (float)Math.Pow(10, -reductionDb / 20);
                 }
             }
-            buffer[offset + index] = _limiterEnabled ? SoftLimit(sample, _ceiling) : sample;
+            buffer[offset + index] = limiterEnabled ? SoftLimit(sample, _ceiling) : sample;
         }
         return read;
     }

@@ -12,7 +12,7 @@ public sealed class HexBrushConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        try { return new BrushConverter().ConvertFromString(value?.ToString() ?? "#182338") ?? Brushes.Transparent; }
+        try { return UiResourceCache.GetSolid(value?.ToString() ?? "#182338"); }
         catch { return Brushes.Transparent; }
     }
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
@@ -22,27 +22,9 @@ public sealed class ButtonGradientConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        try
-        {
-            var parsed = new BrushConverter().ConvertFromString(value?.ToString() ?? "#182338");
-            var color = parsed is SolidColorBrush solid ? solid.Color : Color.FromRgb(24, 35, 56);
-            var light = Mix(color, Colors.White, 0.16);
-            var dark = Mix(color, Colors.Black, 0.20);
-            return new LinearGradientBrush(
-            [
-                new GradientStop(light, 0),
-                new GradientStop(color, 0.46),
-                new GradientStop(dark, 0.72),
-                new GradientStop(Mix(color, Colors.White, 0.07), 1)
-            ], new Point(0, 0), new Point(1, 1));
-        }
-        catch { return new SolidColorBrush(Color.FromRgb(24, 35, 56)); }
+        try { return UiResourceCache.GetGradient(value?.ToString() ?? "#182338"); }
+        catch { return UiResourceCache.GetGradient("invalid brush"); }
     }
-
-    private static Color Mix(Color source, Color target, double amount) => Color.FromArgb(source.A,
-        (byte)(source.R + (target.R - source.R) * amount),
-        (byte)(source.G + (target.G - source.G) * amount),
-        (byte)(source.B + (target.B - source.B) * amount));
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
 }
@@ -101,23 +83,26 @@ public sealed class DbMeterConverter : IValueConverter
 
 public sealed class TakeCountConverter : IMultiValueConverter
 {
+    internal StableCollectionViews Views { get; } = new();
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
     {
         if (values.Length < 2 || values[0] is not IList source || values[1] is not int count)
             return Array.Empty<object>();
         var visibleCount = Math.Max(0, count);
-        return new ListCollectionView(source)
+        return Views.Get(source, null, 0, visibleCount, item =>
         {
             // Keep a live view of the actual deck collection. A detached ToList snapshot
             // redraws the old order after drag/drop even though the project was updated.
-            Filter = item => source.IndexOf(item) >= 0 && source.IndexOf(item) < visibleCount
-        };
+            var index = source.IndexOf(item);
+            return index >= 0 && index < visibleCount;
+        });
     }
     public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) => targetTypes.Select(_ => Binding.DoNothing).ToArray();
 }
 
 public sealed class TakeSlotsConverter : IMultiValueConverter
 {
+    internal StableCollectionViews Views { get; } = new();
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
     {
         if (values.Length < 2 || values[0] is not IList source || values[1] is not Deck deck)
@@ -126,10 +111,7 @@ public sealed class TakeSlotsConverter : IMultiValueConverter
         var slots = deck.GetPageCapacity(page);
         var first = deck.GetPageStartIndex(page);
         var last = first + slots;
-        return new ListCollectionView(source)
-        {
-            Filter = item => item is Jingle jingle && jingle.Position >= first && jingle.Position < last
-        };
+        return Views.Get(source, deck, first, last, item => item is Jingle jingle && jingle.Position >= first && jingle.Position < last);
     }
     public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) => targetTypes.Select(_ => Binding.DoNothing).ToArray();
 }

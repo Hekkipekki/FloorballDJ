@@ -25,6 +25,26 @@ public sealed class ProfilePreferencesService
         lock (_gate) return Load().DefaultProfilePath;
     }
 
+    public double? GetLocalTitleFontSize()
+    {
+        lock (_gate)
+        {
+            var size = Load().TitleFontSize;
+            return size is double value && double.IsFinite(value) ? Math.Clamp(value, 9, 40) : null;
+        }
+    }
+
+    public void SetLocalTitleFontSize(double size)
+    {
+        if (!double.IsFinite(size)) throw new ArgumentOutOfRangeException(nameof(size));
+        lock (_gate)
+        {
+            var preferences = Load();
+            preferences.TitleFontSize = Math.Clamp(size, 9, 40);
+            Save(preferences);
+        }
+    }
+
     public IReadOnlyList<string> GetRecentProfiles()
     {
         lock (_gate)
@@ -161,6 +181,7 @@ public sealed class ProfilePreferencesService
 
     private sealed class ProfilePreferencesData
     {
+        public double? TitleFontSize { get; set; }
         public string? DefaultProfilePath { get; set; }
         public List<string> RecentProfilePaths { get; set; } = [];
     }

@@ -31,10 +31,15 @@ public sealed class AppSettings : INotifyPropertyChanged
     public int Columns { get; set; } = 5;
     public double ButtonHeight { get; set; } = 120;
     public double ButtonWidth { get; set; } = 220;
+    [JsonIgnore]
     public double TitleFontSize { get => _titleFontSize; set => SetAppearance(ref _titleFontSize, double.IsFinite(value) && value > 0 ? value : 15); }
+    // Read older profiles for the one-time local migration; never export the computer's font size.
+    [JsonInclude, JsonPropertyName("titleFontSize"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    internal double? LegacyTitleFontSize { get => null; set { if (value.HasValue) TitleFontSize = value.Value; } }
     public string FontFamily { get => _fontFamily; set => SetAppearance(ref _fontFamily, value); }
     public bool ShowJingleDuration { get => _showJingleDuration; set => SetAppearance(ref _showJingleDuration, value); }
     public string? OutputDeviceId { get; set; }
+    public bool KeepPrimaryOutputActive { get; set; }
     public string? SecondaryOutputDeviceId { get; set; }
     public string? MusicFolderPath { get; set; }
     public double MasterVolumeDb { get; set; } = -27;
@@ -42,6 +47,7 @@ public sealed class AppSettings : INotifyPropertyChanged
     public double FadeOutSeconds { get; set; } = 2.5;
     public double AutoplayTransitionSeconds { get; set; } = 4;
     public string? AutoplayDefaultPlaylistPath { get; set; }
+    public string? AutoplayLastPlaylistPath { get; set; }
     public string? AutoplayShortcut { get; set; }
     public double AutoplayDefaultPlaylistVolumeDb { get; set; }
     public List<AutoplayProfile> AutoplayProfiles { get; set; } = [];
@@ -50,7 +56,7 @@ public sealed class AppSettings : INotifyPropertyChanged
     public double DefaultLoudnessTargetLufs { get; set; } = -16;
     public bool MasterLimiterEnabled { get; set; } = true;
     public double MasterLimiterCeilingDbtp { get; set; } = -1;
-    public bool AutoMixHeadroomEnabled { get; set; } = true;
+    public bool AutoMixHeadroomEnabled { get; set; } = false;
     public bool TrackSession { get; set; } = true;
     public string? RandomPoolShortcut { get; set; }
     public List<Guid> RandomPoolDeckIds { get; set; } = [];
@@ -67,10 +73,24 @@ public sealed class AppSettings : INotifyPropertyChanged
     [JsonIgnore]
     public IReadOnlyList<RandomPoolProfile> ActiveRandomPoolProfiles =>
         ActiveRandomPoolSetup?.Profiles ?? RandomPoolProfiles;
+
+    internal AppSettings CopyForSave()
+    {
+        var copy = (AppSettings)MemberwiseClone();
+        copy.PropertyChanged = null;
+        copy.AutoplayProfiles = AutoplayProfiles?.Select(item => item?.CopyForSave()!).ToList()!;
+        copy.RandomPoolDeckIds = RandomPoolDeckIds?.ToList()!;
+        copy.RandomPoolJingleIds = RandomPoolJingleIds?.ToList()!;
+        copy.RandomPoolProfiles = RandomPoolProfiles?.Select(item => item?.CopyForSave()!).ToList()!;
+        copy.RandomPoolSetups = RandomPoolSetups?.Select(item => item?.CopyForSave()!).ToList()!;
+        copy.TeamDeckProfiles = TeamDeckProfiles?.Select(item => item?.CopyForSave()!).ToList()!;
+        return copy;
+    }
 }
 
 public sealed class AutoplayProfile
 {
+    internal AutoplayProfile CopyForSave() => (AutoplayProfile)MemberwiseClone();
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = "Ny Autoplay-lista";
     public string? PlaylistPath { get; set; }
@@ -80,6 +100,14 @@ public sealed class AutoplayProfile
 
 public sealed class RandomPoolProfile
 {
+    internal RandomPoolProfile CopyForSave()
+    {
+        var copy = (RandomPoolProfile)MemberwiseClone();
+        copy.DeckIds = DeckIds?.ToList()!;
+        copy.JingleIds = JingleIds?.ToList()!;
+        copy.FollowUpJingleIds = FollowUpJingleIds?.ToList()!;
+        return copy;
+    }
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = "Ny slumpgrupp";
     public string? Shortcut { get; set; }
@@ -102,6 +130,12 @@ public sealed class RandomPoolProfile
 
 public sealed class RandomPoolSetup
 {
+    internal RandomPoolSetup CopyForSave()
+    {
+        var copy = (RandomPoolSetup)MemberwiseClone();
+        copy.Profiles = Profiles?.Select(item => item?.CopyForSave()!).ToList()!;
+        return copy;
+    }
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = "Standard";
     public List<RandomPoolProfile> Profiles { get; set; } = [];
@@ -109,6 +143,12 @@ public sealed class RandomPoolSetup
 
 public sealed class TeamDeckProfile
 {
+    internal TeamDeckProfile CopyForSave()
+    {
+        var copy = (TeamDeckProfile)MemberwiseClone();
+        copy.Players = Players?.Select(item => item?.CopyForSave()!).ToList()!;
+        return copy;
+    }
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = "Nytt lag";
     public string? Shortcut { get; set; }
@@ -123,6 +163,7 @@ public sealed class TeamDeckProfile
 
 public sealed class TeamDeckPlayer
 {
+    internal TeamDeckPlayer CopyForSave() => (TeamDeckPlayer)MemberwiseClone();
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Number { get; set; } = "";
     public string Name { get; set; } = "Ny spelare";
@@ -136,6 +177,12 @@ public sealed class TeamDeckPlayer
 
 public sealed class Jingle : INotifyPropertyChanged
 {
+    internal Jingle CopyForSave()
+    {
+        var copy = (Jingle)MemberwiseClone();
+        copy.PropertyChanged = null;
+        return copy;
+    }
     private string _title = "";
     private string _filePath = "";
     private int _position;
@@ -193,7 +240,8 @@ public sealed class Jingle : INotifyPropertyChanged
     private double _musicAnalysisEndSeconds;
     private bool _isSearchMatch;
 
-    public Guid Id { get; set; } = Guid.NewGuid();
+    private Guid _id = Guid.NewGuid();
+    public Guid Id { get => _id; set => Set(ref _id, value); }
     public string Title { get => _title; set => Set(ref _title, value); }
     public string FilePath { get => _filePath; set { if (Set(ref _filePath, value)) { Raise(nameof(HasAudio)); Raise(nameof(HasContent)); Raise(nameof(IsMissing)); Raise(nameof(HasFreshLoudnessAnalysis)); } } }
     public int Position { get => _position; set => Set(ref _position, value); }
@@ -293,6 +341,15 @@ public sealed class Jingle : INotifyPropertyChanged
 
 public sealed class Deck : INotifyPropertyChanged
 {
+    internal Deck CopyForSave()
+    {
+        var copy = (Deck)MemberwiseClone();
+        copy.PropertyChanged = null;
+        copy.PageLayouts = PageLayouts?.Select(layout => layout is null ? null! :
+            new PageLayout { Rows = layout.Rows, Columns = layout.Columns }).ToList()!;
+        copy._jingles = _jingles is null ? null! : new(_jingles.Select(item => item?.CopyForSave()!));
+        return copy;
+    }
     private string _name = "Deck";
     private double _tabWidth;
     private double _tabHeight;
@@ -311,7 +368,8 @@ public sealed class Deck : INotifyPropertyChanged
         public int Columns { get; set; } = 5;
     }
 
-    public Guid Id { get; set; } = Guid.NewGuid();
+    private Guid _id = Guid.NewGuid();
+    public Guid Id { get => _id; set { if (_id == value) return; _id = value; Raise(); } }
     public string Name { get => _name; set { if (_name == value) return; _name = value; Raise(); } }
     public int Rows { get => _rows; set { if (_rows == value) return; _rows = value; Raise(); } }
     public int Columns { get => _columns; set { if (_columns == value) return; _columns = value; Raise(); } }
@@ -356,7 +414,17 @@ public sealed class Deck : INotifyPropertyChanged
     public IReadOnlyList<int> PageNumbers => Enumerable.Range(1, PageCount).ToArray();
     [System.Text.Json.Serialization.JsonIgnore]
     public bool HasMultiplePages => PageCount > 1;
-    public ObservableCollection<Jingle> Jingles { get; set; } = [];
+    private ObservableCollection<Jingle> _jingles = [];
+    public ObservableCollection<Jingle> Jingles
+    {
+        get => _jingles;
+        set
+        {
+            if (ReferenceEquals(_jingles, value)) return;
+            _jingles = value;
+            Raise();
+        }
+    }
 
     public void EnsurePageLayouts()
     {

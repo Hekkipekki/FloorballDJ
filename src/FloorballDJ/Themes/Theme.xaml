@@ -344,6 +344,26 @@
     </Style>
 
     <Style x:Key="PillToggle" TargetType="ToggleButton">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="ToggleChrome" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="5"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="ToggleChrome" Property="BorderBrush" Value="{StaticResource TextBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ToggleChrome" Property="BorderBrush" Value="{StaticResource TextBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5" /></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
         <Setter Property="Height" Value="42" />
         <Setter Property="MinWidth" Value="104" />
         <Setter Property="Padding" Value="14,6" />
@@ -353,7 +373,7 @@
         <Setter Property="FontWeight" Value="SemiBold" />
         <Style.Triggers>
             <Trigger Property="IsChecked" Value="True">
-                <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                <Setter Property="Background" Value="{StaticResource PanelRaisedBrush}" />
                 <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
                 <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
             </Trigger>

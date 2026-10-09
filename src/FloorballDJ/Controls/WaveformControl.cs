@@ -1,16 +1,11 @@
 using System.Windows;
 using System.Windows.Media;
-using NAudio.Wave;
+using FloorballDJ.Services;
 
 namespace FloorballDJ.Controls;
 
 public sealed class WaveformControl : FrameworkElement
 {
-    private readonly record struct WavePeak(float Minimum, float Maximum);
-    private const int MaxCachedWaveforms = 128;
-    private static readonly object PeakCacheGate = new();
-    private static readonly Dictionary<string, Task<WavePeak[]>> PeakCache = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly Queue<string> PeakCacheOrder = new();
     private static readonly Brush BackgroundBrush = new LinearGradientBrush(
         Color.FromRgb(10, 19, 31), Color.FromRgb(13, 27, 42), 0);
     private static readonly Pen GridPen = new(new SolidColorBrush(Color.FromArgb(35, 145, 162, 186)), 1);
@@ -34,12 +29,42 @@ public sealed class WaveformControl : FrameworkElement
     private double _endFraction = 1;
     private int _loadVersion;
     private CancellationTokenSource? _loadCancellation;
+    private readonly WaveformScheduler _scheduler;
+    private WaveformScheduler.Request? _loadRequest;
+    private string _requestedPath = "";
+    private bool _suspended;
     private StreamGeometry? _cachedGeometry;
     private WavePeak[]? _cachedGeometryPeaks;
     private double _cachedWidth;
     private double _cachedHeight;
     private double _cachedViewStart = double.NaN;
     private double _cachedViewEnd = double.NaN;
+
+    public WaveformControl() : this(WaveformScheduler.Shared) { }
+
+    internal WaveformControl(WaveformScheduler scheduler)
+    {
+        _scheduler = scheduler;
+        IsVisibleChanged += (_, _) => _loadRequest?.SetVisible(IsVisible);
+        Unloaded += (_, _) =>
+        {
+            _suspended = true;
+            _loadVersion++;
+            _loadCancellation?.Cancel();
+            _loadRequest?.Dispose();
+            _peaks = [];
+            ClearGeometryCache();
+        };
+        Loaded += async (_, _) =>
+        {
+            if (_suspended)
+            {
+                _suspended = false;
+                await LoadAsync(_requestedPath);
+            }
+            else _loadRequest?.SetVisible(IsVisible);
+        };
+    }
 
     public static readonly DependencyProperty FilePathProperty = DependencyProperty.Register(
         nameof(FilePath), typeof(string), typeof(WaveformControl),
@@ -105,49 +130,45 @@ public sealed class WaveformControl : FrameworkElement
 
     public async Task LoadAsync(string path)
     {
+        var performance = PerformanceDiagnostics.BeginOperation("WaveformLoadRequested");
+        using var duration = performance.Measure("WaveformLoad");
         var version = ++_loadVersion;
+        _requestedPath = path;
         var cancellation = new CancellationTokenSource();
         var previousCancellation = Interlocked.Exchange(ref _loadCancellation, cancellation);
         previousCancellation?.Cancel();
-        previousCancellation?.Dispose();
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-        {
-            _peaks = [];
-            ClearGeometryCache();
-            InvalidateVisual();
-            return;
-        }
-
-        string? cacheKey = null;
-        Task<WavePeak[]>? loadTask = null;
+        WaveformScheduler.Request? request = null;
         try
         {
-            var info = new FileInfo(path);
-            cacheKey = $"{info.FullName}|{info.Length}|{info.LastWriteTimeUtc.Ticks}";
-            lock (PeakCacheGate)
+            if (_suspended || string.IsNullOrWhiteSpace(path))
             {
-                if (!PeakCache.TryGetValue(cacheKey, out loadTask))
-                {
-                    loadTask = Task.Run(() => ReadPeaks(path));
-                    PeakCache[cacheKey] = loadTask;
-                    PeakCacheOrder.Enqueue(cacheKey);
-                    while (PeakCache.Count > MaxCachedWaveforms && PeakCacheOrder.TryDequeue(out var oldest))
-                        PeakCache.Remove(oldest);
-                }
+                _peaks = [];
+                ClearGeometryCache();
+                InvalidateVisual();
+                return;
             }
-            var peaks = await loadTask.WaitAsync(cancellation.Token);
+            var key = WaveformScheduler.CacheKey(path);
+            request = await _scheduler.AcquireAsync(key, path, IsVisible, cancellation.Token);
             if (version != _loadVersion) return;
+            _loadRequest = request;
+            request.SetVisible(IsVisible);
+            var peaks = await request.Task;
+            if (version != _loadVersion || cancellation.IsCancellationRequested) return;
             _peaks = peaks;
             ClearGeometryCache();
         }
         catch (OperationCanceledException) { return; }
         catch
         {
-            if (cacheKey is not null && loadTask is not null)
-                lock (PeakCacheGate)
-                    if (PeakCache.TryGetValue(cacheKey, out var cached) && ReferenceEquals(cached, loadTask))
-                        PeakCache.Remove(cacheKey);
-            if (version == _loadVersion) _peaks = [];
+            if (version != _loadVersion) return;
+            _peaks = [];
+        }
+        finally
+        {
+            request?.Dispose();
+            if (ReferenceEquals(_loadRequest, request)) _loadRequest = null;
+            Interlocked.CompareExchange(ref _loadCancellation, null, cancellation);
+            cancellation.Dispose();
         }
         ClearGeometryCache();
         InvalidateVisual();
@@ -276,38 +297,6 @@ public sealed class WaveformControl : FrameworkElement
             await control.LoadAsync(args.NewValue as string ?? "");
     }
 
-    private static WavePeak[] ReadPeaks(string path)
-    {
-        using var reader = new AudioFileReader(path);
-        var count = Math.Clamp((int)Math.Ceiling(reader.TotalTime.TotalSeconds * 80), 6000, 240000);
-        // AudioFileReader.Read returns interleaved float samples. Derive the count from
-        // duration and decoded format instead of the source file's byte layout; WAV,
-        // MP3 and FLAC report Length differently.
-        var totalSamples = Math.Max(1L, (long)Math.Ceiling(reader.TotalTime.TotalSeconds *
-            reader.WaveFormat.SampleRate * reader.WaveFormat.Channels));
-        var samplesPerPeak = Math.Max(1L, totalSamples / count);
-        var result = new List<WavePeak>(count);
-        // A fixed block avoids one decoder call per peak. Long generated mixes could
-        // otherwise require hundreds of thousands of tiny reads and look waveform-less
-        // for a long time while decoding continued in the background.
-        var buffer = new float[65536];
-        long accumulated = 0;
-        float minimum = 0, maximum = 0;
-        int read;
-        while ((read = reader.Read(buffer, 0, buffer.Length)) > 0)
-        {
-            for (var i = 0; i < read; i++)
-            {
-                minimum = Math.Min(minimum, buffer[i]);
-                maximum = Math.Max(maximum, buffer[i]);
-                accumulated++;
-                if (accumulated < samplesPerPeak) continue;
-                result.Add(new WavePeak(minimum, maximum));
-                accumulated = 0;
-                minimum = maximum = 0;
-            }
-        }
-        if (accumulated > 0) result.Add(new WavePeak(minimum, maximum));
-        return [.. result];
-    }
+    // Preserve the existing decoder characterization entry point.
+    private static WavePeak[] ReadPeaks(string path) => WaveformPeakReader.Read(path, CancellationToken.None);
 }

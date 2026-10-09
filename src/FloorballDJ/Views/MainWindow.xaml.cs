@@ -14,7 +14,6 @@ using FloorballDJ.Models;
 using FloorballDJ.Services;
 using FloorballDJ.ViewModels;
 using Microsoft.Win32;
-using NAudio.Wave;
 
 namespace FloorballDJ.Views;
 
@@ -25,7 +24,14 @@ public partial class MainWindow : Window
     private readonly ProjectService _projects = new();
     private readonly ProfilePreferencesService _profilePreferences;
     private readonly AudioEngine _audio = new();
+    private readonly SemaphoreSlim _audioImportGate = new(1, 1);
+    private readonly CancellationTokenSource _backgroundWorkCancellation = new();
+    internal AudioMetadataService Metadata { get; init; } = AudioMetadataService.Shared;
     private readonly LicenseService _licenses;
+    private readonly bool _shutdownApplicationOnClose;
+    private readonly Func<string, bool> _randomFileExists;
+    internal bool StartupReady { get; private set; }
+    internal Func<bool>? ConfirmAutoplayExit { get; set; }
     private const string JingleClipboardFormat = "FloorballDJ.Jingle.Json.v1";
     private Jingle? _clipboard;
     private Point _dragStart;
@@ -82,9 +88,15 @@ public partial class MainWindow : Window
     {
     }
 
-    public MainWindow(LicenseService licenses)
+    public MainWindow(LicenseService licenses) : this(licenses, shutdownApplicationOnClose: true) { }
+
+    // The isolated diagnostic runner owns its dispatcher; public constructors
+    // retain application shutdown after the same save/disposal lifecycle.
+    internal MainWindow(LicenseService licenses, bool shutdownApplicationOnClose, Func<string, bool>? randomFileExists = null)
     {
         _licenses = licenses;
+        _shutdownApplicationOnClose = shutdownApplicationOnClose;
+        _randomFileExists = randomFileExists ?? File.Exists;
         _profilePreferences = new ProfilePreferencesService(_projects.AppDataDirectory, _projects.DefaultProjectPath);
         InitializeComponent();
         _clockTimer.Tick += (_, _) => RefreshClock();
@@ -129,9 +141,12 @@ public partial class MainWindow : Window
             // här så titelrad och nederkant alltid hamnar innanför laptopskärmen och
             // Windows aktivitetsfält, även vid hög DPI eller ändrad skärmuppsättning.
             WindowState = WindowState.Maximized;
-            await ViewModel.InitializeAsync();
+            var initialization = PerformanceDiagnostics.BeginOperation("MainWindowInitializationRequested");
+            using (initialization.Measure("MainWindowInitialization")) await ViewModel.InitializeAsync();
             // InitializeAsync starts a fresh session after loading the profile.
             RefreshOutputName();
+            StartupReady = true;
+            initialization.Mark("MainWindowReady");
             if (Environment.GetCommandLineArgs().Contains("--smoke-test", StringComparer.OrdinalIgnoreCase))
             {
                 RefreshRecentProfilesMenu();
@@ -243,6 +258,11 @@ public partial class MainWindow : Window
             }
         };
         Closing += MainWindow_Closing;
+        Closed += (_, _) =>
+        {
+            _backgroundWorkCancellation.Cancel();
+            _backgroundWorkCancellation.Dispose();
+        };
     }
 
     private async void MainWindow_Closing(object? sender, CancelEventArgs e)
@@ -260,7 +280,7 @@ public partial class MainWindow : Window
         _closeInProgress = true;
         try
         {
-            await ViewModel.SaveAsync();
+            await ViewModel.FlushSavesAsync();
         }
         catch (Exception ex)
         {
@@ -277,11 +297,13 @@ public partial class MainWindow : Window
         _clockTimer.Stop();
         _licenseMonitorTimer.Stop();
         _closeCommitted = true;
-        Application.Current.Shutdown();
+        if (_shutdownApplicationOnClose) Application.Current.Shutdown();
+        else Close();
     }
 
     private async void Jingle_Click(object sender, RoutedEventArgs e)
     {
+        using var performanceCommand = PerformanceDiagnostics.BeginCommand("mouse");
         if (_suppressNextClick) { _suppressNextClick = false; return; }
         if ((sender as Button)?.DataContext is not Jingle jingle) return;
         if (jingle.IsTextBlock) return;
@@ -293,6 +315,7 @@ public partial class MainWindow : Window
             return;
         }
         ClearSpaceResume();
+        PerformanceDiagnostics.RouteResolved("jingle");
         try { ViewModel.Play(jingle); }
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "Kunde inte spela", MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
@@ -488,6 +511,7 @@ public partial class MainWindow : Window
     }
     private async void Pause_Click(object sender, RoutedEventArgs e)
     {
+        EmbeddedAutoplay.CancelPlaylistPreparation();
         if (ViewModel.IsSpaceResumePending && _spaceResumeJingle is not null && DateTimeOffset.Now <= _spaceResumeExpires)
         {
             var resume = _spaceResumeJingle;
@@ -507,7 +531,11 @@ public partial class MainWindow : Window
     private async void SessionToggle_Changed(object sender, RoutedEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
-        vm.Settings.TrackSession = SessionToggle.IsChecked == true;
+        var enabled = SessionToggle.IsChecked == true;
+        // One-way binding also raises Checked during startup/profile changes.
+        // Saving an already matching value can overwrite autosave before load.
+        if (vm.Settings.TrackSession == enabled) return;
+        vm.Settings.TrackSession = enabled;
         if (!vm.Settings.TrackSession)
             foreach (var jingle in vm.Decks.SelectMany(deck => deck.Jingles)) jingle.SessionPlayCount = 0;
         try { await vm.SaveAsync(); } catch { }
@@ -661,6 +689,7 @@ public partial class MainWindow : Window
         }
 
         var match = matches[Math.Clamp(_inlineSearchIndex, 0, matches.Count - 1)];
+        if (!TryLeaveAutoplay()) return null;
         ClearInlineSearchHighlight();
         EmbeddedAutoplay.Visibility = Visibility.Collapsed;
         ViewModel.SetAutoplayMode(false);
@@ -715,6 +744,7 @@ public partial class MainWindow : Window
 
     private async void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        using var performanceCommand = PerformanceDiagnostics.BeginCommand("keyboard");
         // Den automatiska sökningen kan byta aktivt deck. WPF kan då flytta
         // tangentfokus från sökrutan trots att texten och markeringen är kvar.
         // Låt därför Enter spela den synliga träffen även efter ett sådant
@@ -794,20 +824,22 @@ public partial class MainWindow : Window
 
         if (!e.IsRepeat && Keyboard.FocusedElement is not TextBoxBase and not ComboBox)
         {
+            var pressedShortcut = ShortcutService.Canonicalize(ShortcutService.FromKeyEvent(e));
             var autoplayProfile = (ViewModel.Settings.AutoplayProfiles ?? [])
-                .FirstOrDefault(profile => ShortcutService.Matches(profile.Shortcut, e));
+                .FirstOrDefault(profile => ShortcutService.MatchesCanonical(profile.Shortcut, pressedShortcut));
             if (autoplayProfile is not null)
             {
+                PerformanceDiagnostics.RouteResolved("autoplay");
                 e.Handled = true;
                 ClearSpaceResume();
-                await ActivateAutoplayAsync();
                 try
                 {
-                    if (!EmbeddedAutoplay.LoadDefaultPlaylistAndStart(autoplayProfile.PlaylistPath ?? "", autoplayProfile.VolumeDb))
+                    if (!await StartAutoplayProfileAsync(autoplayProfile.PlaylistPath ?? "", autoplayProfile.VolumeDb))
                         MessageBox.Show(this,
                             $"Spellistan för ‘{autoplayProfile.Name}’ saknas, är tom eller innehåller inga ljudfiler som går att hitta. Välj den igen under Verktyg > Inställningar > Autoplay.",
                             "Kunde inte starta Autoplay", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
+                catch (OperationCanceledException) { }
                 catch (Exception ex)
                 {
                     MessageBox.Show(this, ex.Message, "Kunde inte starta Autoplay", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -816,13 +848,14 @@ public partial class MainWindow : Window
             }
 
             var team = (ViewModel.Settings.TeamDeckProfiles ?? [])
-                .FirstOrDefault(profile => ShortcutService.Matches(profile.Shortcut, e));
+                .FirstOrDefault(profile => ShortcutService.MatchesCanonical(profile.Shortcut, pressedShortcut));
             if (team is not null)
             {
+                PerformanceDiagnostics.RouteResolved("team");
                 e.Handled = true;
                 ClearSpaceResume();
                 var defaultJingle = team.DefaultJingleId is Guid defaultId
-                    ? ViewModel.Decks.SelectMany(deck => deck.Jingles).FirstOrDefault(jingle => jingle.Id == defaultId && jingle.HasAudio)
+                    ? ViewModel.Shortcuts.FindAudioById(defaultId)
                     : null;
                 if (defaultJingle is not null)
                 {
@@ -836,56 +869,65 @@ public partial class MainWindow : Window
             }
 
             var randomProfile = ViewModel.Settings.ActiveRandomPoolProfiles
-                .FirstOrDefault(profile => ShortcutService.Matches(profile.Shortcut, e));
+                .FirstOrDefault(profile => ShortcutService.MatchesCanonical(profile.Shortcut, pressedShortcut));
             if (randomProfile is not null)
             {
-                var selectedDeckIds = (randomProfile.DeckIds ?? []).ToHashSet();
-                var selectedJingleIds = (randomProfile.JingleIds ?? []).ToHashSet();
-                var pool = ViewModel.Decks
-                    .SelectMany(deck => deck.Jingles.Where(jingle => jingle.HasAudio && File.Exists(jingle.FilePath) &&
-                        (selectedDeckIds.Contains(deck.Id) || selectedJingleIds.Contains(jingle.Id))))
-                    .DistinctBy(jingle => jingle.Id)
-                    .ToArray();
-                var followUps = ViewModel.Decks.SelectMany(deck => deck.Jingles)
-                    .Where(jingle => (randomProfile.FollowUpJingleIds ?? []).Contains(jingle.Id) &&
-                                     jingle.HasAudio && File.Exists(jingle.FilePath))
-                    .DistinctBy(jingle => jingle.Id).ToArray();
-                if (TryHandleRandomShortcut(e, pool, followUps, randomProfile.FollowUpFadeOutSeconds,
+                PerformanceDiagnostics.RouteResolved("randomPoolCandidate");
+                var performance = PerformanceDiagnostics.BeginOperation("RandomPoolPreparationRequested");
+                Jingle[] members;
+                Jingle[] followUpMembers;
+                using (performance.Measure("RandomPoolMembership"))
+                {
+                    members = ViewModel.Shortcuts.GetPoolMembers(randomProfile.DeckIds ?? [], randomProfile.JingleIds ?? []);
+                    followUpMembers = ViewModel.Shortcuts.GetAudioByIds(randomProfile.FollowUpJingleIds ?? []);
+                }
+                performance.Mark("RandomPoolMemberCount", members.Length);
+                performance.Mark("RandomPoolFollowUpMemberCount", followUpMembers.Length);
+                var fresh = new JingleShortcutIndex.FreshPool(members, _randomFileExists);
+                var token = RandomShortcutToken(e);
+                var sameShortcut = string.Equals(_activeRandomShortcut, token, StringComparison.Ordinal);
+                Jingle? repeated = null;
+                RandomPoolCandidate? selected = null;
+                Jingle[] followUps = [];
+                using (performance.Measure("RandomPoolFileValidation"))
+                {
+                    if (sameShortcut && !_randomShortcutAwaitingNext && _activeRandomJingleId is Guid activeId &&
+                        ViewModel.NowPlaying.JingleId == activeId) repeated = fresh.FindExisting(activeId);
+                    if (repeated is null)
+                    {
+                        _randomDeckRuns.TryGetValue(randomProfile.Id, out var deckRun);
+                        selected = RandomPoolSelectionService.SelectAvailable(
+                            ViewModel.Shortcuts.GetRandomDeckCandidates(members.Select(member => member.Id)),
+                            ViewModel.Settings.TrackSession, sameShortcut ? _activeRandomJingleId : null,
+                            randomProfile.DeckVariationEnabled, randomProfile.MaxConsecutiveFromSameDeck, deckRun,
+                            candidate => fresh.FindExisting(candidate.Jingle.Id) is not null);
+                        // Keep the start-time follow-up availability snapshot and
+                        // its later fresh transition check; only unused scans go.
+                        if (selected is not null) followUps = JingleShortcutIndex.ExistingAudio(followUpMembers, fresh.CheckFile);
+                    }
+                }
+                performance.Mark("RandomPoolFileProbes", fresh.FileProbes);
+                performance.Mark("RandomPoolSelectedValidCount", repeated is not null || selected is not null ? 1 : 0);
+                using var selectionDuration = performance.Measure("RandomPoolSelectionAndPlay");
+                if (repeated is not null && TryHandleRandomShortcut(e, [repeated], profile: randomProfile)) return;
+                if (selected is not null && TryHandleRandomShortcut(e, [selected.Jingle], followUps, randomProfile.FollowUpFadeOutSeconds,
                         randomProfile.FollowUpFadeInSeconds, randomProfile)) return;
             }
 
-            var categoryAnchor = ViewModel.Decks.SelectMany(deck => deck.Jingles)
-                .FirstOrDefault(jingle => jingle.HasAudio && ShortcutService.Matches(jingle.CategoryShortcut, e));
+            var categoryAnchor = ViewModel.Shortcuts.FindCategoryAnchor(pressedShortcut);
             if (categoryAnchor is not null)
             {
-                var hasNamedCategory = !string.IsNullOrWhiteSpace(categoryAnchor.Category);
-                var candidates = ViewModel.Decks.SelectMany(deck => deck.Jingles)
-                    .Where(jingle => jingle.HasAudio &&
-                        ((hasNamedCategory && string.Equals(jingle.Category.Trim(), categoryAnchor.Category.Trim(), StringComparison.CurrentCultureIgnoreCase)) ||
-                         ShortcutService.Matches(jingle.CategoryShortcut, e)))
-                    .ToArray();
+                PerformanceDiagnostics.RouteResolved("categoryCandidate");
+                var candidates = ViewModel.Shortcuts.GetCategoryCandidates(pressedShortcut);
                 if (TryHandleRandomShortcut(e, candidates)) return;
             }
-            var selectedDeckMatches = ViewModel.SelectedDeck?.Jingles
-                .Where(jingle => jingle.HasAudio && ShortcutService.Matches(jingle.Shortcut, e)) ?? [];
-            var shortcutJingle = selectedDeckMatches.FirstOrDefault() ?? ViewModel.Decks
-                .Where(deck => deck != ViewModel.SelectedDeck)
-                .SelectMany(deck => deck.Jingles)
-                .FirstOrDefault(jingle => jingle.HasAudio && ShortcutService.Matches(jingle.Shortcut, e));
+            var shortcutJingle = ViewModel.Shortcuts.FindJingle(pressedShortcut, ViewModel.SelectedDeck);
             if (shortcutJingle is not null)
             {
+                PerformanceDiagnostics.RouteResolved("jingle");
                 e.Handled = true;
                 ClearSpaceResume();
-                if (shortcutJingle.ShortcutSwitchesDeck)
-                {
-                    var shortcutDeck = ViewModel.Decks.FirstOrDefault(deck => deck.Jingles.Contains(shortcutJingle));
-                    if (shortcutDeck is not null)
-                    {
-                        EmbeddedAutoplay.Visibility = Visibility.Collapsed;
-                        ViewModel.SetAutoplayMode(false);
-                        ShowJinglePage(shortcutDeck, shortcutJingle);
-                    }
-                }
+                LeaveAutoplayForShortcut(shortcutJingle);
                 try { ViewModel.Play(shortcutJingle); }
                 catch (Exception ex) { MessageBox.Show(this, ex.Message, "Kunde inte spela", MessageBoxButton.OK, MessageBoxImage.Warning); }
                 return;
@@ -895,6 +937,7 @@ public partial class MainWindow : Window
         if (e.Key != Key.Space || Keyboard.Modifiers != ModifierKeys.None) return;
         e.Handled = true;
         if (e.IsRepeat) return;
+        PerformanceDiagnostics.RouteResolved("space");
         if (_audio.TryResumeSpaceFade())
         {
             ClearSpaceResume();
@@ -974,12 +1017,7 @@ public partial class MainWindow : Window
             return true;
         }
 
-        var candidateIds = candidateArray.Select(candidate => candidate.Id).ToHashSet();
-        var deckCandidates = ViewModel.Decks.SelectMany(deck => deck.Jingles
-                .Where(jingle => candidateIds.Contains(jingle.Id))
-                .Select(jingle => new RandomPoolCandidate(jingle, deck.Id)))
-            .DistinctBy(candidate => candidate.Jingle.Id)
-            .ToArray();
+        var deckCandidates = ViewModel.Shortcuts.GetRandomDeckCandidates(candidateArray.Select(candidate => candidate.Id));
         _randomDeckRuns.TryGetValue(profile?.Id ?? Guid.Empty, out var deckRun);
         var eligibleCandidates = RandomPoolSelectionService.GetEligibleCandidates(
             deckCandidates,
@@ -991,6 +1029,7 @@ public partial class MainWindow : Window
         if (eligibleCandidates.Length == 0) return false;
         var selectedCandidate = eligibleCandidates[Random.Shared.Next(eligibleCandidates.Length)];
         var selected = selectedCandidate.Jingle;
+        LeaveAutoplayForShortcut(selected);
         _activeRandomShortcut = pressedRandomShortcut;
         _activeRandomJingleId = selected.Id;
         _randomShortcutAwaitingNext = false;
@@ -1026,9 +1065,7 @@ public partial class MainWindow : Window
 
     private void PlayAutomaticRandomFollowUp(IReadOnlyCollection<Guid> followUpIds, double fadeInSeconds, double fadeOutPreviousSeconds)
     {
-        var available = ViewModel.Decks.SelectMany(deck => deck.Jingles)
-            .Where(jingle => followUpIds.Contains(jingle.Id) && jingle.HasAudio && File.Exists(jingle.FilePath))
-            .DistinctBy(jingle => jingle.Id).ToArray();
+        var available = JingleShortcutIndex.ExistingAudio(ViewModel.Shortcuts.GetAudioByIds(followUpIds));
         if (available.Length == 0) return;
         var followUp = available[Random.Shared.Next(available.Length)];
         try
@@ -1053,6 +1090,7 @@ public partial class MainWindow : Window
 
     private void ClearSpaceResume()
     {
+        EmbeddedAutoplay.CancelPlaylistPreparation();
         _spaceResumeJingle = null;
         _spaceResumePosition = TimeSpan.Zero;
         _spaceResumeExpires = default;
@@ -1137,8 +1175,7 @@ public partial class MainWindow : Window
 
     private void DeckTabs_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        ViewModel.SetAutoplayMode(false);
-        EmbeddedAutoplay.Visibility = Visibility.Collapsed;
+        if (!TryLeaveAutoplay()) { e.Handled = true; return; }
 
         // När pekaren ligger över en deckflik med flera sidor används hjulet
         // för sidbyte inom det decket. På ensidiga deck behålls det tidigare
@@ -1455,6 +1492,7 @@ public partial class MainWindow : Window
     private void DeckPage_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not ToggleButton { DataContext: int pageNumber, Tag: Deck deck }) return;
+        if (!TryLeaveAutoplay()) return;
         deck.ActivePage = pageNumber - 1;
         ViewModel.SelectedDeck = deck;
         ViewModel.SetAutoplayMode(false);
@@ -1533,9 +1571,15 @@ public partial class MainWindow : Window
         _deckDragSource = tab?.DataContext as Deck ?? tab?.Content as Deck;
         if (tab is not null)
         {
-            EmbeddedAutoplay.Visibility = Visibility.Collapsed;
-            ViewModel.SetAutoplayMode(false);
+            if (!TryLeaveAutoplay()) { EndDeckDrag(); e.Handled = true; }
         }
+    }
+
+    private void DeckTabs_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (!e.Handled && e.Key is Key.Left or Key.Right or Key.Home or Key.End &&
+            FindAncestor<TabItem>(Keyboard.FocusedElement as DependencyObject) is not null && !TryLeaveAutoplay())
+            e.Handled = true;
     }
 
     private void DeckTabs_PreviewMouseMove(object sender, MouseEventArgs e)
@@ -1652,12 +1696,46 @@ public partial class MainWindow : Window
         await ActivateAutoplayAsync();
     }
 
-    private async Task ActivateAutoplayAsync()
+    internal bool TryLeaveAutoplay(bool confirmQueued = true)
     {
+        if (ViewModel.AutoplayModeActive && confirmQueued && ViewModel.PlaybackQueue.Count > 0)
+        {
+            var accepted = ConfirmAutoplayExit?.Invoke() ?? (MessageBox.Show(this,
+                LanguageService.IsEnglish
+                    ? "The queued songs will not continue automatically when you leave Autoplay. The queue is retained. Leave Autoplay?"
+                    : "De köade låtarna fortsätter inte automatiskt när du lämnar Autoplay. Kön behålls. Vill du lämna Autoplay?",
+                LanguageService.IsEnglish ? "Leave Autoplay" : "Lämna Autoplay", MessageBoxButton.YesNo,
+                MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes);
+            if (!accepted) return false;
+        }
+        ViewModel.SetAutoplayMode(false);
+        EmbeddedAutoplay.Visibility = Visibility.Collapsed;
+        return true;
+    }
+
+    private void LeaveAutoplayForShortcut(Jingle jingle)
+    {
+        if (ViewModel.UseSecondaryOutput) return;
+        if (!ViewModel.AutoplayModeActive && !jingle.ShortcutSwitchesDeck) return;
+        TryLeaveAutoplay(confirmQueued: false);
+        var deck = ViewModel.Decks.FirstOrDefault(item => item.Jingles.Contains(jingle));
+        if (deck is not null) ShowJinglePage(deck, jingle);
+    }
+
+    internal async Task<bool> StartAutoplayProfileAsync(string path, double volumeDb)
+    {
+        await ActivateAutoplayAsync(refreshLibrary: false);
+        return await EmbeddedAutoplay.LoadDefaultPlaylistAndStartAsync(path, volumeDb);
+    }
+
+    private async Task ActivateAutoplayAsync(bool refreshLibrary = true)
+    {
+        var performance = PerformanceDiagnostics.BeginOperation("AutoplayActivationRequested");
+        using var duration = performance.Measure("AutoplayActivation");
         DeckTabsControl.SelectedIndex = -1;
         EmbeddedAutoplay.Visibility = Visibility.Visible;
         ViewModel.SetAutoplayMode(true);
-        await EmbeddedAutoplay.RefreshAvailableAsync();
+        if (refreshLibrary) await EmbeddedAutoplay.RefreshAvailableAsync();
     }
 
     private async void LoadAudio_Click(object sender, RoutedEventArgs e)
@@ -1678,58 +1756,98 @@ public partial class MainWindow : Window
         await AssignAudioFilesAsync(jingle, dialog.FileNames);
     }
 
-    private async Task<int> AssignAudioFilesAsync(Jingle startJingle, IEnumerable<string> paths)
+    internal async Task<int> AssignAudioFilesAsync(Jingle startJingle, IEnumerable<string> paths)
     {
-        var files = paths.Where(IsAudioFile).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        Dispatcher.VerifyAccess();
+        if (_closeInProgress || _closeCommitted) return 0;
+        var files = paths.Where(path => AudioExtensions.Contains(Path.GetExtension(path))).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         if (files.Length == 0) return 0;
+        var project = ViewModel.Project;
         var deck = ViewModel.Decks.FirstOrDefault(candidate => candidate.Jingles.Contains(startJingle));
         if (deck is null) return 0;
-
-        var cursor = Math.Max(0, deck.Jingles.IndexOf(startJingle));
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_backgroundWorkCancellation.Token, ViewModel.ProfileWorkCancellation);
+        var token = cancellation.Token;
         var added = 0;
         var addedRows = 0;
         var addedPages = 0;
-        foreach (var path in files)
+        var existingFiles = 0;
+        var ownsGate = false;
+        bool Current() => !token.IsCancellationRequested && !_closeInProgress && !_closeCommitted &&
+            ReferenceEquals(project, ViewModel.Project) && ViewModel.Decks.Contains(deck) && deck.Jingles.Contains(startJingle);
+        try
         {
-            var slotIndex = FindAvailableSlot(deck, cursor);
-            while (slotIndex < 0 && deck.PageCount == 1 && deck.GetPageRows(0) < ProjectService.MaximumDeckRows)
+            await _audioImportGate.WaitAsync(token);
+            ownsGate = true;
+            if (!Current() || !deck.Jingles.Contains(startJingle)) return 0;
+            // Preserve RC1's initial file admission, without probing the disk on UI.
+            var validFiles = await Task.Run(() => files.Where(path =>
             {
-                ProjectService.ResizeDeckPageLayout(deck, 0, deck.GetPageRows(0) + 1, deck.GetPageColumns(0));
-                addedRows++;
-                ViewModel.ApplyLayout();
-                slotIndex = FindAvailableSlot(deck, cursor);
-            }
-            if (slotIndex < 0 && deck.PageCount < ProjectService.MaximumDeckPages)
+                token.ThrowIfCancellationRequested();
+                return File.Exists(path);
+            }).ToArray(), token);
+            existingFiles = validFiles.Length;
+            if (!Current()) return added;
+            var cursor = Math.Max(0, deck.Jingles.IndexOf(startJingle));
+            var full = false;
+            var performance = PerformanceDiagnostics.BeginOperation("AudioImportRequested");
+            using var duration = performance.Measure("AudioImport");
+            foreach (var batch in validFiles.Chunk(16))
             {
-                deck.PageCount++;
-                deck.EnsurePageLayouts();
-                addedPages++;
-                ViewModel.ApplyLayout();
-                slotIndex = FindAvailableSlot(deck, cursor);
+                if (!Current()) return added;
+                var metadata = await Metadata.ReadAsync(batch, token);
+                if (!Current()) return added;
+                var before = added;
+                using (performance.Measure("AudioImportApplyBatch"))
+                {
+                    foreach (var file in metadata)
+                    {
+                        if (full) continue;
+                        var slotIndex = FindAvailableSlot(deck, cursor);
+                        while (slotIndex < 0 && deck.PageCount == 1 && deck.GetPageRows(0) < ProjectService.MaximumDeckRows)
+                        {
+                            ProjectService.ResizeDeckPageLayout(deck, 0, deck.GetPageRows(0) + 1, deck.GetPageColumns(0));
+                            addedRows++;
+                            ViewModel.ApplyLayout();
+                            slotIndex = FindAvailableSlot(deck, cursor);
+                        }
+                        if (slotIndex < 0 && deck.PageCount < ProjectService.MaximumDeckPages)
+                        {
+                            deck.PageCount++;
+                            deck.EnsurePageLayouts();
+                            addedPages++;
+                            ViewModel.ApplyLayout();
+                            slotIndex = FindAvailableSlot(deck, cursor);
+                        }
+                        if (slotIndex < 0) { full = true; continue; }
+                        var jingle = deck.Jingles[slotIndex];
+                        jingle.IsTextBlock = false;
+                        jingle.FilePath = file.Path;
+                        jingle.Title = Path.GetFileNameWithoutExtension(file.Path);
+                        jingle.DurationSeconds = file.DurationSeconds ?? 0;
+                        added++;
+                        cursor = slotIndex + 1;
+                        deck.ActivePage = deck.GetPageForPosition(slotIndex);
+                    }
+                }
+                // Save partial progress before yielding to input/close/profile changes.
+                if (added > before) ViewModel.RequestSave();
+                await Dispatcher.Yield(DispatcherPriority.Background);
+                if (full) break;
             }
-            if (slotIndex < 0) break;
-
-            var jingle = deck.Jingles[slotIndex];
-            jingle.IsTextBlock = false;
-            jingle.FilePath = path;
-            jingle.Title = Path.GetFileNameWithoutExtension(path);
-            try { using var reader = new AudioFileReader(path); jingle.DurationSeconds = reader.TotalTime.TotalSeconds; }
-            catch { jingle.DurationSeconds = 0; }
-            added++;
-            cursor = slotIndex + 1;
-            deck.ActivePage = deck.GetPageForPosition(slotIndex);
+            if (!Current() || existingFiles == 0) return added;
+            ViewModel.NotifyJingleChanged();
+            ViewModel.Status = addedRows > 0
+                ? $"Lade till {added} ljudfiler och utökade {deck.Name} med {addedRows} rader"
+                : addedPages > 0
+                    ? $"Lade till {added} ljudfiler och skapade {addedPages} nya sidor i {deck.Name}"
+                    : $"Lade till {added} ljudfiler i {deck.Name}";
+            await SaveSafelyAsync();
+            if (Current() && added < existingFiles)
+                MessageBox.Show(this, $"{existingFiles - added} ljudfiler kunde inte läggas till eftersom decket nådde gränsen för rader och sidor.",
+                    "Decket är fullt", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
-
-        ViewModel.NotifyJingleChanged();
-        ViewModel.Status = addedRows > 0
-            ? $"Lade till {added} ljudfiler och utökade {deck.Name} med {addedRows} rader"
-            : addedPages > 0
-                ? $"Lade till {added} ljudfiler och skapade {addedPages} nya sidor i {deck.Name}"
-                : $"Lade till {added} ljudfiler i {deck.Name}";
-        await SaveSafelyAsync();
-        if (added < files.Length)
-            MessageBox.Show(this, $"{files.Length - added} ljudfiler kunde inte läggas till eftersom decket nådde gränsen för rader och sidor.",
-                "Decket är fullt", MessageBoxButton.OK, MessageBoxImage.Warning);
+        catch (OperationCanceledException) { }
+        finally { if (ownsGate) _audioImportGate.Release(); }
         return added;
     }
 
@@ -1745,6 +1863,7 @@ public partial class MainWindow : Window
         return -1;
     }
 
+    // Drag feedback retains its immediate current-file check.
     private static bool IsAudioFile(string path) => File.Exists(path) && AudioExtensions.Contains(Path.GetExtension(path));
 
     private async void TextBlock_Click(object sender, RoutedEventArgs e)
@@ -2114,15 +2233,23 @@ public partial class MainWindow : Window
     {
         if (MessageBox.Show(this, "Skapa ett nytt tomt projekt? Det nuvarande projektet autosparas först.", "Nytt projekt", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         if (!await SaveSafelyAsync()) return;
-        _audio.StopAll();
-        CloseTeamDeck();
-        ViewModel.ReplaceQueue([]);
-        ViewModel.SetAutoplayMode(false);
-        ViewModel.SetSecondaryOutput(false);
-        EmbeddedAutoplay.Visibility = Visibility.Collapsed;
-        SecondaryOutputToggle.IsChecked = false;
-        ClearSpaceResume();
-        ViewModel.ImportLegacyXml(CreateTemporaryEmptyXml());
+        try
+        {
+            _audio.StopAll();
+            CloseTeamDeck();
+            ViewModel.ReplaceQueue([]);
+            ViewModel.SetAutoplayMode(false);
+            ViewModel.SetSecondaryOutput(false);
+            EmbeddedAutoplay.Visibility = Visibility.Collapsed;
+            SecondaryOutputToggle.IsChecked = false;
+            ClearSpaceResume();
+            await ViewModel.ImportLegacyXmlAsync(CreateTemporaryEmptyXml());
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Kunde inte skapa projektet",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private static string CreateTemporaryEmptyXml()
@@ -2149,7 +2276,7 @@ public partial class MainWindow : Window
         try
         {
             CloseTeamDeck();
-            ViewModel.ImportLegacyXml(dialog.FileName);
+            if (!await ViewModel.ImportLegacyXmlAsync(dialog.FileName)) return;
             var slots = ViewModel.Decks.Sum(deck => deck.TotalCapacity);
             var jingles = ViewModel.Decks.Sum(deck => deck.Jingles.Count(jingle => jingle.HasAudio));
             MessageBox.Show(this,
@@ -2176,7 +2303,8 @@ public partial class MainWindow : Window
         {
             progressWindow.Show();
             await Dispatcher.Yield(DispatcherPriority.Render);
-            result = await _projects.CreateMediaBackupAsync(ViewModel.Project, dialog.FolderName, progressWindow);
+            result = await _projects.CreateMediaBackupAsync(ViewModel.Project, dialog.FolderName, progressWindow,
+                profileName: ViewModel.ProfileDisplayName);
         }
         catch (Exception ex)
         {
@@ -2259,8 +2387,20 @@ public partial class MainWindow : Window
 
     private void RandomPlayerSettings_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new RandomPlayerSettingsWindow(ViewModel.Project) { Owner = this };
-        if (dialog.ShowDialog() != true) return;
+        var project = ViewModel.Project;
+        RandomPlayerSettingsWindow dialog;
+        PerformanceOperation menu;
+        using (PerformanceDiagnostics.BeginCommand("randomSettingsMenu"))
+        {
+            menu = PerformanceDiagnostics.BeginOperation("RandomSettingsMenuRequested");
+            using (menu.Measure("RandomSettingsMenuConstruction"))
+                dialog = new RandomPlayerSettingsWindow(project, () => ReferenceEquals(ViewModel.Project, project)) { Owner = this };
+        }
+        menu.Mark("RandomSettingsModalEntering");
+        bool accepted;
+        using (menu.Measure("RandomSettingsModalLifetime")) accepted = dialog.ShowDialog() == true;
+        menu.Mark("RandomSettingsModalReturned", detail: accepted ? "Saved" : "Cancelled");
+        if (!accepted) return;
         _activeRandomShortcut = null;
         _activeRandomJingleId = null;
         _randomShortcutAwaitingNext = false;

@@ -64,17 +64,23 @@ public sealed class AudioFileSeekSampleProvider : ISampleProvider
     private readonly string? _path;
     private readonly object _gate = new();
     private TimeSpan? _pendingPosition;
+    private readonly PerformanceOperation _performance;
+    private bool _returnedDecodedFrames;
 
-    public AudioFileSeekSampleProvider(AudioFileReader reader, string? path)
+    public AudioFileSeekSampleProvider(AudioFileReader reader, string? path) : this(reader, path, default) { }
+
+    internal AudioFileSeekSampleProvider(AudioFileReader reader, string? path, PerformanceOperation performance)
     {
         _reader = reader;
         _path = path;
+        _performance = performance;
     }
 
     public WaveFormat WaveFormat => _reader.WaveFormat;
 
     public void Seek(TimeSpan position)
     {
+        _performance.Mark("SeekRequested", position.TotalSeconds);
         lock (_gate) _pendingPosition = position;
     }
 
@@ -84,10 +90,19 @@ public sealed class AudioFileSeekSampleProvider : ISampleProvider
         {
             if (_pendingPosition is TimeSpan position)
             {
-                AudioFileSeekService.Seek(_reader, _path, position);
+                using (_performance.Measure("SeekApplied")) AudioFileSeekService.Seek(_reader, _path, position);
                 _pendingPosition = null;
             }
-            return _reader.Read(buffer, offset, count);
+            if (!_performance.Enabled) return _reader.Read(buffer, offset, count);
+            var started = _performance.Timestamp;
+            var read = _reader.Read(buffer, offset, count);
+            _performance.Duration("DecodeRead", started, read);
+            if (read > 0 && !_returnedDecodedFrames)
+            {
+                _returnedDecodedFrames = true;
+                _performance.Mark("FirstDecodedFrames", read);
+            }
+            return read;
         }
     }
 }

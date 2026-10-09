@@ -2,15 +2,6 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="{StaticResource AppBackgroundBrush}" IsHitTestVisible="True">
     <UserControl.Resources>
-        <Style x:Key="FilterTab" TargetType="ListBoxItem">
-            <Setter Property="Padding" Value="14,7" /><Setter Property="Margin" Value="0,0,3,0" />
-            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" /><Setter Property="Background" Value="Transparent" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Style.Triggers>
-                <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="{StaticResource AccentSoftBrush}" /><Setter Property="Foreground" Value="{StaticResource AccentBrush}" /></Trigger>
-                <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{StaticResource TextBrush}" /></Trigger>
-            </Style.Triggers>
-        </Style>
         <Style x:Key="QueueItem" TargetType="ListBoxItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
@@ -60,7 +51,7 @@
                         <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="220"/><ColumnDefinition Width="88"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="FÖRLYSSNING · UTGÅNG 2" Style="{StaticResource EyebrowText}" />
-                            <TextBlock Text="{Binding PreviewPlaying.Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding PreviewPlaying.Title}" />
+                            <TextBlock Text="{Binding PreviewTitle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding PreviewTitle}" />
                         </StackPanel>
                         <Slider x:Name="PreviewPositionSlider" Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding PreviewPositionFraction, Mode=OneWay}"
                                 Margin="10,0" VerticalAlignment="Center" PreviewMouseLeftButtonDown="PreviewPositionSlider_PreviewMouseLeftButtonDown"
@@ -122,17 +113,9 @@
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                     <TextBlock Text="TILLGÄNGLIGA LÅTAR OCH JINGLAR" Style="{StaticResource EyebrowText}" Margin="2,0,0,7" />
-                    <Grid Grid.Row="1">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <ListBox x:Name="DeckFilterTabs" Height="38" SelectionChanged="DeckFilterTabs_SelectionChanged" ItemContainerStyle="{StaticResource FilterTab}"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollBarVisibility="Disabled">
-                            <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListBox.ItemsPanel>
-                            <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}" FontWeight="SemiBold" /></DataTemplate></ListBox.ItemTemplate>
-                        </ListBox>
-                        <Button Grid.Column="1" Content="&#xE76C;" FontFamily="Segoe Fluent Icons" Style="{StaticResource SecondaryButton}"
-                                Width="39" Height="38" Padding="0" Margin="6,0,0,0" Click="DeckFilterNext_Click"
-                                ToolTip="Visa nästa deckflik" />
-                    </Grid>
+                    <ComboBox x:Name="DeckFilterCombo" Grid.Row="1" Height="38" MinWidth="160"
+                              Style="{StaticResource DarkComboBox}" DisplayMemberPath="Name"
+                              SelectionChanged="DeckFilterCombo_SelectionChanged" ToolTip="Välj Alla eller ett deck" />
                     <TextBox x:Name="SearchBox" Grid.Row="2" Margin="0,7" TextChanged="SearchBox_TextChanged" ToolTip="Sök titel" />
                     <ListBox x:Name="AvailableList" Grid.Row="3" MouseDoubleClick="AvailableList_MouseDoubleClick" PreviewMouseLeftButtonDown="AvailableList_PreviewMouseLeftButtonDown">
                         <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="5,7" /></DataTemplate></ListBox.ItemTemplate>

@@ -28,7 +28,8 @@ internal static class Program
         project.Settings.ShowJingleDuration = false;
         Check(changes.SequenceEqual(new[] { "TitleFontSize", "FontFamily", "ShowJingleDuration" }), "Appearance notifications");
         var restored = JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(project.Settings))!;
-        Check(!restored.ShowJingleDuration && restored.TitleFontSize == 23 && restored.FontFamily == "Consolas", "Round trip");
+        Check(!restored.ShowJingleDuration && restored.TitleFontSize == 15 && restored.FontFamily == "Consolas", "Profile appearance round trip excludes local title size");
+        Check(JsonSerializer.Deserialize<AppSettings>("{\"titleFontSize\":23}")!.TitleFontSize == 23, "Legacy size is readable for migration");
         Check(JsonSerializer.Deserialize<AppSettings>("{}")!.ShowJingleDuration, "Old profile default");
         var window = new SettingsWindow(project, [], new ProfilePreferencesService(root, Path.Combine(root, "autosave.json")));
         var content = (FrameworkElement)window.Content;

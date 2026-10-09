@@ -13,6 +13,7 @@ public partial class App : Application
 {
     protected override async void OnStartup(StartupEventArgs e)
     {
+        PerformanceDiagnostics.Initialize(e.Args, Dispatcher);
         EventManager.RegisterClassHandler(typeof(TextBox), Keyboard.KeyDownEvent,
             new KeyEventHandler(TextBox_KeyDown), true);
         EventManager.RegisterClassHandler(typeof(FrameworkElement), FrameworkElement.LoadedEvent,
@@ -93,6 +94,13 @@ public partial class App : Application
         MainWindow = mainWindow;
         ShutdownMode = ShutdownMode.OnMainWindowClose;
         mainWindow.Show();
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        WaveformScheduler.Shared.Dispose();
+        PerformanceDiagnostics.Stop();
+        base.OnExit(e);
     }
 
     private static void TextBox_KeyDown(object sender, KeyEventArgs e)

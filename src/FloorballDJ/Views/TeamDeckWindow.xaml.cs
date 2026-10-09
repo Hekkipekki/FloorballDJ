@@ -71,6 +71,8 @@ public partial class TeamDeckWindow : Window, INotifyPropertyChanged
         StatusText = $"Standardjingle: {_defaultJingle.Title} – välj spelare";
     }
 
+    private void Close_Click(object sender, RoutedEventArgs e) => Close();
+
     private void Player_Click(object sender, RoutedEventArgs e)
     {
         if (_suppressNextClick) { _suppressNextClick = false; return; }

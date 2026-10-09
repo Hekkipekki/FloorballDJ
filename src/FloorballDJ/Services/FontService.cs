@@ -1,10 +1,13 @@
 using System.Windows.Media;
 using Microsoft.Win32;
+using FloorballDJ.Infrastructure;
 
 namespace FloorballDJ.Services;
 
 public static class FontService
 {
+    private static readonly BoundedCache<string, FontFamily> Resolved = new(128);
+    internal static int ResolvedCount => Resolved.Count;
     public static string FontsDirectory { get; } = ResolveFontsDirectory();
 
     private static readonly BundledFont[] BundledFonts =
@@ -57,6 +60,9 @@ public static class FontService
     }
 
     public static FontFamily Resolve(string? value)
+        => Resolved.GetOrAdd(string.IsNullOrWhiteSpace(value) ? "" : value, static key => ResolveUncached(key));
+
+    private static FontFamily ResolveUncached(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return new FontFamily("Segoe UI Variable Display");
         if (value.StartsWith("bundled:", StringComparison.OrdinalIgnoreCase))

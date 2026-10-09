@@ -1,21 +1,22 @@
-using System.Globalization;
-using System.Text;
 using System.Windows;
 using System.Windows.Threading;
 using FloorballDJ.Models;
 using FloorballDJ.Services;
 using FloorballDJ.ViewModels;
 using Microsoft.Win32;
-using NAudio.Wave;
 
 namespace FloorballDJ.Views;
 
 public partial class ManageAudioFilesWindow : Window
 {
-    private static readonly HashSet<string> AudioExtensions = new(StringComparer.OrdinalIgnoreCase)
-        { ".mp3", ".wav", ".aiff", ".aif", ".wma", ".m4a", ".aac", ".flac", ".mp4", ".ogg" };
     private readonly MainViewModel _viewModel;
     private readonly ProjectService _projects;
+    private readonly CancellationTokenSource _lifetime = new();
+    private CancellationTokenSource? _statisticsCancellation;
+    private bool _closed;
+    private bool _busy;
+    internal AudioMetadataService Metadata { get; init; } = AudioMetadataService.Shared;
+    private sealed record Target(Deck Deck, Jingle Jingle, AudioLibrarySource Source);
 
     public ManageAudioFilesWindow(MainViewModel viewModel, ProjectService projects)
     {
@@ -23,32 +24,55 @@ public partial class ManageAudioFilesWindow : Window
         WindowPlacementService.MaximizeOnOwnerMonitor(this);
         _viewModel = viewModel;
         _projects = projects;
-        RefreshStatistics();
+        Closed += (_, _) =>
+        {
+            _closed = true;
+            _lifetime.Cancel();
+            _statisticsCancellation?.Cancel();
+            _statisticsCancellation?.Dispose();
+            _lifetime.Dispose();
+        };
+        _ = RefreshStatisticsAsync();
     }
 
-    private void Refresh_Click(object sender, RoutedEventArgs e) => RefreshStatistics();
+    private async void Refresh_Click(object sender, RoutedEventArgs e) => await RefreshStatisticsAsync();
 
-    private void RefreshStatistics()
+    private Target[] CaptureTargets() => _viewModel.Decks.SelectMany(deck => deck.Jingles.Where(jingle => jingle.HasAudio)
+        .Select(jingle => new Target(deck, jingle, new AudioLibrarySource(deck.Name, jingle.Title, jingle.FilePath)))).ToArray();
+
+    internal async Task RefreshStatisticsAsync()
     {
-        var files = _viewModel.Decks
-            .SelectMany(deck => deck.Jingles.Where(jingle => jingle.HasAudio)
-                .Select(jingle => CreateStatus(deck.Name, jingle)))
-            .ToList();
-        var existingPaths = files.Where(file => !file.IsMissing).Select(file => file.FilePath)
-            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        long bytes = 0;
-        foreach (var path in existingPaths)
-            try { bytes += new FileInfo(path).Length; } catch { }
-
-        FoundText.Text = files.Count(file => !file.IsMissing).ToString();
-        MissingText.Text = files.Count(file => file.IsMissing).ToString();
-        SizeText.Text = FormatBytes(bytes);
-        FormatsText.Text = string.Join(", ", files.Select(file => Path.GetExtension(file.FilePath).TrimStart('.').ToUpperInvariant())
-            .Where(format => format.Length > 0).Distinct().OrderBy(format => format)) is { Length: > 0 } formats ? formats : "–";
-        FilesList.ItemsSource = files.OrderByDescending(file => file.IsMissing).ThenBy(file => file.DeckName).ThenBy(file => file.Title);
-        EmptyLibraryText.Visibility = files.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        if (string.IsNullOrWhiteSpace(SearchFolderBox.Text))
-            SearchFolderBox.Text = files.FirstOrDefault(file => file.IsMissing)?.SuggestedRoot ?? "";
+        if (_closed) return;
+        Dispatcher.VerifyAccess();
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, _viewModel.ProfileWorkCancellation);
+        var token = cancellation.Token;
+        var previous = _statisticsCancellation;
+        _statisticsCancellation = cancellation;
+        previous?.Cancel();
+        previous?.Dispose();
+        var project = _viewModel.Project;
+        var sources = CaptureTargets().Select(target => target.Source).ToArray();
+        try
+        {
+            var statistics = await AudioLibraryService.InspectAsync(sources, token);
+            if (_closed || token.IsCancellationRequested || !ReferenceEquals(project, _viewModel.Project)) return;
+            // An edit/relink during inspection invalidates this report, too.
+            if (!sources.SequenceEqual(CaptureTargets().Select(target => target.Source))) return;
+            var files = statistics.Files;
+            FoundText.Text = files.Count(file => !file.IsMissing).ToString();
+            MissingText.Text = files.Count(file => file.IsMissing).ToString();
+            SizeText.Text = FormatBytes(statistics.Bytes);
+            FormatsText.Text = statistics.Formats;
+            FilesList.ItemsSource = files;
+            EmptyLibraryText.Visibility = files.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (string.IsNullOrWhiteSpace(SearchFolderBox.Text))
+                SearchFolderBox.Text = files.FirstOrDefault(file => file.IsMissing)?.SuggestedRoot ?? "";
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            if (!_closed && !token.IsCancellationRequested) StatusText.Text = $"Sökningen kunde inte slutföras: {ex.Message}";
+        }
     }
 
     private void BrowseSearchFolder_Click(object sender, RoutedEventArgs e)
@@ -59,55 +83,72 @@ public partial class ManageAudioFilesWindow : Window
 
     private async void SearchAndUpdate_Click(object sender, RoutedEventArgs e)
     {
-        if (!Directory.Exists(SearchFolderBox.Text))
-        {
-            MessageBox.Show(this, "Välj först en giltig sökmapp.", "Sökmapp saknas", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
+        await SearchAndUpdateAsync(SearchFolderBox.Text, UpdateAllCheck.IsChecked.GetValueOrDefault());
+    }
 
+    internal async Task<int> SearchAndUpdateAsync(string root, bool updateAll)
+    {
+        if (_closed || _busy) return 0;
+        Dispatcher.VerifyAccess();
+        var project = _viewModel.Project;
+        var targets = CaptureTargets();
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, _viewModel.ProfileWorkCancellation);
+        var token = cancellation.Token;
         SetBusy(true, "Söker igenom mappar…");
+        var updated = 0;
         try
         {
-            var root = SearchFolderBox.Text;
-            var discovered = await Task.Run(() => EnumerateAudioFiles(root));
-            var byName = discovered.GroupBy(path => Path.GetFileName(path) ?? "", StringComparer.OrdinalIgnoreCase)
-                .Where(group => group.Key.Length > 0)
-                .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
-            var candidates = discovered.Select(path => new AudioCandidate(path, NormalizeFileName(path))).ToArray();
-            var byNormalizedName = candidates.Where(candidate => candidate.NormalizedName.Length > 0)
-                .GroupBy(candidate => candidate.NormalizedName, StringComparer.Ordinal)
-                .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
-            var updated = 0;
-            foreach (var deck in _viewModel.Decks)
+            if (!await Task.Run(() => Directory.Exists(root), token))
             {
-                for (var index = 0; index < deck.Jingles.Count; index++)
-                {
-                    var jingle = deck.Jingles[index];
-                    if (!jingle.HasAudio || (!UpdateAllCheck.IsChecked.GetValueOrDefault() && !jingle.IsMissing)) continue;
-                    var match = FindBestMatch(jingle, byName, byNormalizedName, candidates);
-                    if (match is null) continue;
-                    if (string.Equals(jingle.FilePath, match, StringComparison.OrdinalIgnoreCase)) continue;
-                    jingle.FilePath = match;
-                    try
-                    {
-                        using var reader = new AudioFileReader(match);
-                        jingle.DurationSeconds = reader.TotalTime.TotalSeconds;
-                    }
-                    catch { }
-                    deck.Jingles[index] = jingle;
-                    updated++;
-                }
+                if (!_closed && !token.IsCancellationRequested)
+                    MessageBox.Show(this, "Välj först en giltig sökmapp.", "Sökmapp saknas", MessageBoxButton.OK, MessageBoxImage.Information);
+                return 0;
             }
-            if (updated > 0) await _viewModel.SaveAsync();
-            RefreshStatistics();
-            StatusText.Text = updated == 0 ? "Inga nya matchningar hittades." : $"{updated} sökvägar uppdaterades och sparades.";
+            var matches = await AudioLibraryService.FindMatchesAsync(root, targets.Select(target => target.Source).ToArray(), updateAll, Metadata, token);
+            var performance = PerformanceDiagnostics.BeginOperation("LibraryRelinkApplyRequested");
+            foreach (var batch in matches.Chunk(16))
+            {
+                if (_closed || token.IsCancellationRequested || !ReferenceEquals(project, _viewModel.Project)) break;
+                var changed = false;
+                using (performance.Measure("LibraryRelinkApplyBatch"))
+                {
+                    foreach (var match in batch)
+                    {
+                        var target = targets[match.SourceIndex];
+                        if (!_viewModel.Decks.Contains(target.Deck) ||
+                            target.Jingle.FilePath != target.Source.FilePath || target.Jingle.Title != target.Source.Title) continue;
+                        var index = target.Deck.Jingles.IndexOf(target.Jingle);
+                        if (index < 0) continue;
+                        target.Jingle.FilePath = match.FilePath;
+                        if (match.DurationSeconds is { } duration) target.Jingle.DurationSeconds = duration;
+                        target.Deck.Jingles[index] = target.Jingle;
+                        updated++;
+                        changed = true;
+                    }
+                }
+                // Persist partial progress, including when the window closes between batches.
+                if (changed) _viewModel.RequestSave();
+                await Dispatcher.Yield(DispatcherPriority.Background);
+            }
+            if (!_closed && !token.IsCancellationRequested && ReferenceEquals(project, _viewModel.Project))
+            {
+                if (updated > 0) await _viewModel.SaveAsync();
+                await RefreshStatisticsAsync();
+                if (!_closed && !token.IsCancellationRequested)
+                    StatusText.Text = updated == 0 ? "Inga nya matchningar hittades." : $"{updated} sökvägar uppdaterades och sparades.";
+            }
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Sökningen misslyckades", MessageBoxButton.OK, MessageBoxImage.Warning);
-            StatusText.Text = "Sökningen kunde inte slutföras.";
+            if (!_closed && !token.IsCancellationRequested)
+            {
+                MessageBox.Show(this, ex.Message, "Sökningen misslyckades", MessageBoxButton.OK, MessageBoxImage.Warning);
+                StatusText.Text = "Sökningen kunde inte slutföras.";
+            }
         }
-        finally { SetBusy(false); }
+        finally { if (!_closed) SetBusy(false); }
+        return updated;
     }
 
     private void BrowseBackupFolder_Click(object sender, RoutedEventArgs e)
@@ -168,84 +209,11 @@ public partial class ManageAudioFilesWindow : Window
 
     private void SetBusy(bool busy, string? status = null)
     {
+        _busy = busy;
         SearchButton.IsEnabled = !busy;
         BackupButton.IsEnabled = !busy;
         WorkProgress.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
         if (status is not null) StatusText.Text = status;
-    }
-
-    private static List<string> EnumerateAudioFiles(string root)
-    {
-        var result = new List<string>();
-        var pending = new Stack<string>();
-        pending.Push(root);
-        while (pending.Count > 0)
-        {
-            var directory = pending.Pop();
-            try
-            {
-                foreach (var file in Directory.EnumerateFiles(directory))
-                    if (AudioExtensions.Contains(Path.GetExtension(file))) result.Add(file);
-                foreach (var child in Directory.EnumerateDirectories(directory)) pending.Push(child);
-            }
-            catch (UnauthorizedAccessException) { }
-            catch (IOException) { }
-        }
-        return result;
-    }
-
-    private static string? FindBestMatch(Jingle jingle, IReadOnlyDictionary<string, string> byName,
-        IReadOnlyDictionary<string, AudioCandidate[]> byNormalizedName, IReadOnlyList<AudioCandidate> candidates)
-    {
-        var expectedFileName = Path.GetFileName(jingle.FilePath) ?? "";
-        if (byName.TryGetValue(expectedFileName, out var exact)) return exact;
-
-        var expectedKeys = new[] { NormalizeFileName(expectedFileName), NormalizeFileName(jingle.Title) }
-            .Where(key => key.Length >= 6).Distinct(StringComparer.Ordinal).ToArray();
-        if (expectedKeys.Length == 0) return null;
-        foreach (var key in expectedKeys)
-            if (byNormalizedName.TryGetValue(key, out var normalizedMatches) && normalizedMatches.Length == 1)
-                return normalizedMatches[0].Path;
-
-        var ranked = candidates
-            .Select(candidate => new { candidate.Path, Score = expectedKeys.Max(key => FileNameSimilarity(key, candidate.NormalizedName)) })
-            .Where(result => result.Score >= 0.78)
-            .OrderByDescending(result => result.Score)
-            .Take(2)
-            .ToArray();
-        if (ranked.Length == 0) return null;
-        if (ranked.Length > 1 && ranked[0].Score - ranked[1].Score < 0.08) return null;
-        return ranked[0].Path;
-    }
-
-    private static string NormalizeFileName(string value)
-    {
-        var stem = Path.GetFileNameWithoutExtension(value).Normalize(NormalizationForm.FormD);
-        var builder = new StringBuilder(stem.Length);
-        foreach (var character in stem)
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark) continue;
-            builder.Append(char.IsLetterOrDigit(character) ? char.ToLowerInvariant(character) : ' ');
-        }
-        var ignored = new HashSet<string>(StringComparer.Ordinal) { "spotifydown" };
-        return string.Join(' ', builder.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(token => !ignored.Contains(token)));
-    }
-
-    private static double FileNameSimilarity(string expected, string candidate)
-    {
-        if (expected.Length == 0 || candidate.Length == 0) return 0;
-        if (string.Equals(expected, candidate, StringComparison.Ordinal)) return 1;
-        var shorter = expected.Length <= candidate.Length ? expected : candidate;
-        var longer = expected.Length > candidate.Length ? expected : candidate;
-        if (shorter.Length >= 8 && longer.Contains(shorter, StringComparison.Ordinal))
-            return 0.88 + 0.12 * shorter.Length / longer.Length;
-
-        var expectedTokens = expected.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.Ordinal);
-        var candidateTokens = candidate.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.Ordinal);
-        var shared = expectedTokens.Intersect(candidateTokens).Count();
-        return expectedTokens.Count + candidateTokens.Count == 0
-            ? 0
-            : 2d * shared / (expectedTokens.Count + candidateTokens.Count);
     }
 
     private static string FormatBytes(long bytes)
@@ -257,33 +225,4 @@ public partial class ManageAudioFilesWindow : Window
         return $"{value:0.#} {units[unit]}";
     }
 
-    private static AudioFileStatus CreateStatus(string deckName, Jingle jingle)
-    {
-        if (!jingle.IsMissing)
-            return new AudioFileStatus(deckName, jingle.Title, jingle.FilePath, false, "", "", "");
-
-        var expectedFolder = Path.GetDirectoryName(jingle.FilePath) ?? "Okänd mapp";
-        var folderExists = Directory.Exists(expectedFolder);
-        var problem = folderExists
-            ? $"Filen finns inte i den länkade mappen: {expectedFolder}"
-            : $"Den länkade mappen finns inte längre: {expectedFolder}";
-        var suggestedRoot = FindNearestExistingFolder(expectedFolder);
-        var hint = $"Sök efter “{Path.GetFileName(jingle.FilePath)}” från: {(string.IsNullOrWhiteSpace(suggestedRoot) ? "välj musikbibliotekets rotmapp" : suggestedRoot)}";
-        return new AudioFileStatus(deckName, jingle.Title, jingle.FilePath, true, problem, hint, suggestedRoot);
-    }
-
-    private static string FindNearestExistingFolder(string path)
-    {
-        var current = path;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            if (Directory.Exists(current)) return current;
-            current = Path.GetDirectoryName(current) ?? "";
-        }
-        return "";
-    }
 }
-
-internal sealed record AudioCandidate(string Path, string NormalizedName);
-
-public sealed record AudioFileStatus(string DeckName, string Title, string FilePath, bool IsMissing, string Problem, string SearchHint, string SuggestedRoot);

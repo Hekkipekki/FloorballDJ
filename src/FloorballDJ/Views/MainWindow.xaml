@@ -78,7 +78,7 @@
                     <DataTrigger.Binding>
                         <MultiBinding Converter="{StaticResource ActiveJingle}">
                             <Binding Path="Id" />
-                            <Binding Path="DataContext.NowPlaying.JingleId" RelativeSource="{RelativeSource AncestorType=Window}" />
+                            <Binding Path="DataContext.NowPlayingJingleId" RelativeSource="{RelativeSource AncestorType=Window}" />
                         </MultiBinding>
                     </DataTrigger.Binding>
                     <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
@@ -303,7 +303,7 @@
                 </Grid>
 
                 <Border Grid.Column="1" CornerRadius="5" ClipToBounds="True" Margin="0,10">
-                    <controls:WaveformControl FilePath="{Binding NowPlaying.FilePath}" PositionFraction="{Binding PositionFraction}"
+                    <controls:WaveformControl FilePath="{Binding NowPlayingFilePath}" PositionFraction="{Binding PositionFraction}"
                                               Cursor="Hand" MouseLeftButtonDown="PlayerWaveform_MouseLeftButtonDown"
                                               ToolTip="Klicka för att hoppa i låten" />
                 </Border>
@@ -326,6 +326,40 @@
                             TickPlacement="BottomRight" TickFrequency="6" IsSnapToTickEnabled="False" IsMoveToPointEnabled="True" Height="34"
                             Foreground="#7F93AD"
                             ValueChanged="MasterVolumeSlider_ValueChanged" PreviewMouseWheel="MasterVolumeSlider_PreviewMouseWheel" ToolTip="Programvolym i dB" />
+                    <ToggleButton x:Name="PrimaryLimiterToggle" IsChecked="{Binding PrimaryLimiterBypassed, Mode=TwoWay}"
+                                  Content="{Binding PrimaryLimiterButtonText}" Height="24" MinWidth="0" Padding="4,1" FontSize="10"
+                                  ToolTip="Förbikoppla huvudutgångens limiter tillfälligt. Normalisering och förlyssning behålls. Signalen kan överstyra; justera ljudnivån.">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton" BasedOn="{StaticResource PillToggle}">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border x:Name="LimiterChrome" Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="4"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="LimiterChrome" Property="BorderBrush" Value="{StaticResource TextBrush}" />
+                                                </Trigger>
+                                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                                    <Setter TargetName="LimiterChrome" Property="BorderBrush" Value="{StaticResource TextBrush}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource WarningBrush}" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource WarningBrush}" />
+                                        <Setter Property="Foreground" Value="#1A1308" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                    </ToggleButton>
                 </StackPanel>
 
                 <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0,14,0">
@@ -337,7 +371,7 @@
                                 <Setter Property="Content" Value="&#xE769;" />
                                 <Setter Property="ToolTip" Value="Pausa" />
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding NowPlaying.IsPaused}" Value="True">
+                                    <DataTrigger Binding="{Binding NowPlayingIsPaused}" Value="True">
                                         <Setter Property="Content" Value="&#xE768;" />
                                         <Setter Property="ToolTip" Value="Fortsätt spela" />
                                     </DataTrigger>
@@ -376,6 +410,7 @@
             <!-- Seamless deck workspace -->
             <TabControl x:Name="DeckTabsControl" Grid.Row="2" Style="{StaticResource DeckTabs}" SelectedItem="{Binding SelectedDeck}" ItemContainerStyle="{StaticResource DeckTab}"
                         PreviewMouseWheel="DeckTabs_PreviewMouseWheel" PreviewMouseLeftButtonDown="DeckTabs_PreviewMouseLeftButtonDown"
+                        PreviewKeyDown="DeckTabs_PreviewKeyDown"
                         PreviewMouseMove="DeckTabs_PreviewMouseMove" PreviewMouseLeftButtonUp="DeckTabs_PreviewMouseLeftButtonUp"
                         PreviewMouseRightButtonDown="DeckTabs_PreviewMouseRightButtonDown">
                 <TabControl.ItemsSource>

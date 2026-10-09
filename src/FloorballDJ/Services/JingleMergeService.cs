@@ -24,6 +24,8 @@ public sealed class JingleMergeService
     public Task MergeManyAsync(IReadOnlyList<Segment> segments, IReadOnlyList<Transition> transitions,
         string outputPath, CancellationToken cancellationToken = default) => Task.Run(() =>
     {
+        var performance = PerformanceDiagnostics.BeginOperation("MergeExportRequested");
+        using var duration = performance.Measure("MergeExport");
         if (segments.Count < 2) throw new ArgumentException("Välj minst två ljud.", nameof(segments));
         if (transitions.Count != segments.Count - 1)
             throw new ArgumentException("Varje skarv mellan ljuden måste ha en övergång.", nameof(transitions));
@@ -118,6 +120,8 @@ public sealed class JingleMergeService
         double transitionSeconds, bool preserveFirstDuringTransition, string outputPath,
         CancellationToken cancellationToken = default) => Task.Run(() =>
     {
+        var performance = PerformanceDiagnostics.BeginOperation("MergeExportRequested");
+        using var duration = performance.Measure("MergeExport");
         cancellationToken.ThrowIfCancellationRequested();
         using var firstReader = new AudioFileReader(first.FilePath);
         using var secondReader = new AudioFileReader(second.FilePath);

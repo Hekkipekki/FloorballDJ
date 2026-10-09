@@ -20,8 +20,10 @@ public static class WindowPlacementService
 
     private static void Configure(Window window, bool maximize)
     {
+        var operation = PerformanceDiagnostics.BeginOperation("WindowPlacementConfigured");
         window.SourceInitialized += (_, _) =>
         {
+            using var placementDuration = operation.Measure("WindowPlacementSourceInitialized");
             var windowHandle = new WindowInteropHelper(window).Handle;
             var owner = window.Owner ?? Application.Current?.MainWindow;
             var ownerHandle = owner is null ? IntPtr.Zero : new WindowInteropHelper(owner).Handle;
@@ -32,35 +34,63 @@ public static class WindowPlacementService
                 var work = info.WorkArea;
                 var source = HwndSource.FromHwnd(windowHandle);
                 var fromDevice = source?.CompositionTarget?.TransformFromDevice ?? System.Windows.Media.Matrix.Identity;
+                if (!maximize)
+                {
+                    var width = double.IsNaN(window.Width) ? Math.Max(window.ActualWidth, window.MinWidth) : window.Width;
+                    var height = double.IsNaN(window.Height) ? Math.Max(window.ActualHeight, window.MinHeight) : window.Height;
+                    var toDevice = source?.CompositionTarget?.TransformToDevice ?? System.Windows.Media.Matrix.Identity;
+                    var fit = CalculateFit(new Rect(work.Left, work.Top, work.Right - work.Left, work.Bottom - work.Top),
+                        new Size(width, height), new Size(window.MinWidth, window.MinHeight), fromDevice, toDevice);
+                    window.MinWidth = fit.MinimumDip.Width;
+                    window.MinHeight = fit.MinimumDip.Height;
+                    window.Width = fit.SizeDip.Width;
+                    window.Height = fit.SizeDip.Height;
+                    using (operation.Measure("WindowPlacementSetWindowPos"))
+                        SetWindowPos(windowHandle, IntPtr.Zero, (int)fit.Pixels.X, (int)fit.Pixels.Y,
+                            (int)fit.Pixels.Width, (int)fit.Pixels.Height, SwpNoActivate | SwpNoZOrder);
+                    return;
+                }
+
                 var topLeft = fromDevice.Transform(new Point(work.Left, work.Top));
                 var bottomRight = fromDevice.Transform(new Point(work.Right, work.Bottom));
                 var availableWidth = Math.Max(320, bottomRight.X - topLeft.X);
                 var availableHeight = Math.Max(220, bottomRight.Y - topLeft.Y);
                 window.MinWidth = Math.Min(window.MinWidth, availableWidth);
                 window.MinHeight = Math.Min(window.MinHeight, availableHeight);
-
-                if (!maximize)
-                {
-                    var width = double.IsNaN(window.Width) ? Math.Max(window.ActualWidth, window.MinWidth) : window.Width;
-                    var height = double.IsNaN(window.Height) ? Math.Max(window.ActualHeight, window.MinHeight) : window.Height;
-                    window.Width = Math.Clamp(width, Math.Min(320, availableWidth), availableWidth);
-                    window.Height = Math.Clamp(height, Math.Min(220, availableHeight), availableHeight);
-                    var toDevice = source?.CompositionTarget?.TransformToDevice ?? System.Windows.Media.Matrix.Identity;
-                    var sizePixels = toDevice.Transform(new Point(window.Width, window.Height));
-                    var pixelWidth = Math.Min(work.Right - work.Left - WindowMarginPixels * 2, (int)Math.Ceiling(sizePixels.X));
-                    var pixelHeight = Math.Min(work.Bottom - work.Top - WindowMarginPixels * 2, (int)Math.Ceiling(sizePixels.Y));
-                    var left = work.Left + Math.Max(WindowMarginPixels, (work.Right - work.Left - pixelWidth) / 2);
-                    var top = work.Top + Math.Max(WindowMarginPixels, (work.Bottom - work.Top - pixelHeight) / 2);
-                    SetWindowPos(windowHandle, IntPtr.Zero, left, top, pixelWidth, pixelHeight, SwpNoActivate | SwpNoZOrder);
-                    return;
-                }
-
-                SetWindowPos(windowHandle, IntPtr.Zero, work.Left, work.Top,
-                    work.Right - work.Left, work.Bottom - work.Top, SwpNoActivate | SwpNoZOrder);
+                using (operation.Measure("WindowPlacementSetWindowPos"))
+                    SetWindowPos(windowHandle, IntPtr.Zero, work.Left, work.Top,
+                        work.Right - work.Left, work.Bottom - work.Top, SwpNoActivate | SwpNoZOrder);
             }
 
-            if (maximize) window.WindowState = WindowState.Maximized;
+            if (maximize)
+                using (operation.Measure("WindowPlacementMaximize")) window.WindowState = WindowState.Maximized;
         };
+    }
+
+    internal readonly record struct FitBounds(Rect Pixels, Size MinimumDip, Size SizeDip);
+
+    // One physical envelope governs both the native rectangle and WPF minimums.
+    // Work-area origins stay in pixels; size vectors exclude coordinate offsets.
+    internal static FitBounds CalculateFit(Rect workPixels, Size requestedDip, Size minimumDip,
+        System.Windows.Media.Matrix fromDevice, System.Windows.Media.Matrix toDevice)
+    {
+        var workWidth = Math.Max(1, (int)workPixels.Width);
+        var workHeight = Math.Max(1, (int)workPixels.Height);
+        var marginX = Math.Min(WindowMarginPixels, (workWidth - 1) / 2);
+        var marginY = Math.Min(WindowMarginPixels, (workHeight - 1) / 2);
+        var capacityWidth = workWidth - marginX * 2;
+        var capacityHeight = workHeight - marginY * 2;
+        var capacityDip = fromDevice.Transform(new Vector(capacityWidth, capacityHeight));
+        var minimum = new Size(Math.Min(minimumDip.Width, capacityDip.X), Math.Min(minimumDip.Height, capacityDip.Y));
+        var desired = new Vector(
+            Math.Clamp(requestedDip.Width, Math.Max(minimum.Width, Math.Min(320, capacityDip.X)), capacityDip.X),
+            Math.Clamp(requestedDip.Height, Math.Max(minimum.Height, Math.Min(220, capacityDip.Y)), capacityDip.Y));
+        var desiredPixels = toDevice.Transform(desired);
+        var pixelWidth = Math.Clamp((int)Math.Ceiling(desiredPixels.X), 1, capacityWidth);
+        var pixelHeight = Math.Clamp((int)Math.Ceiling(desiredPixels.Y), 1, capacityHeight);
+        var sizeDip = fromDevice.Transform(new Vector(pixelWidth, pixelHeight));
+        return new FitBounds(new Rect(workPixels.X + (workWidth - pixelWidth) / 2,
+            workPixels.Y + (workHeight - pixelHeight) / 2, pixelWidth, pixelHeight), minimum, new Size(sizeDip.X, sizeDip.Y));
     }
 
     [StructLayout(LayoutKind.Sequential)]

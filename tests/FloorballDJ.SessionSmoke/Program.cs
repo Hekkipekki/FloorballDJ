@@ -41,6 +41,7 @@ internal static class Program
         ProjectService.EnsureLayout(project);
         project.Settings.TrackSession = wasEnabled;
         project.Settings.TitleFontSize = 22;
+        preferences.SetLocalTitleFontSize(22);
         foreach (var jingle in project.Decks.SelectMany(deck => deck.Jingles)) jingle.SessionPlayCount = 3;
         if (source != "new") await projects.SaveAsync(project, projects.DefaultProjectPath);
         if (source is "default" or "missing-default")

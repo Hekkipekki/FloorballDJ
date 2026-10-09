@@ -8,7 +8,30 @@ namespace FloorballDJ.Services;
 public static class LegacyXmlImporter
 {
     public static FloorballProject Import(string path)
+        => ImportCore(path, true, default);
+
+    public static Task<FloorballProject> ImportAsync(string path, CancellationToken cancellationToken = default)
+        => ImportAsync(path, AudioMetadataService.Shared, cancellationToken);
+
+    internal static async Task<FloorballProject> ImportAsync(string path, AudioMetadataService metadataService,
+        CancellationToken cancellationToken = default)
     {
+        var performance = PerformanceDiagnostics.BeginOperation("XmlImportRequested");
+        using var total = performance.Measure("XmlImport");
+        var project = await Task.Run(() => ImportCore(path, false, cancellationToken), cancellationToken).ConfigureAwait(false);
+        var jingles = project.Decks.SelectMany(deck => deck.Jingles).Where(jingle => jingle.HasAudio).ToArray();
+        var metadata = await metadataService.ReadAsync(jingles.Select(jingle => jingle.FilePath), cancellationToken).ConfigureAwait(false);
+        for (var index = 0; index < jingles.Length; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (metadata[index].DurationSeconds is { } duration) jingles[index].DurationSeconds = duration;
+        }
+        return project;
+    }
+
+    private static FloorballProject ImportCore(string path, bool populateDuration, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         var root = XDocument.Load(path).Root ?? throw new InvalidDataException("XML-filen saknar rot.");
         var project = new FloorballProject { Name = Path.GetFileNameWithoutExtension(path) };
         project.Settings.Rows = Int(root, "Rows", 5);
@@ -17,6 +40,7 @@ public static class LegacyXmlImporter
 
         foreach (var panel in root.Elements("JinglePanel"))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var mediaItems = panel.Elements("JingleMedia").ToList();
             var highestPosition = mediaItems.Count == 0 ? -1 : mediaItems.Max(media => Int(media, "GridPosition", 0));
             var columns = Math.Max(1, project.Settings.Columns);
@@ -29,6 +53,7 @@ public static class LegacyXmlImporter
             };
             foreach (var media in mediaItems)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var position = Int(media, "GridPosition", 0);
                 while (deck.Jingles.Count <= position)
                     deck.Jingles.Add(new Jingle { Position = deck.Jingles.Count });
@@ -51,7 +76,7 @@ public static class LegacyXmlImporter
                     GainDb = PercentToDb(Double(media, "Amplify", 100)),
                     Shortcut = ShortcutService.Normalize(Value(media, "Shortcut"))
                 };
-                PopulateDuration(jingle);
+                if (populateDuration) PopulateDuration(jingle);
                 deck.Jingles[position] = jingle;
             }
             project.Decks.Add(deck);

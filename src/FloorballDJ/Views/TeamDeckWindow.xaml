@@ -52,7 +52,7 @@
             <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
             <TextBlock Text="Dra spelarbrickorna för att ändra ordning" Foreground="{StaticResource MutedBrush}"
                        VerticalAlignment="Center" HorizontalAlignment="Center" />
-            <Button Content="Stäng" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" MinWidth="100" IsCancel="True" />
+            <Button x:Name="CloseButton" Content="Stäng" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" MinWidth="100" IsCancel="True" Click="Close_Click" />
         </Grid>
     </Grid>
 </Window>

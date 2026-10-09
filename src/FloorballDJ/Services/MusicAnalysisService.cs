@@ -48,7 +48,12 @@ public sealed class MusicAnalysisService
 
     public Task<MusicAnalysis> AnalyzeAsync(string path, double startSeconds, double endSeconds,
         CancellationToken cancellationToken = default) => Task.Run(
-        () => Analyze(path, startSeconds, endSeconds, cancellationToken), cancellationToken);
+        () =>
+        {
+            var performance = PerformanceDiagnostics.BeginOperation("MusicAnalysisRequested");
+            using var duration = performance.Measure("MusicAnalysis");
+            return Analyze(path, startSeconds, endSeconds, cancellationToken);
+        }, cancellationToken);
 
     public static MusicCompatibility Compare(MusicAnalysis first, MusicAnalysis second)
     {

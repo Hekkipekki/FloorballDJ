@@ -297,6 +297,13 @@ public partial class SettingsWindow : Window
         }
         foreach (var team in settings.TeamDeckProfiles ?? [])
             if (activeReplacements.Contains(ShortcutService.Normalize(team.Shortcut) ?? "")) team.Shortcut = null;
+        try { _profilePreferences.SetLocalTitleFontSize(settings.TitleFontSize); }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Kunde inte spara datorns titelstorlek",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
         Copy(settings, _target.Settings);
         new LanguagePreferencesService().SetLanguage(selectedLanguage);
         if (!string.Equals(selectedLanguage, _originalLanguage, StringComparison.OrdinalIgnoreCase))
@@ -339,6 +346,7 @@ public partial class SettingsWindow : Window
         target.FadeOutSeconds = source.FadeOutSeconds;
         target.AutoplayTransitionSeconds = source.AutoplayTransitionSeconds;
         target.AutoplayDefaultPlaylistPath = source.AutoplayDefaultPlaylistPath;
+        target.AutoplayLastPlaylistPath = source.AutoplayLastPlaylistPath;
         target.AutoplayShortcut = ShortcutService.Normalize(source.AutoplayShortcut);
         target.AutoplayDefaultPlaylistVolumeDb = source.AutoplayDefaultPlaylistVolumeDb;
         target.AutoplayProfiles = source.AutoplayProfiles?.Select(profile => new AutoplayProfile
@@ -356,6 +364,7 @@ public partial class SettingsWindow : Window
         target.MasterLimiterEnabled = source.MasterLimiterEnabled;
         target.MasterLimiterCeilingDbtp = source.MasterLimiterCeilingDbtp;
         target.AutoMixHeadroomEnabled = source.AutoMixHeadroomEnabled;
+        target.KeepPrimaryOutputActive = source.KeepPrimaryOutputActive;
         target.RandomPoolShortcut = ShortcutService.Normalize(source.RandomPoolShortcut);
         target.RandomPoolDeckIds = source.RandomPoolDeckIds?.Distinct().ToList() ?? [];
         target.RandomPoolJingleIds = source.RandomPoolJingleIds?.Distinct().ToList() ?? [];

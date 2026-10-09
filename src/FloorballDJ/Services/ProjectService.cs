@@ -11,6 +11,8 @@ public sealed class ProjectService
     public const int MaximumDeckColumns = 12;
     public const int MaximumDeckPages = 20;
     private static readonly SemaphoreSlim SaveGate = new(1, 1);
+    private static readonly object SaveOrderGate = new();
+    private static Task _lastSave = Task.CompletedTask;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -30,18 +32,82 @@ public sealed class ProjectService
     }
 
     public async Task SaveAsync(FloorballProject project, string path)
+        => await PrepareSave(project, path).SaveAsync().ConfigureAwait(false);
+
+    internal PreparedSave PrepareSave(FloorballProject project, string path)
     {
-        // Ta en stabil ögonblicksbild innan första await. Då kan användaren fortsätta
-        // arbeta utan att en pågående serialisering räknar upp muterbara samlingar.
-        var snapshot = JsonSerializer.SerializeToUtf8Bytes(project, JsonOptions);
-        await SaveGate.WaitAsync().ConfigureAwait(false);
+        var performance = PerformanceDiagnostics.BeginOperation("SaveRequested");
+        var started = performance.Timestamp;
+        try
+        {
+            ProjectSaveSnapshot snapshot;
+            using (performance.Measure("SaveSnapshot")) snapshot = ProjectSaveSnapshot.Capture(project);
+            performance.Mark("SaveSnapshotReady");
+            return new PreparedSave(this, snapshot, Path.GetFullPath(path), performance, started);
+        }
+        catch (Exception exception)
+        {
+            performance.Mark("SaveFailed", detail: exception.GetType().Name);
+            performance.Duration("SaveTotal", started);
+            throw;
+        }
+    }
+
+    internal sealed class PreparedSave(ProjectService owner, ProjectSaveSnapshot snapshot, string path,
+        PerformanceOperation performance, long started)
+    {
+        private int _state;
+        internal string Path { get; } = path;
+        internal Task SaveAsync()
+        {
+            if (Interlocked.CompareExchange(ref _state, 1, 0) != 0)
+                throw new InvalidOperationException("A save snapshot may be submitted only once.");
+            lock (SaveOrderGate)
+            {
+                var predecessor = _lastSave;
+                // Enqueue before serialization so a smaller, newer save cannot overtake it.
+                _lastSave = Task.Run(async () =>
+                {
+                    try
+                    {
+                        using (performance.Measure("SaveQueueWait"))
+                            try { await predecessor.ConfigureAwait(false); } catch { /* A failed save must not strand later saves. */ }
+                        await owner.CommitSaveAsync(snapshot, Path, performance).ConfigureAwait(false);
+                    }
+                    catch (Exception exception)
+                    {
+                        performance.Mark("SaveFailed", detail: exception.GetType().Name);
+                        throw;
+                    }
+                    finally { performance.Duration("SaveTotal", started); }
+                });
+                return _lastSave;
+            }
+        }
+        internal void Supersede()
+        {
+            if (Interlocked.CompareExchange(ref _state, 2, 0) != 0) return;
+            performance.Mark("SaveSuperseded");
+            performance.Duration("SaveTotal", started);
+        }
+    }
+
+    private async Task CommitSaveAsync(ProjectSaveSnapshot ownedSnapshot, string path, PerformanceOperation performance)
+    {
+        // Already on the ordered worker. Preserve the original JSON options and bytes.
+        byte[] snapshot;
+        using (performance.Measure("SaveSerialization")) snapshot = ownedSnapshot.Serialize(JsonOptions);
+        performance.Mark("SaveSnapshotBytes", snapshot.Length);
+        using (performance.Measure("SaveGateWait")) await SaveGate.WaitAsync().ConfigureAwait(false);
         var directory = Path.GetDirectoryName(Path.GetFullPath(path))!;
         var temporaryPath = Path.Combine(directory, $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
         try
         {
             Directory.CreateDirectory(directory);
             using var processGate = new Semaphore(1, 1, @"Local\FloorballDJ.ProjectSave");
-            var ownsProcessGate = await Task.Run(() => processGate.WaitOne(TimeSpan.FromSeconds(10))).ConfigureAwait(false);
+            bool ownsProcessGate;
+            using (performance.Measure("SaveProcessGateWait"))
+                ownsProcessGate = await Task.Run(() => processGate.WaitOne(TimeSpan.FromSeconds(10))).ConfigureAwait(false);
             if (!ownsProcessGate) throw new IOException("Projektfilen är upptagen. Försök igen om en stund.");
             try
             {
@@ -53,9 +119,11 @@ public sealed class ProjectService
                 }
                 await Task.Run(() =>
                 {
+                    using var revisionDuration = performance.Measure("RevisionAndReplace");
                     CreateRevisionIfChanged(path, temporaryPath);
                     File.Move(temporaryPath, path, true);
                 }).ConfigureAwait(false);
+                performance.Mark("SaveCompleted");
             }
             finally { processGate.Release(); }
         }
@@ -226,6 +294,11 @@ public sealed class ProjectService
             project.FormatVersion = 2;
         }
         var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(path))!;
+        string? ResolvePlaylist(string? playlist) => !string.IsNullOrWhiteSpace(playlist) && !Path.IsPathRooted(playlist)
+            ? Path.GetFullPath(Path.Combine(projectDirectory, playlist)) : playlist;
+        project.Settings.AutoplayLastPlaylistPath = ResolvePlaylist(project.Settings.AutoplayLastPlaylistPath);
+        project.Settings.AutoplayDefaultPlaylistPath = ResolvePlaylist(project.Settings.AutoplayDefaultPlaylistPath);
+        foreach (var autoplay in project.Settings.AutoplayProfiles ?? []) autoplay.PlaylistPath = ResolvePlaylist(autoplay.PlaylistPath);
         foreach (var jingle in project.Decks.SelectMany(deck => deck.Jingles))
             if (jingle.HasAudio && !Path.IsPathRooted(jingle.FilePath))
                 jingle.FilePath = Path.GetFullPath(Path.Combine(projectDirectory, jingle.FilePath));
@@ -245,7 +318,7 @@ public sealed class ProjectService
     }
 
     public async Task<PortableBackupResult> CreateMediaBackupAsync(FloorballProject project, string parentDirectory,
-        IProgress<PortableBackupProgress>? progress = null)
+        IProgress<PortableBackupProgress>? progress = null, string? profileName = null)
     {
         progress?.Report(new PortableBackupProgress("Förbereder backupen…", 1, Detail: project.Name));
         var baseName = $"FloorballDJ-backup-{DateTime.Now:yyyyMMdd-HHmmss}";
@@ -258,6 +331,7 @@ public sealed class ProjectService
         var json = JsonSerializer.Serialize(project, JsonOptions);
         var copy = JsonSerializer.Deserialize<FloorballProject>(json, JsonOptions)
             ?? throw new InvalidDataException("Projektet kunde inte kopieras.");
+        if (!string.IsNullOrWhiteSpace(profileName)) copy.Name = profileName;
         // Slumpgrupper är profilinställningar. Normalisera den fristående kopian före
         // export så även äldre profiler migreras och aldrig hämtar grupper från någon
         // annan profil på den nya datorn.
@@ -271,6 +345,7 @@ public sealed class ProjectService
         var usedDeckFolderNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var copiedMediaCount = 0;
         var missingFiles = new List<string>();
+        var mediaPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var deck in copy.Decks)
         {
             var baseFolderName = SanitizePathSegment(deck.Name, $"Deck {copy.Decks.IndexOf(deck) + 1}");
@@ -311,8 +386,56 @@ public sealed class ProjectService
                         copiedMediaCount, totalMediaFiles, Path.GetFileName(source)));
                 }
                 jingle.FilePath = relativePath;
+                mediaPaths.TryAdd(Path.GetFullPath(source), relativePath);
             }
         }
+
+        var playlistPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var usedPlaylistNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var usedExtraMediaNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        async Task<string?> CopyPlaylist(string? source)
+        {
+            if (string.IsNullOrWhiteSpace(source)) return source;
+            source = Path.GetFullPath(source);
+            if (playlistPaths.TryGetValue(source, out var previous)) return previous;
+            if (!File.Exists(source)) { missingFiles.Add("Autoplay / " + source); return source; }
+            var document = PlaylistService.ReadDocument(await File.ReadAllTextAsync(source));
+            var name = Path.GetFileName(source); var index = 2;
+            while (!usedPlaylistNames.Add(name)) name = $"{Path.GetFileNameWithoutExtension(source)}-{index++}{Path.GetExtension(source)}";
+            var relative = Path.Combine("Spellistor", name);
+            var destination = Path.Combine(directory, relative);
+            var entries = new List<PlaylistEntry>();
+            foreach (var entry in document.Entries ?? [])
+            {
+                var media = PlaylistService.ResolveMediaPath(entry.FilePath, document.Version, source);
+                if (string.IsNullOrWhiteSpace(media)) { entries.Add(entry); continue; }
+                media = Path.GetFullPath(media);
+                if (!File.Exists(media)) { missingFiles.Add("Autoplay / " + media); entries.Add(entry with { FilePath = media }); continue; }
+                if (!mediaPaths.TryGetValue(media, out var mediaRelative))
+                {
+                    var mediaName = Path.GetFileName(media); var suffixNumber = 2;
+                    while (!usedExtraMediaNames.Add(mediaName)) mediaName = $"{Path.GetFileNameWithoutExtension(media)}-{suffixNumber++}{Path.GetExtension(media)}";
+                    mediaRelative = Path.Combine("Media", "Autoplay", mediaName);
+                    // A deck may itself be named Autoplay. Reserve an unused destination.
+                    while (File.Exists(Path.Combine(directory, mediaRelative)))
+                        mediaRelative = Path.Combine("Media", "Autoplay", $"{Guid.NewGuid():N}-{mediaName}");
+                    var target = Path.Combine(directory, mediaRelative); Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                    await using (var input = File.OpenRead(media))
+                    await using (var output = File.Create(target)) await input.CopyToAsync(output);
+                    File.SetLastWriteTimeUtc(target, File.GetLastWriteTimeUtc(media));
+                    mediaPaths.Add(media, mediaRelative); copiedMediaCount++;
+                }
+                entries.Add(entry with { FilePath = Path.GetRelativePath(Path.GetDirectoryName(destination)!, Path.Combine(directory, mediaRelative)) });
+            }
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            await PlaylistService.Shared.SaveAsync(destination, new PlaylistDocument(3, document.ShuffleEnabled, document.LoopEnabled, entries));
+            playlistPaths.Add(source, relative);
+            return relative;
+        }
+        foreach (var autoplay in copy.Settings.AutoplayProfiles) autoplay.PlaylistPath = await CopyPlaylist(autoplay.PlaylistPath);
+        copy.Settings.AutoplayDefaultPlaylistPath = await CopyPlaylist(copy.Settings.AutoplayDefaultPlaylistPath);
+        copy.Settings.AutoplayLastPlaylistPath = await CopyPlaylist(copy.Settings.AutoplayLastPlaylistPath);
+        totalMediaFiles = copiedMediaCount;
 
         // Maskinspecifika enhets-ID:n ska inte följa med till nästa dator. Alla andra
         // ljud-, layout- och arbetsinställningar ligger kvar i den portabla profilen.
@@ -322,7 +445,7 @@ public sealed class ProjectService
 
         progress?.Report(new PortableBackupProgress("Sparar profil och inställningar…", 87,
             copiedMediaCount, totalMediaFiles));
-        var projectName = SanitizePathSegment(project.Name, "FloorballDJ-profil");
+        var projectName = SanitizePathSegment(copy.Name, "FloorballDJ-profil");
         var profileFileName = $"{projectName}.floorballdj.json";
         await SaveAsync(copy, Path.Combine(directory, profileFileName));
 
@@ -351,7 +474,7 @@ public sealed class ProjectService
         {
             CreatedAt = DateTimeOffset.Now,
             ProfileFile = profileFileName,
-            ProjectName = project.Name,
+            ProjectName = copy.Name,
             MediaFileCount = copiedMediaCount,
             CustomFontCount = fontsIncluded,
             RandomPoolProfileCount = copy.Settings.RandomPoolSetups.Sum(setup => setup.Profiles.Count),
@@ -367,7 +490,7 @@ public sealed class ProjectService
             ? "Inga länkade ljudfiler saknades när backupen skapades."
             : $"VARNING: {missingFiles.Count} länkade ljudfiler saknades:\r\n- {string.Join("\r\n- ", missingFiles)}";
         await File.WriteAllTextAsync(Path.Combine(directory, "LÄS MIG - ÅTERSTÄLL BACKUP.txt"),
-            $"FloorballDJ flyttbackup\r\nSkapad: {manifest.CreatedAt:yyyy-MM-dd HH:mm:ss zzz}\r\nProfil: {project.Name}\r\n\r\n" +
+            $"FloorballDJ flyttbackup\r\nSkapad: {manifest.CreatedAt:yyyy-MM-dd HH:mm:ss zzz}\r\nProfil: {copy.Name}\r\n\r\n" +
             "På den andra datorn:\r\n1. Installera och starta FloorballDJ.\r\n2. Välj Profil > Återställ flyttbackup.\r\n3. Välj den här mappen.\r\n4. Välj datorns ljudutgångar under Verktyg > Inställningar.\r\n\r\n" +
             "Licens/provperiod är maskinbunden och följer inte med. Ljudfilerna är rena filkopior utan omkodning.\r\n\r\n" +
             $"Slumpprofiler: {copy.Settings.RandomPoolSetups.Count}. Slumpgrupper totalt: {copy.Settings.RandomPoolSetups.Sum(setup => setup.Profiles.Count)}. Team Deck: {copy.Settings.TeamDeckProfiles.Count}. De är profilbundna och följer med denna profil.\r\n\r\n" +
