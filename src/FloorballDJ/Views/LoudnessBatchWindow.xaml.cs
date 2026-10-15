@@ -109,7 +109,8 @@ public partial class LoudnessBatchWindow : Window
                 Progress.Value = index + 1;
             }
             _viewModel.NotifyJingleChanged();
-            await _viewModel.SaveAsync();
+            _viewModel.RequestSave();
+            await _viewModel.FlushSavesAsync();
             ProgressText.Text = enableNormalization ? "Valda ljudfiler har analyserats och balanserats." : "Analysen av valda filer är klar.";
         }
         catch (OperationCanceledException) { ProgressText.Text = "Analysen avbröts. Redan analyserade filer behålls."; }

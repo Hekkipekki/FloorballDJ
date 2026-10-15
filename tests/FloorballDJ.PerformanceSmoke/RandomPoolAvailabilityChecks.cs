@@ -156,7 +156,8 @@ internal static class RandomPoolAvailabilityChecks
         using (var writer = new WaveFileWriter(media, new WaveFormat(48000, 16, 2))) writer.Write(new byte[48000 * 4 * 4], 0, 48000 * 4 * 4);
         var probes = 0; var followExists = true; var primaryExists = true;
         bool Exists(string path) { probes++; return path == media && primaryExists || path == "follow-up-fixture" && followExists; }
-        var window = new MainWindow(new LicenseService(), shutdownApplicationOnClose: false, randomFileExists: Exists);
+        var window = new MainWindow(new LicenseService(), shutdownApplicationOnClose: false, randomFileExists: Exists)
+            { ConfirmUnsavedProfile = () => UnsavedProfileChoice.Discard };
         var vm = (MainViewModel)window.DataContext;
         using var source = new HwndSource(new HwndSourceParameters("availability-key-fixture") { Width = 1, Height = 1, WindowStyle = unchecked((int)0x80000000) });
         source.RootVisual = new System.Windows.Controls.Border();
@@ -187,7 +188,13 @@ internal static class RandomPoolAvailabilityChecks
             await Task.Delay(100); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Check(probes - before <= 3 && members.Any(j => j.Id == vm.NowPlaying.JingleId), "Restored membership immediately regains shortcut priority");
         }
-        finally { vm.Audio.StopAll(notify: false); window.Close(); await vm.FlushSavesAsync(); }
+        finally
+        {
+            vm.Audio.StopAll(notify: false);
+            var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            window.Closed += (_, _) => closed.TrySetResult();
+            window.Close(); await closed.Task.WaitAsync(TimeSpan.FromSeconds(15));
+        }
     }
 
     private static void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }

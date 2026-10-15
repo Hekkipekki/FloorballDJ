@@ -5,7 +5,7 @@ using FloorballDJ.Models;
 
 namespace FloorballDJ.Services;
 
-public sealed class ProjectService
+public sealed partial class ProjectService
 {
     public const int MaximumDeckRows = 50;
     public const int MaximumDeckColumns = 12;
@@ -42,6 +42,7 @@ public sealed class ProjectService
         {
             ProjectSaveSnapshot snapshot;
             using (performance.Measure("SaveSnapshot")) snapshot = ProjectSaveSnapshot.Capture(project);
+            snapshot.MakePathsRelativeTo(path);
             performance.Mark("SaveSnapshotReady");
             return new PreparedSave(this, snapshot, Path.GetFullPath(path), performance, started);
         }
@@ -257,6 +258,10 @@ public sealed class ProjectService
         return Path.Combine(AppDataDirectory, "Revisions", hash);
     }
 
+    internal string RevisionMediaDirectory(string revisionPath, string profilePath, string workingCopyPath)
+        => string.Equals(Path.GetDirectoryName(Path.GetFullPath(revisionPath)), GetRevisionDirectory(workingCopyPath), StringComparison.OrdinalIgnoreCase)
+            ? Path.GetDirectoryName(workingCopyPath)! : Path.GetDirectoryName(profilePath)!;
+
     private static bool FilesEqual(string firstPath, string secondPath)
     {
         var first = new FileInfo(firstPath);
@@ -282,7 +287,7 @@ public sealed class ProjectService
             System.Globalization.DateTimeStyles.AssumeLocal, out var timestamp) ? timestamp : file.LastWriteTime;
     }
 
-    public async Task<FloorballProject> LoadAsync(string path)
+    public async Task<FloorballProject> LoadAsync(string path, string? mediaBaseDirectory = null)
     {
         await using var stream = File.OpenRead(path);
         var project = await JsonSerializer.DeserializeAsync<FloorballProject>(stream, JsonOptions)
@@ -293,20 +298,25 @@ public sealed class ProjectService
                 if (jingle.PlayMode == JinglePlayMode.Mix) jingle.PlayMode = JinglePlayMode.Solo;
             project.FormatVersion = 2;
         }
-        var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(path))!;
+        var projectDirectory = mediaBaseDirectory ?? Path.GetDirectoryName(Path.GetFullPath(path))!;
         string? ResolvePlaylist(string? playlist) => !string.IsNullOrWhiteSpace(playlist) && !Path.IsPathRooted(playlist)
             ? Path.GetFullPath(Path.Combine(projectDirectory, playlist)) : playlist;
         project.Settings.AutoplayLastPlaylistPath = ResolvePlaylist(project.Settings.AutoplayLastPlaylistPath);
         project.Settings.AutoplayDefaultPlaylistPath = ResolvePlaylist(project.Settings.AutoplayDefaultPlaylistPath);
         foreach (var autoplay in project.Settings.AutoplayProfiles ?? []) autoplay.PlaylistPath = ResolvePlaylist(autoplay.PlaylistPath);
-        foreach (var jingle in project.Decks.SelectMany(deck => deck.Jingles))
+        foreach (var jingle in project.Decks.SelectMany(deck => deck.Jingles).Concat(project.Settings.AutoplayQueueItems ?? []))
             if (jingle.HasAudio && !Path.IsPathRooted(jingle.FilePath))
                 jingle.FilePath = Path.GetFullPath(Path.Combine(projectDirectory, jingle.FilePath));
         if (!string.IsNullOrWhiteSpace(project.Settings.MusicFolderPath) &&
             !Path.IsPathRooted(project.Settings.MusicFolderPath))
             project.Settings.MusicFolderPath = Path.GetFullPath(Path.Combine(projectDirectory, project.Settings.MusicFolderPath));
+        if (project.Id == Guid.Empty)
+            project.Id = new Guid(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join(";", project.Decks.Select(deck => deck.Id))))[..16]);
         return project;
     }
+
+    internal static string ContentFingerprint(FloorballProject project)
+        => Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(project, JsonOptions)));
 
     public async Task<string> BackupAsync(FloorballProject project)
     {
@@ -362,6 +372,11 @@ public sealed class ProjectService
                 if (!File.Exists(source))
                 {
                     missingFiles.Add($"{deck.Name} / {jingle.Title}: {source}");
+                    continue;
+                }
+                if (mediaPaths.TryGetValue(Path.GetFullPath(source), out var sharedRelative))
+                {
+                    jingle.FilePath = sharedRelative;
                     continue;
                 }
                 if (!copiedFiles.TryGetValue(source, out var relativePath))
@@ -435,6 +450,24 @@ public sealed class ProjectService
         foreach (var autoplay in copy.Settings.AutoplayProfiles) autoplay.PlaylistPath = await CopyPlaylist(autoplay.PlaylistPath);
         copy.Settings.AutoplayDefaultPlaylistPath = await CopyPlaylist(copy.Settings.AutoplayDefaultPlaylistPath);
         copy.Settings.AutoplayLastPlaylistPath = await CopyPlaylist(copy.Settings.AutoplayLastPlaylistPath);
+        foreach (var item in copy.Settings.AutoplayQueueItems ?? [])
+        {
+            if (!item.HasAudio) continue;
+            var source = Path.GetFullPath(item.FilePath);
+            if (!File.Exists(source)) { missingFiles.Add("Autoplay-kö / " + source); continue; }
+            if (!mediaPaths.TryGetValue(source, out var relative))
+            {
+                relative = Path.Combine("Media", "Autoplay", $"{Guid.NewGuid():N}-{Path.GetFileName(source)}");
+                var destination = Path.Combine(directory, relative);
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                await using (var input = File.OpenRead(source))
+                await using (var output = File.Create(destination)) await input.CopyToAsync(output);
+                File.SetLastWriteTimeUtc(destination, File.GetLastWriteTimeUtc(source));
+                mediaPaths.Add(source, relative);
+                copiedMediaCount++;
+            }
+            item.FilePath = relative;
+        }
         totalMediaFiles = copiedMediaCount;
 
         // Maskinspecifika enhets-ID:n ska inte följa med till nästa dator. Alla andra
@@ -472,6 +505,9 @@ public sealed class ProjectService
 
         var manifest = new PortableBackupManifest
         {
+            FormatVersion = 3,
+            ProfileId = copy.Id,
+            ComputerName = Environment.MachineName,
             CreatedAt = DateTimeOffset.Now,
             ProfileFile = profileFileName,
             ProjectName = copy.Name,
@@ -480,8 +516,10 @@ public sealed class ProjectService
             RandomPoolProfileCount = copy.Settings.RandomPoolSetups.Sum(setup => setup.Profiles.Count),
             TeamDeckProfileCount = copy.Settings.TeamDeckProfiles.Count,
             IncludesColorPresets = presetsIncluded,
-            MissingFiles = missingFiles
+            MissingFiles = missingFiles,
+            PlaylistCount = playlistPaths.Count
         };
+        manifest.Files = await HashFilesAsync(directory, Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories));
         await File.WriteAllTextAsync(Path.Combine(directory, "floorballdj-backup.json"),
             JsonSerializer.Serialize(manifest, JsonOptions));
         progress?.Report(new PortableBackupProgress("Skapar backupinformation…", 95,
@@ -503,7 +541,7 @@ public sealed class ProjectService
     }
 
     public async Task<PortableRestoreResult> RestorePortableBackupAsync(string backupDirectory,
-        IProgress<PortableBackupProgress>? progress = null)
+        IProgress<PortableBackupProgress>? progress = null, string? selectedManifest = null)
     {
         progress?.Report(new PortableBackupProgress("Kontrollerar backupen…", 2));
         var sourceDirectory = Path.GetFullPath(backupDirectory);
@@ -511,7 +549,8 @@ public sealed class ProjectService
             throw new DirectoryNotFoundException("Den valda backupmappen finns inte.");
 
         PortableBackupManifest manifest;
-        var manifestPath = Path.Combine(sourceDirectory, "floorballdj-backup.json");
+        var manifestPath = selectedManifest is null ? Path.Combine(sourceDirectory, "floorballdj-backup.json")
+            : SafeChildPath(sourceDirectory, Path.GetRelativePath(sourceDirectory, selectedManifest));
         if (File.Exists(manifestPath))
         {
             manifest = JsonSerializer.Deserialize<PortableBackupManifest>(await File.ReadAllTextAsync(manifestPath), JsonOptions)
@@ -529,6 +568,7 @@ public sealed class ProjectService
             };
         }
 
+        await VerifyBackupAsync(sourceDirectory, manifest, progress);
         var sourceProfile = SafeChildPath(sourceDirectory, manifest.ProfileFile);
         if (!File.Exists(sourceProfile))
             throw new FileNotFoundException("Profilfilen som anges i backupen saknas.", sourceProfile);
@@ -540,13 +580,15 @@ public sealed class ProjectService
         var suffix = 2;
         while (Directory.Exists(destinationDirectory))
             destinationDirectory = Path.Combine(importsRoot, $"{baseName}-{DateTime.Now:yyyyMMdd-HHmmss}-{suffix++}");
-        await CopyDirectoryAsync(sourceDirectory, destinationDirectory, progress);
+        if (manifest.Files.Count > 0) await CopyManifestFilesAsync(sourceDirectory, destinationDirectory, manifest, progress);
+        else await CopyDirectoryAsync(sourceDirectory, destinationDirectory, progress);
 
         var profilePath = SafeChildPath(destinationDirectory, manifest.ProfileFile);
         progress?.Report(new PortableBackupProgress("Installerar typsnitt och färgval…", 86));
-        var fontsImported = ImportFonts(Path.Combine(destinationDirectory, "Inställningar", "Fonts"));
+        var settingsRoot = Path.Combine(Path.GetDirectoryName(profilePath)!, "Inställningar");
+        var fontsImported = ImportFonts(Path.Combine(settingsRoot, "Fonts"));
         var presetsImported = new ColorPresetService().MergeFrom(
-            Path.Combine(destinationDirectory, "Inställningar", "color-presets.json"));
+            Path.Combine(settingsRoot, "color-presets.json"));
 
         progress?.Report(new PortableBackupProgress("Förbereder profilen…", 93, Detail: manifest.ProjectName));
         var restoredProject = await LoadAsync(profilePath);
@@ -554,7 +596,7 @@ public sealed class ProjectService
         restoredProject.Settings.OutputDeviceId = null;
         restoredProject.Settings.SecondaryOutputDeviceId = null;
         await SaveAsync(restoredProject, profilePath);
-        var missingCount = restoredProject.Decks.SelectMany(deck => deck.Jingles).Count(jingle => jingle.IsMissing);
+        var missingCount = (await FindMissingBackupMediaAsync(restoredProject)).Count;
         progress?.Report(new PortableBackupProgress("Återställningen är klar", 100,
             Detail: restoredProject.Name));
         return new PortableRestoreResult(profilePath, destinationDirectory, fontsImported, presetsImported,
@@ -622,7 +664,7 @@ public sealed class ProjectService
 
     public static FloorballProject CreateDefault()
     {
-        var project = new FloorballProject();
+        var project = new FloorballProject { Id = Guid.NewGuid() };
         EnsureLayout(project);
         return project;
     }
@@ -915,6 +957,10 @@ public sealed class PortableBackupManifest
 {
     public int FormatVersion { get; set; } = 2;
     public DateTimeOffset CreatedAt { get; set; }
+    public Guid ProfileId { get; set; }
+    public string ComputerName { get; set; } = "";
+    public int PlaylistCount { get; set; }
+    public Dictionary<string, string> Files { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public string ProfileFile { get; set; } = "";
     public string ProjectName { get; set; } = "FloorballDJ-profil";
     public int MediaFileCount { get; set; }

@@ -29,7 +29,7 @@ internal static class MainViewSettingsAnalysis
             var project = RandomSettingsChecks.Fixture(directory, 85, 6); var projects = new ProjectService();
             await projects.SaveAsync(project, projects.DefaultProjectPath); var bytes = File.ReadAllBytes(projects.DefaultProjectPath);
             var licensing = new LicenseService();
-            main = new MainWindow(licensing, shutdownApplicationOnClose: false) { ShowInTaskbar = false };
+            main = new MainWindow(licensing, shutdownApplicationOnClose: false) { ShowInTaskbar = false, ConfirmUnsavedProfile = () => UnsavedProfileChoice.Discard };
             main.Closed += (_, _) => closed.TrySetResult(); Application.Current.MainWindow = main; main.Show();
             await Until(() => main.StartupReady); await Render(main); await Idle();
             var vm = (MainViewModel)main.DataContext;
@@ -39,9 +39,9 @@ internal static class MainViewSettingsAnalysis
             var toggle = (System.Windows.Controls.Primitives.ToggleButton)main.FindName("SessionToggle");
             toggle.IsChecked = false; await vm.FlushSavesAsync();
             Check(vm.Decks.SelectMany(deck => deck.Jingles).All(jingle => jingle.SessionPlayCount == 0) &&
-                !(await projects.LoadAsync(projects.DefaultProjectPath)).Settings.TrackSession, "Real session disable retains count reset and persisted flag");
+                !(await projects.LoadAsync(vm.WorkingCopyPath)).Settings.TrackSession, "Real session disable retains count reset in local working copy");
             toggle.IsChecked = true; await vm.FlushSavesAsync();
-            Check((await projects.LoadAsync(projects.DefaultProjectPath)).Settings.TrackSession && licensing.Current.Kind.ToString() == "None", "Real enable persists; licensing stays untouched");
+            Check((await projects.LoadAsync(vm.WorkingCopyPath)).Settings.TrackSession && licensing.Current.Kind.ToString() == "None", "Real enable reaches working copy; licensing stays untouched");
             main.Close(); await closed.Task.WaitAsync(TimeSpan.FromSeconds(20));
             Console.WriteLine("PASS: actual main startup preserves autosave; real session-toggle reset/save and main save/dispose/close lifecycle.");
         }
@@ -117,7 +117,7 @@ internal static class MainViewSettingsAnalysis
             {
                 // LicenseService is not evaluated or mutated. App.OnStartup's
                 // production license gate is outside this isolated view fixture.
-                main = new MainWindow(licensing, shutdownApplicationOnClose: false) { ShowInTaskbar = false };
+                main = new MainWindow(licensing, shutdownApplicationOnClose: false) { ShowInTaskbar = false, ConfirmUnsavedProfile = () => UnsavedProfileChoice.Discard };
                 main.Closed += (_, _) => closed.TrySetResult();
                 Application.Current.MainWindow = main; main.Show();
                 await Until(() => main.StartupReady);
@@ -142,9 +142,9 @@ internal static class MainViewSettingsAnalysis
             Check(vm.Settings.TrackSession && vm.Decks.SelectMany(deck => deck.Jingles).Any(jingle => jingle.SessionPlayCount > 0), "Active trials exercise session tracking");
             sessionToggle.IsChecked = false; await vm.FlushSavesAsync();
             Check(!vm.Settings.TrackSession && vm.Decks.SelectMany(deck => deck.Jingles).All(jingle => jingle.SessionPlayCount == 0), "Genuine disable still resets counts and saves");
-            Check(!(await projects.LoadAsync(projects.DefaultProjectPath)).Settings.TrackSession, "Disabled session setting reaches disk");
+            Check(!(await projects.LoadAsync(vm.WorkingCopyPath)).Settings.TrackSession, "Disabled session setting reaches local working copy");
             sessionToggle.IsChecked = true; await vm.FlushSavesAsync();
-            Check(vm.Settings.TrackSession && (await projects.LoadAsync(projects.DefaultProjectPath)).Settings.TrackSession, "Genuine enable still saves");
+            Check(vm.Settings.TrackSession && (await projects.LoadAsync(vm.WorkingCopyPath)).Settings.TrackSession, "Genuine enable still protects local edits");
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); await Idle();
             var surviving = references.Count(item => item.IsAlive);
             var licenseUntouched = licensing.Current.Kind.ToString();

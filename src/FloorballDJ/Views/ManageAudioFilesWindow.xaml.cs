@@ -132,7 +132,7 @@ public partial class ManageAudioFilesWindow : Window
             }
             if (!_closed && !token.IsCancellationRequested && ReferenceEquals(project, _viewModel.Project))
             {
-                if (updated > 0) await _viewModel.SaveAsync();
+                if (updated > 0) await _viewModel.FlushSavesAsync();
                 await RefreshStatisticsAsync();
                 if (!_closed && !token.IsCancellationRequested)
                     StatusText.Text = updated == 0 ? "Inga nya matchningar hittades." : $"{updated} sökvägar uppdaterades och sparades.";
@@ -176,7 +176,7 @@ public partial class ManageAudioFilesWindow : Window
         {
             progressWindow.Show();
             await Dispatcher.Yield(DispatcherPriority.Render);
-            result = await _projects.CreateMediaBackupAsync(_viewModel.Project, BackupFolderBox.Text, progressWindow);
+            result = await _projects.CreateMediaBackupAsync(_viewModel.Project, BackupFolderBox.Text, progressWindow, _viewModel.ProfileDisplayName);
         }
         catch (Exception ex)
         {

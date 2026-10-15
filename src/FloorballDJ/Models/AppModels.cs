@@ -51,6 +51,9 @@ public sealed class AppSettings : INotifyPropertyChanged
     public string? AutoplayShortcut { get; set; }
     public double AutoplayDefaultPlaylistVolumeDb { get; set; }
     public List<AutoplayProfile> AutoplayProfiles { get; set; } = [];
+    public List<Jingle> AutoplayQueueItems { get; set; } = [];
+    public bool AutoplayQueueShuffleEnabled { get; set; }
+    public bool AutoplayQueueLoopEnabled { get; set; } = true;
     public double DuckLevelDb { get; set; } = -12;
     public double TalkDuckLevelDb { get; set; } = -15;
     public double DefaultLoudnessTargetLufs { get; set; } = -16;
@@ -79,6 +82,7 @@ public sealed class AppSettings : INotifyPropertyChanged
         var copy = (AppSettings)MemberwiseClone();
         copy.PropertyChanged = null;
         copy.AutoplayProfiles = AutoplayProfiles?.Select(item => item?.CopyForSave()!).ToList()!;
+        copy.AutoplayQueueItems = AutoplayQueueItems?.Select(item => item?.CopyForSave()!).ToList()!;
         copy.RandomPoolDeckIds = RandomPoolDeckIds?.ToList()!;
         copy.RandomPoolJingleIds = RandomPoolJingleIds?.ToList()!;
         copy.RandomPoolProfiles = RandomPoolProfiles?.Select(item => item?.CopyForSave()!).ToList()!;
@@ -509,6 +513,7 @@ public sealed class Deck : INotifyPropertyChanged
 
 public sealed class FloorballProject
 {
+    public Guid Id { get; set; }
     public int FormatVersion { get; set; } = 2;
     public string Name { get; set; } = "Mitt sportevenemang";
     public AppSettings Settings { get; set; } = new();

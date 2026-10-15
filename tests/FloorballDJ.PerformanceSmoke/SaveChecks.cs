@@ -211,7 +211,7 @@ internal static class SaveChecks
         await WaitFor(() => Count(capture, "SaveCompleted") >= start + 2);
         await GetAutosaveTask(vm);
         await DrainEvents(capture);
-        Check((await projects.LoadAsync(vm.CurrentProjectPath)).Name == "autosave-3", "Autosave must commit the latest pending snapshot");
+        Check((await projects.LoadAsync(vm.WorkingCopyPath)).Name == "autosave-3" && vm.HasUnsavedChanges, "Autosave must commit the latest working snapshot without marking it manually saved");
         Check(Count(capture, "SaveCompleted") == start + 2, "Four captured autosaves should commit only the active and latest versions");
 
         using (var blocker = new Semaphore(1, 1, @"Local\FloorballDJ.ProjectSave"))
@@ -228,7 +228,7 @@ internal static class SaveChecks
             finally { blocker.Release(); }
             await flush.WaitAsync(TimeSpan.FromSeconds(8));
         }
-        Check((await projects.LoadAsync(vm.CurrentProjectPath)).Name == "closing-2", "Close flush must include changes requested while the first flush was writing");
+        Check((await projects.LoadAsync(vm.WorkingCopyPath)).Name == "closing-2", "Recovery flush must include changes requested while the first flush was writing");
         return new { capturedAutosaves = 4, committedAutosaves = 2, supersededAutosaves = 2, inputProgressWhileWriteBlocked = true, closeIncludesLaterEdits = true };
     }
 
@@ -255,21 +255,25 @@ internal static class SaveChecks
         Check((await projects.LoadAsync(firstPath)).Name == "first-owned" && (await projects.LoadAsync(secondPath)).Name == "second-owned", "Save As paths and contents must remain captured across awaits");
         Check(preferences.GetRecentProfiles().Count == 1 && preferences.GetRecentProfiles()[0] == secondPath, "Old save completion must not update the new profile's history");
         vm.Project.Name = "second-last-edit"; vm.RequestSave();
+        var secondDraft = vm.WorkingCopyPath;
         await vm.LoadAsync(firstPath);
         await Task.Delay(225);
-        Check(vm.Project.Name == "first-owned" && (await projects.LoadAsync(secondPath)).Name == "second-last-edit", "Profile switch must flush edits to their original target and cancel stale debounce");
+        Check(vm.Project.Name == "first-owned" && (await projects.LoadAsync(secondPath)).Name == "second-owned" &&
+            (await projects.LoadAsync(secondDraft)).Name == "second-last-edit", "Profile switch protects edits in the old working copy without changing the saved profile");
         vm.Project.Name = "first-last-edit"; vm.RequestSave();
+        var firstDraft = vm.WorkingCopyPath;
         await vm.LoadAsync(firstPath);
-        Check(vm.Project.Name == "first-last-edit", "Reloading current profile must retain just-flushed edits");
+        Check(vm.Project.Name == "first-owned" && (await projects.LoadAsync(firstDraft)).Name == "first-last-edit", "Reload opens the saved profile and keeps unreviewed edits in recovery");
+        vm.Project.Name = "revision-newer"; await vm.SaveAsync();
         var revision = (await projects.GetRevisionsAsync(firstPath)).First();
         await vm.RestoreRevisionAsync(revision.Path);
-        Check((await projects.LoadAsync(firstPath)).Name == vm.Project.Name, "Restore must save the restored content to the captured active path");
+        Check((await projects.LoadAsync(firstPath)).Name == "revision-newer" && vm.Project.Name == "first-owned" && vm.HasUnsavedChanges, "Revision restoration requires manual review before overwriting the named profile");
         vm.Project.Name = "before-xml"; vm.RequestSave();
         var xml = Path.Combine(directory, "legacy.xml");
         File.WriteAllText(xml, "<JinglePlaylist><Rows>4</Rows><Cols>5</Cols><Tabs>1</Tabs></JinglePlaylist>");
         await vm.ImportLegacyXmlAsync(xml);
-        Check((await projects.LoadAsync(firstPath)).Name == "before-xml" && vm.CurrentProjectPath == projects.DefaultProjectPath,
-            "XML/new-project replacement must flush the old target before choosing default storage");
+        Check((await projects.LoadAsync(firstDraft)).Name == "before-xml" && (await projects.LoadAsync(firstPath)).Name == "revision-newer" && vm.CurrentProjectPath == projects.DefaultProjectPath,
+            "XML/new-project replacement must preserve the old working copy without overwriting its saved profile");
         await vm.FlushSavesAsync();
     }
 
@@ -279,12 +283,18 @@ internal static class SaveChecks
         using (var vm = new MainViewModel(projects, new ProfilePreferencesService(root, projects.DefaultProjectPath), new AudioEngine()))
         {
             var failing = Path.Combine(root, "autosave-obstacle"); File.WriteAllText(failing, "keep");
+            var originalPath = vm.CurrentProjectPath;
             await ExpectFailure(vm.SaveAsync(Path.Combine(failing, "profile.json")));
+            Check(vm.CurrentProjectPath == originalPath, "Failed Save As must not change the active path");
+            var draftObstacle = Path.GetDirectoryName(vm.WorkingCopyPath)!;
+            Directory.CreateDirectory(Path.GetDirectoryName(draftObstacle)!);
+            File.WriteAllText(draftObstacle, "keep");
             vm.Project.Name = "retry-latest"; vm.RequestSave();
             await WaitFor(() => vm.Status.StartsWith(LanguageService.Translate("Autosparning misslyckades: "), StringComparison.Ordinal));
             var previous = vm.Project;
             await ExpectFailure(vm.LoadAsync(projects.DefaultProjectPath));
             Check(ReferenceEquals(vm.Project, previous), "Failed dirty-profile flush must preserve the current profile");
+            File.Delete(draftObstacle);
             await vm.SaveAsync(Path.Combine(root, "autosave-recovered.floorballdj.json"));
         }
         await DrainEvents(capture);

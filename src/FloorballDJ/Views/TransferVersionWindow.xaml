@@ -1,0 +1,16 @@
+<Window x:Class="FloorballDJ.Views.TransferVersionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Hämta musikuppsättning" Width="760" Height="460" MinWidth="500" MinHeight="320" WindowStartupLocation="CenterOwner">
+    <Grid Margin="24">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <TextBlock Text="Välj version att hämta" Style="{StaticResource SectionTitle}" FontSize="24" TextWrapping="Wrap"/>
+        <TextBlock Grid.Row="1" Margin="0,10,0,16" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"
+                   Text="Datum och dator visar var versionen skapades. Filerna kontrolleras och kopieras lokalt innan profilen öppnas. Äldre versioner och ändringar från andra datorer finns kvar."/>
+        <ListBox x:Name="VersionsList" Grid.Row="2" DisplayMemberPath="DisplayName" HorizontalContentAlignment="Stretch"/>
+        <WrapPanel Grid.Row="3" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Avbryt" IsCancel="True" Style="{StaticResource SecondaryButton}" MinWidth="90" Margin="0,0,8,0"/>
+            <Button Content="Hämta vald version" Click="Import_Click" IsDefault="True" Style="{StaticResource PrimaryButton}"/>
+        </WrapPanel>
+    </Grid>
+</Window>

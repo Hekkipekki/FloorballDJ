@@ -150,7 +150,7 @@ internal static class PresentationFixChecks
         try
         {
             var projects = new ProjectService(); await projects.SaveAsync(RandomSettingsChecks.Fixture(directory, 12, 2), projects.DefaultProjectPath);
-            main = new MainWindow(new LicenseService(), shutdownApplicationOnClose: false) { ShowInTaskbar = false };
+            main = new MainWindow(new LicenseService(), shutdownApplicationOnClose: false) { ShowInTaskbar = false, ConfirmUnsavedProfile = () => UnsavedProfileChoice.Discard };
             main.Closed += (_, _) => closed.TrySetResult(); Application.Current.MainWindow = main; main.Show();
             var deadline = DateTime.UtcNow.AddSeconds(20);
             while (!main.StartupReady && DateTime.UtcNow < deadline) await Task.Delay(20);

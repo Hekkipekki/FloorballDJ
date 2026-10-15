@@ -169,7 +169,8 @@ public partial class AutoplayView : UserControl
         if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
         ViewModel.Settings.MusicFolderPath = dialog.FolderName;
         await RefreshAvailableAsync();
-        try { await ViewModel.SaveAsync(); } catch { }
+        ViewModel.RequestSave();
+        try { await ViewModel.FlushSavesAsync(); } catch { }
     }
 
     private void AddSelected_Click(object sender, RoutedEventArgs e) => AddSelected();

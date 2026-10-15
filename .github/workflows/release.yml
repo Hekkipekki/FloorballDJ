@@ -82,6 +82,12 @@ jobs:
           dotnet run --project tests/FloorballDJ.SessionSmoke/FloorballDJ.SessionSmoke.csproj --configuration Release
           if ($LASTEXITCODE -ne 0) { throw "Session regression checks failed." }
 
+      - name: Verify portable transfers and working copies
+        shell: pwsh
+        run: |
+          dotnet run --project tests/FloorballDJ.PerformanceSmoke/FloorballDJ.PerformanceSmoke.csproj --configuration Release -- --transfer-draft-checks
+          if ($LASTEXITCODE -ne 0) { throw "Transfer and working-copy regression checks failed." }
+
       - name: Build installer
         shell: pwsh
         run: |

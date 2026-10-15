@@ -17,6 +17,7 @@ internal sealed class ProjectSaveSnapshot
     internal static ProjectSaveSnapshot Capture(FloorballProject project) => new(new FloorballProject
     {
         FormatVersion = project.FormatVersion,
+        Id = project.Id,
         Name = project.Name,
         Settings = project.Settings?.CopyForSave()!,
         Decks = project.Decks is null ? null! : new ObservableCollection<Deck>(
@@ -24,4 +25,17 @@ internal sealed class ProjectSaveSnapshot
     });
 
     internal byte[] Serialize(JsonSerializerOptions options) => JsonSerializer.SerializeToUtf8Bytes(_project, options);
+
+    internal void MakePathsRelativeTo(string path)
+    {
+        var directory = Path.GetDirectoryName(Path.GetFullPath(path))!;
+        string? Relative(string? value) => string.IsNullOrWhiteSpace(value) || !Path.IsPathRooted(value)
+            ? value : Path.GetRelativePath(directory, value);
+        foreach (var item in _project.Decks.SelectMany(deck => deck.Jingles).Concat(_project.Settings.AutoplayQueueItems ?? []))
+            item.FilePath = Relative(item.FilePath)!;
+        _project.Settings.MusicFolderPath = Relative(_project.Settings.MusicFolderPath);
+        _project.Settings.AutoplayLastPlaylistPath = Relative(_project.Settings.AutoplayLastPlaylistPath);
+        _project.Settings.AutoplayDefaultPlaylistPath = Relative(_project.Settings.AutoplayDefaultPlaylistPath);
+        foreach (var playlist in _project.Settings.AutoplayProfiles ?? []) playlist.PlaylistPath = Relative(playlist.PlaylistPath);
+    }
 }

@@ -48,6 +48,41 @@ public static class LanguageService
 
     private static readonly IReadOnlyDictionary<string, string> English = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        ["USB och Google Drive"] = "USB and Google Drive",
+        ["Kopierar till synkmappen…"] = "Copying to sync folder…", ["Flyttpaketet är klart"] = "Transfer package ready",
+        ["Ändringar autosparas i en lokal arbetskopia. Den namngivna profilen ändras först när du väljer Spara eller Spara som. Efter lyckad sparning tas arbetskopian bort. Vid avslut eller profilbyte kan du välja Spara, Spara inte eller Avbryt. Efter en krasch erbjuds återställning av arbetskopian. Sessionshistoriken återställs alltid vid programstart."] = "Changes are autosaved to a local working copy. The named profile changes only when you choose Save or Save As. A successful save removes the working copy. On exit or profile change, choose Save, Don't save or Cancel. After a crash, you can recover the working copy. Playback history always resets on startup.",
+        ["Under Hjälp → Autosparningshistorik visas tidigare sparade versioner och arbetskopians historik. En återställd revision behöver sparas manuellt innan den ersätter den namngivna profilen."] = "Help → Autosave history shows previously saved versions and working-copy history. A restored revision must be saved manually before it replaces the named profile.",
+        ["Licens och datorns ljudutgångar följer inte med. Alla ljud som används av deck, registrerade spellistor och den aktuella Autoplay-kön följer med. Oanvänd musik utanför uppsättningen kopieras inte."] = "Licensing and computer-specific audio outputs are not transferred. All audio used by decks, registered playlists and the current Autoplay queue is included. Unused music outside the setup is not copied.",
+        ["Profil → Spara flyttpaket för USB eller Drive skapar en enda .fdjbackup-fil. Kopiera den till nästa dator och välj Öppna flyttpaket. Profilnamn, spellistor och aktuell Autoplay-kö behålls."] = "Profile → Save transfer package for USB or Drive creates one .fdjbackup file. Copy it to the next computer and choose Open transfer package. The profile name, playlists and current Autoplay queue are retained.",
+        ["För återkommande överflyttning: välj Google Drive / synkmapp → Spara till synkmapp. Mappen koms ihåg, oförändrade ljud återanvänds och varje version märks med datum och dator. Låt Google Drive synka färdigt. På nästa dator väljer du Hämta från synkmapp och önskad version."] = "For repeated transfers, choose Google Drive / sync folder → Save to sync folder. The folder is remembered, unchanged audio is reused and each version shows its date and computer. Let Google Drive finish syncing. On the next computer, choose Import from sync folder and select a version.",
+        ["Filerna kontrolleras och kopieras lokalt innan den hämtade profilen används. Relativa sökvägar gör att enhetsbokstaven kan skilja sig mellan datorerna. Arbetet kan fortsätta utan Drive eller USB när importen är klar."] = "Files are verified and copied locally before the imported profile is used. Relative paths allow different drive letters on each computer. After import, work can continue without Drive or USB.",
+        ["Sparade profiler och arbetskopior har egen historik. Granska och spara manuellt efter återställning."] = "Saved profiles and working copies have their own history. Review and save manually after restoring.",
+        ["Kontrollerar backupens filer…"] = "Verifying backup files…", ["Packar flyttpaketet…"] = "Packing transfer package…",
+        ["Versionen är skapad – låt Google Drive synka färdigt"] = "Version created – let Google Drive finish syncing",
+        ["Osparade profiländringar återställda"] = "Unsaved profile changes restored",
+        ["Osparade ändringar"] = "Unsaved changes",
+        ["Vill du spara ändringarna?"] = "Do you want to save your changes?",
+        ["Spara inte"] = "Don't save",
+        ["Spara profil"] = "Save profile",
+        ["Profilen ‘{0}’ har osparade ändringar. Spara inte tar även bort den tillfälliga arbetskopian."] = "Profile ‘{0}’ has unsaved changes. Don't save also deletes its temporary working copy.",
+        ["Det finns osparade profiländringar för ‘{0}’ från {1}. Vill du återställa dem?\n\nJa: återställ. Nej: kasta arbetskopian. Avbryt: behåll den till senare."] = "There are unsaved changes for ‘{0}’ from {1}. Restore them?\n\nYes: restore. No: discard the working copy. Cancel: keep it for later.",
+        ["Återställ arbetskopia"] = "Restore working copy", ["Kunde inte återställa"] = "Could not restore",
+        ["Spara flyttpaket för USB eller Drive…"] = "Save transfer package for USB or Drive…",
+        ["Öppna flyttpaket…"] = "Open transfer package…", ["Google Drive / synkmapp"] = "Google Drive / sync folder",
+        ["Spara till synkmapp"] = "Save to sync folder", ["Hämta från synkmapp…"] = "Import from sync folder…",
+        ["Välj annan synkmapp…"] = "Choose another sync folder…", ["Välj föreningens mapp på Google Drive eller USB"] = "Choose your club's folder on Google Drive or USB",
+        ["Profil, Autoplay-listor, aktuell kö och ljudfiler kontrolleras tillsammans."] = "The profile, Autoplay playlists, current queue and audio files are checked together.",
+        ["Överföringen är klar"] = "Transfer complete", ["Överföringen kunde inte slutföras"] = "Transfer could not be completed",
+        ["Spara flyttpaket"] = "Save transfer package", ["Skapar flyttpaket"] = "Creating transfer package",
+        ["Öppna flyttpaket"] = "Open transfer package", ["Hämtar musikuppsättning"] = "Importing music setup",
+        ["Hämta musikuppsättning"] = "Import music setup", ["Sparar till synkmapp"] = "Saving to sync folder",
+        ["Välj version att hämta"] = "Choose a version to import", ["Hämta vald version"] = "Import selected version",
+        ["Datum och dator visar var versionen skapades. Filerna kontrolleras och kopieras lokalt innan profilen öppnas. Äldre versioner och ändringar från andra datorer finns kvar."] = "The date and computer identify each version. Files are verified and copied locally before opening the profile. Earlier versions and changes from other computers are retained.",
+        ["Inga färdiga versioner hittades. Kontrollera mappen och låt Google Drive synka färdigt."] = "No completed versions were found. Check the folder and let Google Drive finish syncing.",
+        ["Flyttpaketet är klart:\n{0}\n\nKopiera filen till USB eller Google Drive. På nästa dator väljer du Profil → Öppna flyttpaket. Låt Google Drive synka färdigt innan du byter dator."] = "Transfer package ready:\n{0}\n\nCopy it to USB or Google Drive. On the next computer, choose Profile → Open transfer package. Let Google Drive finish syncing before switching computers.",
+        ["Versionen är skapad:\n{0}\n\n{1} ljudfiler och {2} spellistor samt aktuell Autoplay-kö ingår. Oförändrade ljudfiler återanvänds.\n\nLåt Google Drive synka färdigt. På nästa dator väljer du Hämta från synkmapp. Tidigare versioner finns kvar."] = "Version created:\n{0}\n\nIncludes {1} audio files, {2} playlists and the current Autoplay queue. Unchanged audio files are reused.\n\nLet Google Drive finish syncing. On the next computer, choose Import from sync folder. Previous versions are retained.",
+        ["Musikuppsättningen är kontrollerad och sparad lokalt. Profil, spellistor och ljud är redo även utan Google Drive eller USB. Välj datorns ljudutgångar i Inställningar."] = "The music setup is verified and saved locally. The profile, playlists and audio are ready even without Google Drive or USB. Select this computer's audio outputs in Settings.",
+        ["Överföringen är ofullständig: {0} filer saknas. Kontrollera ljudfiler och spellistor före användning."] = "Transfer incomplete: {0} files are missing. Check audio files and playlists before use.",
         ["Inställningar"] = "Settings", ["ARBETSSTATION"] = "WORKSTATION",
         ["Anpassa ljud, profiler, slumpuppspelning och utseende efter din matchdag."] = "Configure audio, profiles, random playback and appearance for your match day.",
         ["Ljud"] = "Audio", ["Utgångsenhet"] = "Output device", ["Utgångsenhet 2"] = "Output device 2",
@@ -327,6 +362,7 @@ public static class LanguageService
             ?? TranslatePrefix(value, "Aktiv profil: ", "Active profile: ")
             ?? TranslatePrefix(value, "Öppnade ", "Opened ")
             ?? TranslatePrefix(value, "Sparat ", "Saved ")
+            ?? TranslatePrefix(value, "Arbetskopia sparad ", "Working copy saved ")
             ?? TranslatePrefix(value, "Autosparning misslyckades: ", "Autosave failed: ")
             ?? value;
     }

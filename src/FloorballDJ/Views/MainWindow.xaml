@@ -236,6 +236,13 @@
                         <MenuItem Header="Spara som…" Click="SaveAs_Click" />
                         <Separator />
                         <MenuItem Header="Importera profil…" Click="ImportXml_Click" />
+                        <MenuItem Header="Spara flyttpaket för USB eller Drive…" Click="TransferPackage_Click" />
+                        <MenuItem Header="Öppna flyttpaket…" Click="OpenTransferPackage_Click" />
+                        <MenuItem Header="Google Drive / synkmapp">
+                            <MenuItem Header="Spara till synkmapp" Click="SaveSyncFolder_Click" />
+                            <MenuItem Header="Hämta från synkmapp…" Click="LoadSyncFolder_Click" />
+                            <MenuItem Header="Välj annan synkmapp…" Click="ChooseTransferFolder_Click" />
+                        </MenuItem>
                         <MenuItem Header="Skapa komplett flyttbackup…" Click="Backup_Click" />
                         <MenuItem Header="Återställ flyttbackup…" Click="RestoreBackup_Click" />
                         <Separator />

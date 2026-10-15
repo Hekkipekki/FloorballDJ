@@ -192,14 +192,24 @@ internal sealed class PlaylistService
 
     internal async Task SaveAsync(string path, PlaylistDocument document)
     {
-        var snapshot = document with { Entries = document.Entries?.ToList() };
+        var directory = Path.GetDirectoryName(Path.GetFullPath(path))!;
+        var snapshot = document with { Version = 3, Entries = document.Entries?.Select(entry => entry with
+        {
+            FilePath = Path.IsPathRooted(entry.FilePath) ? Path.GetRelativePath(directory, entry.FilePath) : entry.FilePath
+        }).ToList() };
         await _gate.WaitAsync().ConfigureAwait(false);
         try
         {
             await Task.Run(() =>
             {
                 Remove(Path.GetFullPath(path));
-                File.WriteAllText(path, JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true }));
+                var temporary = Path.Combine(directory, $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
+                try
+                {
+                    File.WriteAllText(temporary, JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true }));
+                    File.Move(temporary, path, true);
+                }
+                finally { if (File.Exists(temporary)) File.Delete(temporary); }
             }).ConfigureAwait(false);
         }
         finally { _gate.Release(); }

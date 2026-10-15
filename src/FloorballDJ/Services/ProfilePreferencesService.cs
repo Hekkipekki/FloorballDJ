@@ -25,6 +25,12 @@ public sealed class ProfilePreferencesService
         lock (_gate) return Load().DefaultProfilePath;
     }
 
+    public string? GetTransferFolder() { lock (_gate) return Load().TransferFolder; }
+    public void SetTransferFolder(string path)
+    {
+        lock (_gate) { var preferences = Load(); preferences.TransferFolder = Path.GetFullPath(path); Save(preferences); }
+    }
+
     public double? GetLocalTitleFontSize()
     {
         lock (_gate)
@@ -181,6 +187,7 @@ public sealed class ProfilePreferencesService
 
     private sealed class ProfilePreferencesData
     {
+        public string? TransferFolder { get; set; }
         public double? TitleFontSize { get; set; }
         public string? DefaultProfilePath { get; set; }
         public List<string> RecentProfilePaths { get; set; } = [];

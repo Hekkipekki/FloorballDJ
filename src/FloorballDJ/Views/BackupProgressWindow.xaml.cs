@@ -43,6 +43,7 @@ public partial class BackupProgressWindow : Window, IProgress<PortableBackupProg
 
     public void CloseAfterOperation()
     {
+        if (_allowClose) return;
         _allowClose = true;
         Close();
     }

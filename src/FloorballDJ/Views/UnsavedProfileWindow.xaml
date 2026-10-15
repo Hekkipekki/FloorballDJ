@@ -1,0 +1,15 @@
+<Window x:Class="FloorballDJ.Views.UnsavedProfileWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Osparade ändringar" Width="580" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
+    <Grid Margin="24">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <TextBlock Text="Vill du spara ändringarna?" Style="{StaticResource SectionTitle}" FontSize="24" TextWrapping="Wrap"/>
+        <TextBlock x:Name="DescriptionText" Grid.Row="1" Margin="0,12,0,24" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"/>
+        <WrapPanel Grid.Row="2" HorizontalAlignment="Right">
+            <Button Content="Avbryt" IsCancel="True" Style="{StaticResource SecondaryButton}" Margin="0,4,8,0" MinWidth="90"/>
+            <Button Content="Spara inte" Click="Discard_Click" Style="{StaticResource SecondaryButton}" Margin="0,4,8,0" MinWidth="110"/>
+            <Button Content="Spara" Click="Save_Click" IsDefault="True" Style="{StaticResource PrimaryButton}" Margin="0,4,0,0" MinWidth="90"/>
+        </WrapPanel>
+    </Grid>
+</Window>

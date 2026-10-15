@@ -82,8 +82,8 @@ internal static class AutoplayChecks
         var save = service.SaveAsync(path, document);
         document.Entries!.Clear();
         await save;
-        var expected = JsonSerializer.Serialize(new PlaylistDocument(2, true, false, [new("replacement", media)]), new JsonSerializerOptions { WriteIndented = true });
-        Check(File.ReadAllText(path) == expected, "Save captures owned data and retains RC1 JSON bytes");
+        var expected = JsonSerializer.Serialize(new PlaylistDocument(3, true, false, [new("replacement", Path.GetFileName(media))]), new JsonSerializerOptions { WriteIndented = true });
+        Check(File.ReadAllText(path) == expected, "Save captures owned data and uses portable relative playlist paths");
         var replaced = await service.PrepareAsync(path, null);
         Check(reads == 5 && replaced!.Definition.ShuffleEnabled && !replaced.Definition.LoopEnabled && replaced.ExistingEntries[0].Title == "replacement", "Save invalidates the cache");
         File.Delete(path);
@@ -247,7 +247,7 @@ internal static class AutoplayChecks
                 await Canceled(pending);
                 if (newer is not null) Check(await newer && vm.PlaybackQueue.Single().Title == "latest" && vm.QueueShuffleEnabled, "Only newest request applies");
                 else if (cancel != "profile") Check(vm.PlaybackQueue.Single() == existing, "Canceled preparation cannot replace the queue");
-                else Check(vm.PlaybackQueue.Single() == existing, "Old request cannot change the queue after profile replacement");
+                else Check(vm.PlaybackQueue.Count == 0, "Old request cannot change the replacement profile's restored empty queue");
             }
             finally { release.Set(); view.CancelPlaylistPreparation(); }
         }

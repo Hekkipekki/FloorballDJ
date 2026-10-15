@@ -13,7 +13,7 @@
         <StackPanel>
             <TextBlock Text="AUTOSPARADE REVISIONER" Style="{StaticResource EyebrowText}" />
             <TextBlock Text="Gå tillbaka till en tidigare version" Style="{StaticResource SectionTitle}" FontSize="26" Margin="0,3,0,2" />
-            <TextBlock Text="Varje ändring sparas som en återställningspunkt. Den nuvarande versionen bevaras när du återställer."
+            <TextBlock Text="Sparade profiler och arbetskopior har egen historik. Granska och spara manuellt efter återställning."
                        Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
         </StackPanel>
         <Border Grid.Row="1" Background="#102038" CornerRadius="7" Padding="12,9" Margin="0,16,0,10">

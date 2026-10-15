@@ -32,6 +32,8 @@ public partial class MainWindow : Window
     private readonly Func<string, bool> _randomFileExists;
     internal bool StartupReady { get; private set; }
     internal Func<bool>? ConfirmAutoplayExit { get; set; }
+    internal Func<UnsavedProfileChoice>? ConfirmUnsavedProfile { get; set; }
+    internal Func<Task<bool>>? SaveProfileForTest { get; set; }
     private const string JingleClipboardFormat = "FloorballDJ.Jingle.Json.v1";
     private Jingle? _clipboard;
     private Point _dragStart;
@@ -147,6 +149,8 @@ public partial class MainWindow : Window
             RefreshOutputName();
             StartupReady = true;
             initialization.Mark("MainWindowReady");
+            if (_shutdownApplicationOnClose && !Environment.GetCommandLineArgs().Contains("--smoke-test", StringComparer.OrdinalIgnoreCase))
+                await OfferWorkingCopyRecoveryAsync();
             if (Environment.GetCommandLineArgs().Contains("--smoke-test", StringComparer.OrdinalIgnoreCase))
             {
                 RefreshRecentProfilesMenu();
@@ -276,29 +280,31 @@ public partial class MainWindow : Window
         }
 
         e.Cancel = true;
+        if (_transferInProgress) return;
         if (_closeInProgress) return;
         _closeInProgress = true;
         try
         {
-            await ViewModel.FlushSavesAsync();
+            if (_trialShutdownInProgress) await ViewModel.FlushSavesAsync();
+            else if (!await ConfirmProfileChangesAsync()) { _closeInProgress = false; return; }
         }
         catch (Exception ex)
         {
-            var closeAnyway = MessageBox.Show(this,
-                $"De senaste ändringarna kunde inte sparas.\n\n{ex.Message}\n\nVill du stänga ändå?",
-                "Kunde inte spara", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
-            if (!closeAnyway)
-            {
-                _closeInProgress = false;
-                return;
-            }
+            MessageBox.Show(this, ex.Message, LanguageService.Translate("Kunde inte spara"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            _closeInProgress = false;
+            return;
         }
         ViewModel.Dispose();
         _clockTimer.Stop();
         _licenseMonitorTimer.Stop();
         _closeCommitted = true;
-        if (_shutdownApplicationOnClose) Application.Current.Shutdown();
-        else Close();
+        // A clean/discarded profile can complete synchronously inside Closing.
+        // Finish on the next dispatcher turn instead of re-entering Window.Close.
+        _ = Dispatcher.BeginInvoke(() =>
+        {
+            if (_shutdownApplicationOnClose) Application.Current.Shutdown();
+            else Close();
+        });
     }
 
     private async void Jingle_Click(object sender, RoutedEventArgs e)
@@ -538,7 +544,8 @@ public partial class MainWindow : Window
         vm.Settings.TrackSession = enabled;
         if (!vm.Settings.TrackSession)
             foreach (var jingle in vm.Decks.SelectMany(deck => deck.Jingles)) jingle.SessionPlayCount = 0;
-        try { await vm.SaveAsync(); } catch { }
+        vm.RequestSave();
+        try { await vm.FlushSavesAsync(); } catch { }
     }
 
     private void MasterVolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -801,7 +808,7 @@ public partial class MainWindow : Window
             Keyboard.FocusedElement is not TextBoxBase and not ComboBox)
         {
             e.Handled = true;
-            await SaveSafelyAsync();
+            await SaveProfileAsync();
             return;
         }
 
@@ -2109,7 +2116,9 @@ public partial class MainWindow : Window
     {
         try
         {
-            await ViewModel.SaveAsync(path);
+            // Mutation handlers protect edits locally; only explicit Save commits the profile.
+            ViewModel.RequestSave();
+            await ViewModel.FlushSavesAsync();
             return true;
         }
         catch (Exception ex)
@@ -2120,16 +2129,71 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void Save_Click(object sender, RoutedEventArgs e) => await SaveSafelyAsync();
-    private async void SaveAs_Click(object sender, RoutedEventArgs e)
+    private async void Save_Click(object sender, RoutedEventArgs e) => await SaveProfileAsync();
+    private async void SaveAs_Click(object sender, RoutedEventArgs e) => await SaveProfileAsync(saveAs: true);
+
+    private async Task<bool> SaveProfileAsync(bool saveAs = false)
     {
-        var dialog = new SaveFileDialog
+        var path = ViewModel.CurrentProjectPath;
+        if (saveAs || !ViewModel.HasNamedProfile)
         {
-            Filter = "FloorballDJ-projekt|*.floorballdj.json",
-            FileName = $"{ViewModel.Project.Name}.floorballdj.json",
-            InitialDirectory = UserContentFolders.ProfilesDirectory
-        };
-        if (dialog.ShowDialog(this) == true) await SaveSafelyAsync(dialog.FileName);
+            var dialog = new SaveFileDialog
+            {
+                Title = LanguageService.Translate("Spara profil"), Filter = "FloorballDJ-profil|*.floorballdj.json",
+                FileName = $"{ViewModel.ProfileDisplayName}.floorballdj.json",
+                InitialDirectory = ViewModel.HasNamedProfile ? Path.GetDirectoryName(path) : UserContentFolders.ProfilesDirectory
+            };
+            if (dialog.ShowDialog(this) != true) return false;
+            path = dialog.FileName;
+        }
+        IsEnabled = false;
+        try
+        {
+            ViewModel.Project.Name = GetProfileDisplayName(path);
+            // Protect the latest edit locally even if the chosen Drive/USB target fails immediately.
+            ViewModel.RequestSave();
+            await ViewModel.FlushSavesAsync();
+            await ViewModel.SaveAsync(path);
+            _profilePreferences.SetDefaultProfile(path);
+            RefreshRecentProfilesMenu();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, LanguageService.Translate("Kunde inte spara"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
+        }
+        finally { IsEnabled = true; }
+    }
+
+    internal async Task<bool> ConfirmProfileChangesAsync()
+    {
+        if (!ViewModel.HasUnsavedChanges) { await ViewModel.DiscardChangesAsync(); return true; }
+        var choice = ConfirmUnsavedProfile?.Invoke();
+        if (choice is null)
+        {
+            var dialog = new UnsavedProfileWindow(ViewModel.ProfileDisplayName) { Owner = this };
+            dialog.ShowDialog();
+            choice = dialog.Choice;
+        }
+        if (choice == UnsavedProfileChoice.Cancel) return false;
+        if (choice == UnsavedProfileChoice.Discard) { await ViewModel.DiscardChangesAsync(); return true; }
+        var saved = SaveProfileForTest is not null ? await SaveProfileForTest() : await SaveProfileAsync();
+        return saved && !ViewModel.HasUnsavedChanges;
+    }
+
+    private async Task OfferWorkingCopyRecoveryAsync()
+    {
+        foreach (var copy in ViewModel.RecoverableCopies)
+        {
+            var text = string.Format(LanguageService.Translate("Det finns osparade profiländringar för ‘{0}’ från {1}. Vill du återställa dem?\n\nJa: återställ. Nej: kasta arbetskopian. Avbryt: behåll den till senare."), copy.ProfileName, copy.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm"));
+            var choice = MessageBox.Show(this, text, LanguageService.Translate("Återställ arbetskopia"), MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            if (choice == MessageBoxResult.Cancel) break;
+            if (choice == MessageBoxResult.No) { ViewModel.DeleteRecovery(copy); continue; }
+            try { await ViewModel.RecoverAsync(copy); RefreshOutputName(); }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, LanguageService.Translate("Kunde inte återställa"), MessageBoxButton.OK, MessageBoxImage.Warning); }
+            break;
+        }
     }
 
     private async void Open_Click(object sender, RoutedEventArgs e)
@@ -2201,12 +2265,11 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!await SaveSafelyAsync()) return;
+        if (!await ConfirmProfileChangesAsync()) return;
         try
         {
             _audio.StopAll();
             CloseTeamDeck();
-            ViewModel.ReplaceQueue([]);
             ViewModel.SetAutoplayMode(false);
             EmbeddedAutoplay.Visibility = Visibility.Collapsed;
             ClearSpaceResume();
@@ -2231,32 +2294,23 @@ public partial class MainWindow : Window
 
     private async void NewProject_Click(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show(this, "Skapa ett nytt tomt projekt? Det nuvarande projektet autosparas först.", "Nytt projekt", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-        if (!await SaveSafelyAsync()) return;
+        if (!await ConfirmProfileChangesAsync()) return;
         try
         {
             _audio.StopAll();
             CloseTeamDeck();
-            ViewModel.ReplaceQueue([]);
             ViewModel.SetAutoplayMode(false);
             ViewModel.SetSecondaryOutput(false);
             EmbeddedAutoplay.Visibility = Visibility.Collapsed;
             SecondaryOutputToggle.IsChecked = false;
             ClearSpaceResume();
-            await ViewModel.ImportLegacyXmlAsync(CreateTemporaryEmptyXml());
+            await ViewModel.NewProjectAsync();
         }
         catch (Exception ex)
         {
             MessageBox.Show(this, ex.Message, "Kunde inte skapa projektet",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
-    }
-
-    private static string CreateTemporaryEmptyXml()
-    {
-        var path = Path.Combine(Path.GetTempPath(), "floorballdj-new.xml");
-        File.WriteAllText(path, "<JinglePlaylist><Rows>4</Rows><Cols>5</Cols><Tabs>4</Tabs></JinglePlaylist>");
-        return path;
     }
 
     private async void ImportXml_Click(object sender, RoutedEventArgs e)
@@ -2273,6 +2327,7 @@ public partial class MainWindow : Window
             await OpenProfileAsync(dialog.FileName);
             return;
         }
+        if (!await ConfirmProfileChangesAsync()) return;
         try
         {
             CloseTeamDeck();
@@ -2291,7 +2346,7 @@ public partial class MainWindow : Window
     {
         var dialog = new OpenFolderDialog { Title = "Välj var den kompletta flyttbackupen ska skapas" };
         if (dialog.ShowDialog(this) != true) return;
-        if (!await SaveSafelyAsync()) return;
+        if (!await PrepareTransferAsync()) return;
 
         PortableBackupResult? result = null;
         Exception? failure = null;
@@ -2334,6 +2389,7 @@ public partial class MainWindow : Window
     {
         var dialog = new OpenFolderDialog { Title = "Välj FloorballDJ-backupmappen" };
         if (dialog.ShowDialog(this) != true) return;
+        if (!await ConfirmProfileChangesAsync()) return;
 
         PortableRestoreResult? result = null;
         Exception? failure = null;
@@ -2479,7 +2535,7 @@ public partial class MainWindow : Window
                 "Ljud spelas", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        if (!await SaveSafelyAsync()) return;
+        if (!await ConfirmProfileChangesAsync()) return;
 
         try
         {

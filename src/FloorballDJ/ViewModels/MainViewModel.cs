@@ -10,6 +10,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 {
     private readonly ProjectService _projects;
     private readonly ProfilePreferencesService _profilePreferences;
+    private readonly WorkingCopyService _workingCopies;
+    private string _savedFingerprint = "";
+    private long _manualSaveRequest;
+    private bool _restoringQueue;
     private double? _localTitleFontSize;
     private readonly AudioEngine _audio;
     private readonly DispatcherTimer _timer;
@@ -62,6 +66,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         _projects = projects;
         _profilePreferences = profilePreferences;
+        _workingCopies = new WorkingCopyService(projects.AppDataDirectory);
         _localTitleFontSize = profilePreferences.GetLocalTitleFontSize();
         if (_localTitleFontSize.HasValue) _project.Settings.TitleFontSize = _localTitleFontSize.Value;
         _project.Settings.PropertyChanged += LocalAppearanceChanged;
@@ -70,6 +75,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             QueueRevision++;
             CancelQueuePrefetch();
+            if (!_restoringQueue)
+            {
+                Settings.AutoplayQueueItems = PlaybackQueue.ToList();
+                RequestSave();
+            }
         };
         _shortcuts = new JingleShortcutIndex(_project.Decks);
         _selectedDeck = _project.Decks.FirstOrDefault();
@@ -104,6 +114,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             TryStartQueueTransition();
         };
         _timer.Start();
+        _savedFingerprint = ProjectService.ContentFingerprint(Project);
     }
 
     public FloorballProject Project
@@ -112,6 +123,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         private set
         {
             if (ReferenceEquals(_project, value)) return;
+            if (value.Id == Guid.Empty) value.Id = Guid.NewGuid();
             _profileWorkCancellation.Cancel();
             _profileWorkCancellation.Dispose();
             _profileWorkCancellation = new();
@@ -234,8 +246,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             _audio.SetSecondaryMonitorVolumeDb(normalized);
         }
     }
-    public bool QueueLoopEnabled { get => _queueLoopEnabled; set => Set(ref _queueLoopEnabled, value); }
-    public bool QueueShuffleEnabled { get => _queueShuffleEnabled; set => Set(ref _queueShuffleEnabled, value); }
+    public bool QueueLoopEnabled { get => _queueLoopEnabled; set { if (Set(ref _queueLoopEnabled, value) && !_restoringQueue) { Settings.AutoplayQueueLoopEnabled = value; RequestSave(); } } }
+    public bool QueueShuffleEnabled { get => _queueShuffleEnabled; set { if (Set(ref _queueShuffleEnabled, value) && !_restoringQueue) { Settings.AutoplayQueueShuffleEnabled = value; RequestSave(); } } }
     public bool AutoplayModeActive { get => _autoplayModeActive; private set => Set(ref _autoplayModeActive, value); }
     public bool IsSpaceResumePending { get => _isSpaceResumePending; set => Set(ref _isSpaceResumePending, value); }
     public Jingle? ActiveQueueItem { get => _activeQueueItem; private set => Set(ref _activeQueueItem, value); }
@@ -256,6 +268,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public int QueuedCount => AutoplayModeActive ? PlaybackQueue.Count : DeckPlaybackQueue.Count;
     public AudioEngine Audio => _audio;
     public string CurrentProjectPath => _currentPath ?? _projects.DefaultProjectPath;
+    public bool HasNamedProfile => _currentPath is not null && !string.Equals(_currentPath, _projects.DefaultProjectPath, StringComparison.OrdinalIgnoreCase);
+    public bool HasUnsavedChanges => _savedFingerprint != ProjectService.ContentFingerprint(Project);
+    public string WorkingCopyPath => _workingCopies.GetPath(HasNamedProfile ? _currentPath : null, Project.Id);
+    public IReadOnlyList<WorkingCopyInfo> RecoverableCopies => _workingCopies.Find();
     public string ProfileDisplayName => GetActiveProfileDisplayName();
 
     public async Task InitializeAsync()
@@ -312,7 +328,22 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         foreach (var jingle in Decks.SelectMany(deck => deck.Jingles))
             jingle.SessionPlayCount = 0;
         Settings.TrackSession = true;
+        _savedFingerprint = HasNamedProfile ? ProjectService.ContentFingerprint(Project) : _savedFingerprint;
         Raise(nameof(Settings));
+    }
+
+    private void RestoreAutoplayQueue()
+    {
+        _restoringQueue = true;
+        try
+        {
+            var known = Decks.SelectMany(deck => deck.Jingles).DistinctBy(item => item.Id).ToDictionary(item => item.Id);
+            ReplaceQueue((Settings.AutoplayQueueItems ?? []).Select(item => known.GetValueOrDefault(item.Id) ?? item).ToArray());
+            QueueShuffleEnabled = Settings.AutoplayQueueShuffleEnabled;
+            QueueLoopEnabled = Settings.AutoplayQueueLoopEnabled;
+            Settings.AutoplayQueueItems = PlaybackQueue.ToList();
+        }
+        finally { _restoringQueue = false; }
     }
 
     public void Play(Jingle jingle)
@@ -611,10 +642,21 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public void ReplaceQueue(IEnumerable<Jingle> items, double gainOffsetDb = 0)
     {
         _queuePrefetchCancellation?.Cancel();
-        foreach (var item in PlaybackQueue) item.AutoplayQueuePosition = 0;
-        PlaybackQueue.Clear();
-        _playbackQueueGainOffsetDb = Math.Clamp(gainOffsetDb, -60, 12);
-        foreach (var item in items) PlaybackQueue.Add(item);
+        var restoring = _restoringQueue;
+        _restoringQueue = true;
+        try
+        {
+            foreach (var item in PlaybackQueue) item.AutoplayQueuePosition = 0;
+            PlaybackQueue.Clear();
+            _playbackQueueGainOffsetDb = Math.Clamp(gainOffsetDb, -60, 12);
+            foreach (var item in items) PlaybackQueue.Add(item);
+        }
+        finally { _restoringQueue = restoring; }
+        if (!restoring)
+        {
+            Settings.AutoplayQueueItems = PlaybackQueue.ToList();
+            RequestSave();
+        }
         _queuePlaybackIndex = 0;
         _activeQueueJingleId = null;
         ActiveQueueItem = null;
@@ -676,20 +718,46 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         CancelDelayedSave();
         SupersedePendingAutosave();
-        _saveDirty = true;
-        _currentPath = Path.GetFullPath(path ?? CurrentProjectPath);
-        var context = CaptureSave();
+        var request = ++_manualSaveRequest;
+        var oldWorkingPath = WorkingCopyPath;
+        var target = Path.GetFullPath(path ?? CurrentProjectPath);
+        var fingerprint = ProjectService.ContentFingerprint(Project);
+        var context = new SaveContext(_projects.PrepareSave(Project, target), Project, _projectGeneration, _saveVersion);
         await context.Save.SaveAsync().ConfigureAwait(false);
-        await _ownerDispatcher.InvokeAsync(() => ReportSaveCompleted(context)).Task.ConfigureAwait(false);
+        await _ownerDispatcher.InvokeAsync(async () =>
+        {
+            if (_disposed || request != _manualSaveRequest || context.Generation != _projectGeneration || !ReferenceEquals(context.Project, Project)) return;
+            _currentPath = target;
+            _savedFingerprint = fingerprint;
+            TrackProfile(target);
+            if (_autosaveRunning) await _autosaveTask;
+            if (context.Version == _saveVersion)
+            {
+                CancelDelayedSave();
+                SupersedePendingAutosave();
+                _saveDirty = false;
+                _workingCopies.Delete(oldWorkingPath);
+                _workingCopies.Delete(WorkingCopyPath);
+            }
+            else
+            {
+                await FlushSavesAsync();
+                if (!string.Equals(oldWorkingPath, WorkingCopyPath, StringComparison.OrdinalIgnoreCase)) _workingCopies.Delete(oldWorkingPath);
+            }
+            Status = $"Sparat {DateTime.Now:HH:mm:ss}";
+        }).Task.Unwrap().ConfigureAwait(false);
     }
 
-    // Closing/profile replacement awaits the newest edits, including requests
-    // arriving while an earlier save is still writing. Explicit saves are never dropped.
+    // Flush recovery data only. Named profiles change exclusively through SaveAsync.
     public async Task FlushSavesAsync()
     {
         do
         {
-            await SaveAsync();
+            CancelDelayedSave();
+            SupersedePendingAutosave();
+            var context = CaptureSave();
+            await context.Save.SaveAsync();
+            ReportSaveCompleted(context);
             if (_autosaveRunning) await _autosaveTask;
         }
         while (_saveDirty || _hasSaveRequest || _pendingAutosave is not null);
@@ -701,18 +769,22 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         else if (_autosaveRunning) await _autosaveTask;
     }
 
-    private SaveContext CaptureSave() => new(_projects.PrepareSave(Project, CurrentProjectPath), Project, _projectGeneration, _saveVersion);
+    private SaveContext CaptureSave()
+    {
+        var path = WorkingCopyPath;
+        _workingCopies.Prepare(path, HasNamedProfile ? _currentPath : null, ProfileDisplayName);
+        return new(_projects.PrepareSave(Project, path), Project, _projectGeneration, _saveVersion);
+    }
 
     private bool IsCurrentSave(SaveContext context) => !_disposed &&
         context.Generation == _projectGeneration && ReferenceEquals(context.Project, Project) &&
-        string.Equals(context.Save.Path, Path.GetFullPath(CurrentProjectPath), StringComparison.OrdinalIgnoreCase);
+        string.Equals(context.Save.Path, WorkingCopyPath, StringComparison.OrdinalIgnoreCase);
 
     private void ReportSaveCompleted(SaveContext context)
     {
         if (!IsCurrentSave(context)) return;
         if (context.Version == _saveVersion) _saveDirty = false;
-        TrackProfile(context.Save.Path);
-        Status = $"Sparat {DateTime.Now:HH:mm:ss}";
+        Status = $"Arbetskopia sparad {DateTime.Now:HH:mm:ss}";
     }
 
     private void CancelDelayedSave()
@@ -811,6 +883,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Shortcuts.Refresh();
         SelectedDeck = Decks.FirstOrDefault();
         _currentPath = Path.GetFullPath(path);
+        RestoreAutoplayQueue();
+        _savedFingerprint = ProjectService.ContentFingerprint(Project);
         TrackProfile(path);
         ConfigureAudio();
         if (performance.Enabled)
@@ -820,6 +894,49 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             performance.Mark("ProfileSlotCount", Decks.Sum(deck => deck.Jingles.Count));
         }
         Status = $"Öppnade {Path.GetFileName(path)}";
+    }
+
+    public async Task RecoverAsync(WorkingCopyInfo copy)
+    {
+        var recovered = await _projects.LoadAsync(copy.ProfilePath);
+        await FlushRequestedSavesAsync();
+        Project = recovered;
+        ProjectService.EnsureLayout(Project);
+        _currentPath = copy.SourcePath;
+        SelectedDeck = Decks.FirstOrDefault();
+        RestoreAutoplayQueue();
+        StartNewSession();
+        _savedFingerprint = "";
+        ConfigureAudio();
+        RequestSave();
+        Status = "Osparade profiländringar återställda";
+    }
+
+    public async Task DiscardChangesAsync()
+    {
+        CancelDelayedSave();
+        SupersedePendingAutosave();
+        if (_autosaveRunning) await _autosaveTask;
+        CancelDelayedSave();
+        SupersedePendingAutosave();
+        _workingCopies.Delete(WorkingCopyPath);
+        _saveDirty = false;
+        _savedFingerprint = ProjectService.ContentFingerprint(Project);
+    }
+
+    public void DeleteRecovery(WorkingCopyInfo copy) => _workingCopies.Delete(copy.ProfilePath);
+
+    public async Task NewProjectAsync()
+    {
+        await FlushRequestedSavesAsync();
+        Project = ProjectService.CreateDefault();
+        _currentPath = null;
+        SelectedDeck = Decks.FirstOrDefault();
+        ClearDeckQueue();
+        RestoreAutoplayQueue();
+        _savedFingerprint = "";
+        ConfigureAudio();
+        RequestSave();
     }
 
     private void TrackProfile(string path)
@@ -846,15 +963,19 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         return string.IsNullOrWhiteSpace(Project.Name) ? "FloorballDJ" : Project.Name;
     }
 
-    public Task<IReadOnlyList<ProjectRevision>> GetRevisionsAsync()
-        => _projects.GetRevisionsAsync(CurrentProjectPath);
+    public async Task<IReadOnlyList<ProjectRevision>> GetRevisionsAsync()
+    {
+        var named = await _projects.GetRevisionsAsync(CurrentProjectPath);
+        var working = await _projects.GetRevisionsAsync(WorkingCopyPath);
+        return named.Concat(working).OrderByDescending(revision => revision.Timestamp).Take(100).ToArray();
+    }
 
     public async Task RestoreRevisionAsync(string revisionPath)
     {
         await FlushRequestedSavesAsync();
         var targetPath = CurrentProjectPath;
         ClearDeckQueue();
-        var restored = await _projects.LoadAsync(revisionPath);
+        var restored = await _projects.LoadAsync(revisionPath, _projects.RevisionMediaDirectory(revisionPath, targetPath, WorkingCopyPath));
         await FlushRequestedSavesAsync();
         Project = restored;
         ProjectService.EnsureLayout(Project);
@@ -863,7 +984,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _currentPath = targetPath;
         ReplaceQueue([]);
         ConfigureAudio();
-        await SaveAsync(targetPath);
+        RestoreAutoplayQueue();
+        _savedFingerprint = "";
+        RequestSave();
+        await FlushSavesAsync();
         Status = $"Återställde revision från {DateTime.Now:HH:mm:ss}";
     }
 
@@ -890,6 +1014,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             Shortcuts.Refresh();
             SelectedDeck = Decks.FirstOrDefault();
             _currentPath = null;
+            RestoreAutoplayQueue();
+            _savedFingerprint = "";
+            RequestSave();
             ConfigureAudio();
             Status = "Äldre XML importerad";
             return true;
@@ -912,6 +1039,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Shortcuts.Refresh();
         Raise(nameof(SelectedDeck));
         _audio.RefreshVolumes();
+        RequestSave();
     }
     public static string Format(TimeSpan time) => time.TotalHours >= 1 ? time.ToString(@"hh\:mm\:ss") : time.ToString(@"mm\:ss\.f");
     private void RaiseAll() { Raise(nameof(Settings)); Raise(nameof(Decks)); Raise(nameof(SelectedDeck)); }

@@ -42,6 +42,7 @@ internal static class Program
             {
                 Check(app.Windows.Count == 0, "Diagnostic startup must not launch production profile/license windows");
                 if (arguments.Contains("--shortcut-benchmark")) ShortcutChecks.Benchmark(Argument(arguments, "--output") ?? Path.Combine(root, "shortcut-benchmark"));
+                else if (arguments.Contains("--transfer-draft-checks")) await TransferAndDraftChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--random-validation-checks")) await RandomPoolAvailabilityChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--presentation-checks")) await PresentationFixChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--rc-workflow-checks")) await RcWorkflowChecks.RunAsync(root, Argument(arguments, "--output"));
@@ -95,6 +96,7 @@ internal static class Program
         await WaveformChecks.RunAsync(root);
         await OutputReuseChecks.RunAsync(root);
         await SaveChecks.RunAsync(root);
+        await TransferAndDraftChecks.RunAsync(root, null);
         await MetadataChecks.RunAsync(root);
         await AutoplayChecks.RunAsync(root);
         await UiWorkChecks.RunAsync(root);

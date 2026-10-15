@@ -406,7 +406,10 @@
                             <TextBlock Style="{StaticResource HelpBody}">Välj en standardprofil under <Run FontWeight="Bold">Verktyg → Inställningar → Profiler</Run> om samma matchprofil alltid ska öppnas vid start. Dropdownen visar upp till fem senast använda, namngivna profilfiler. Den vanliga interna autosparningen visas inte som en separat profil. Välj Ingen standard för att återgå till autosparningen.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Autosparning och historik" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Ändringar autosparas. Under <Run FontWeight="Bold">Hjälp → Autosparningshistorik</Run> kan du granska och återställa tidigare versioner. Upp till 100 ändrade revisioner sparas per profil. Återställning ersätter den aktuella profilen, så kontrollera datum och innehåll.</TextBlock>
+                            <StackPanel>
+                            <TextBlock Style="{StaticResource HelpBody}">Ändringar autosparas i en lokal arbetskopia. Den namngivna profilen ändras först när du väljer Spara eller Spara som. Efter lyckad sparning tas arbetskopian bort. Vid avslut eller profilbyte kan du välja Spara, Spara inte eller Avbryt. Efter en krasch erbjuds återställning av arbetskopian. Sessionshistoriken återställs alltid vid programstart.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0">Under Hjälp → Autosparningshistorik visas tidigare sparade versioner och arbetskopians historik. En återställd revision behöver sparas manuellt innan den ersätter den namngivna profilen.</TextBlock>
+                            </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Backup och flytt till en annan dator" Style="{StaticResource HelpGroup}">
                             <StackPanel>
@@ -417,7 +420,14 @@
                         <GroupBox Header="Flytta till en annan dator" Style="{StaticResource HelpGroup}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource HelpBody}">Kopiera hela backupmappen till den nya datorn och välj <Run FontWeight="Bold">Profil → Återställ flyttbackup</Run>. FloorballDJ kopierar innehållet till en stabil lokal plats, importerar typsnitt och färgval, öppnar profilen och gör den till standard. Välj därefter ljudutgångar för den nya datorn.</TextBlock>
-                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0"><Run FontWeight="Bold" Text="Överförs inte: " />licens/provperiod, Windows-specifika ljudenhets-ID:n och extern musik som inte används av någon jingle. Licensen är maskinbunden och aktiveras separat. Saknade filer redovisas tydligt när backupen skapas.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0">Licens och datorns ljudutgångar följer inte med. Alla ljud som används av deck, registrerade spellistor och den aktuella Autoplay-kön följer med. Oanvänd musik utanför uppsättningen kopieras inte.</TextBlock>
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="USB och Google Drive" Style="{StaticResource HelpGroup}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HelpBody}">Profil → Spara flyttpaket för USB eller Drive skapar en enda .fdjbackup-fil. Kopiera den till nästa dator och välj Öppna flyttpaket. Profilnamn, spellistor och aktuell Autoplay-kö behålls.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0">För återkommande överflyttning: välj Google Drive / synkmapp → Spara till synkmapp. Mappen koms ihåg, oförändrade ljud återanvänds och varje version märks med datum och dator. Låt Google Drive synka färdigt. På nästa dator väljer du Hämta från synkmapp och önskad version.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0">Filerna kontrolleras och kopieras lokalt innan den hämtade profilen används. Relativa sökvägar gör att enhetsbokstaven kan skilja sig mellan datorerna. Arbetet kan fortsätta utan Drive eller USB när importen är klar.</TextBlock>
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Ljudfiler och egna typsnitt" Style="{StaticResource HelpGroup}">

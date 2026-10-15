@@ -330,7 +330,7 @@ internal static class MetadataChecks
             Check(await partial.SearchAndUpdateAsync(destination, false) == 16 && targets.Take(16).Select(item => item.FilePath).SequenceEqual(files.Take(16)) &&
                   targets.Skip(16).All(item => item.IsMissing), "Close between relink batches must retain exactly the applied batch");
             await vm.FlushSavesAsync();
-            var saved = await projects.LoadAsync(vm.CurrentProjectPath);
+            var saved = await projects.LoadAsync(vm.WorkingCopyPath);
             Check(saved.Decks.SelectMany(deck => deck.Jingles).Count(item => files.Contains(item.FilePath)) == 16, "Partial relink changes must remain requested and flushable");
         }
         finally { targets[0].PropertyChanged -= CloseAfterBatch; }
@@ -394,9 +394,11 @@ internal static class MetadataChecks
         }
         finally { partialRelease.Set(); }
         Check(await import == 16, "Closing must not apply the later prepared batch");
-        var savedPartial = await new ProjectService().LoadAsync(profilePath);
+        var savedPartial = await new ProjectService().LoadAsync(partialVm.WorkingCopyPath);
         Check(savedPartial.Decks[0].Jingles.Where(item => item.HasAudio).Select(item => item.FilePath).SequenceEqual(files.Take(16)),
-            "Closing flush must retain the already applied import batch");
+            "Closing recovery flush must retain the already applied import batch");
+        Check(!(await new ProjectService().LoadAsync(profilePath)).Decks.SelectMany(deck => deck.Jingles).Any(item => item.HasAudio),
+            "Partial import must not overwrite the named profile before manual review");
     }
 
     private static async Task CheckXml(string root)
