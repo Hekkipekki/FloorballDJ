@@ -264,7 +264,8 @@ public sealed class Jingle : INotifyPropertyChanged
     public bool ShortcutSwitchesDeck { get => _shortcutSwitchesDeck; set => Set(ref _shortcutSwitchesDeck, value); }
     public string Category { get => _category; set => Set(ref _category, value); }
     public string? CategoryShortcut { get => _categoryShortcut; set => Set(ref _categoryShortcut, value); }
-    public int SessionPlayCount { get => _sessionPlayCount; set => Set(ref _sessionPlayCount, value); }
+    // Playback history belongs to this run only, including when loading older profiles.
+    [JsonIgnore] public int SessionPlayCount { get => _sessionPlayCount; set => Set(ref _sessionPlayCount, value); }
     public bool NormalizationEnabled { get => _normalizationEnabled; set => Set(ref _normalizationEnabled, value); }
     public double NormalizationTargetLufs { get => _normalizationTargetLufs; set => Set(ref _normalizationTargetLufs, value); }
     public double? IntegratedLufs { get => _integratedLufs; set { if (Set(ref _integratedLufs, value)) Raise(nameof(HasFreshLoudnessAnalysis)); } }

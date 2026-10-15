@@ -1,4 +1,6 @@
 using System.IO;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Windows;
 using FloorballDJ.Models;
 using FloorballDJ.Services;
@@ -14,10 +16,10 @@ internal static class Program
         {
             try
             {
-                foreach (var source in new[] { "new", "autosave", "default", "missing-default" })
+                foreach (var source in new[] { "new", "autosave", "default", "missing-default", "corrupt-default" })
                 foreach (var wasEnabled in new[] { true, false })
                     await CheckStartup(source, wasEnabled);
-                Console.WriteLine("PASS: fresh startup sessions, autosave/default/fallback, disabled session, all decks/pages, unplayed priority and second restart.");
+                Console.WriteLine("PASS: fresh startup sessions, legacy counts ignored, counts never persisted, autosave/default/fallback, disabled session, all decks/pages, unplayed priority and second restart.");
                 app.Shutdown(0);
             }
             catch (Exception exception)
@@ -43,13 +45,14 @@ internal static class Program
         project.Settings.TitleFontSize = 22;
         preferences.SetLocalTitleFontSize(22);
         foreach (var jingle in project.Decks.SelectMany(deck => deck.Jingles)) jingle.SessionPlayCount = 3;
-        if (source != "new") await projects.SaveAsync(project, projects.DefaultProjectPath);
-        if (source is "default" or "missing-default")
+        if (source != "new") await SaveLegacyProfile(projects.DefaultProjectPath);
+        if (source is "default" or "missing-default" or "corrupt-default")
         {
             var path = Path.Combine(root, "match.floorballdj.json");
-            await projects.SaveAsync(project, path);
+            await SaveLegacyProfile(path);
             preferences.SetDefaultProfile(path);
             if (source == "missing-default") File.Move(path, Path.Combine(root, "moved.floorballdj.json"));
+            if (source == "corrupt-default") await File.WriteAllTextAsync(path, "{broken");
         }
 
         using (var audio = new AudioEngine())
@@ -66,12 +69,27 @@ internal static class Program
             vm.SelectedDeck = vm.Decks.Last();
             await vm.SaveAsync();
             Check(candidates[0].Jingle.SessionPlayCount == 1, "Save and deck switch must not reset session");
+            var saved = await File.ReadAllTextAsync(vm.CurrentProjectPath);
+            Check(!saved.Contains("sessionPlayCount", StringComparison.OrdinalIgnoreCase), "Session history must never be written to a profile or autosave");
+            Check((await projects.LoadAsync(vm.CurrentProjectPath)).Decks.SelectMany(d => d.Jingles).All(j => j.SessionPlayCount == 0), "Reloaded profiles must contain only unplayed songs");
         }
         using (var audio = new AudioEngine())
         using (var reopened = new MainViewModel(projects, preferences, audio))
         {
             await reopened.InitializeAsync();
             Check(reopened.Settings.TrackSession && reopened.Decks.SelectMany(d => d.Jingles).All(j => j.SessionPlayCount == 0), "Second launch must reset newly saved counts too");
+        }
+
+        async Task SaveLegacyProfile(string path)
+        {
+            await projects.SaveAsync(project, path);
+            var legacy = JsonNode.Parse(await File.ReadAllTextAsync(path))!;
+            foreach (var deck in legacy["decks"]!.AsArray())
+            foreach (var jingle in deck!["jingles"]!.AsArray())
+                jingle!["sessionPlayCount"] = 3;
+            await File.WriteAllTextAsync(path, legacy.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            var loaded = await projects.LoadAsync(path);
+            Check(loaded.Decks.SelectMany(d => d.Jingles).All(j => j.SessionPlayCount == 0), "Old saved history must be ignored even before startup initialization");
         }
     }
 

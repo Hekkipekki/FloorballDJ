@@ -76,6 +76,12 @@ jobs:
             "enabled=false" >> $env:GITHUB_OUTPUT
           }
 
+      - name: Verify fresh startup sessions
+        shell: pwsh
+        run: |
+          dotnet run --project tests/FloorballDJ.SessionSmoke/FloorballDJ.SessionSmoke.csproj --configuration Release
+          if ($LASTEXITCODE -ne 0) { throw "Session regression checks failed." }
+
       - name: Build installer
         shell: pwsh
         run: |
