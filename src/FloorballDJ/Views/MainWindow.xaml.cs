@@ -941,6 +941,8 @@ public partial class MainWindow : Window
             }
         }
 
+        // Text entry (including Autoplay search and transition time) owns Space.
+        if (Keyboard.FocusedElement is TextBoxBase or ComboBox || e.OriginalSource is TextBoxBase) return;
         if (e.Key != Key.Space || Keyboard.Modifiers != ModifierKeys.None) return;
         e.Handled = true;
         if (e.IsRepeat) return;

@@ -82,8 +82,10 @@
                             </Grid>
                         </DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,9,0,0">
+                    <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,9,0,0">
                         <Button Content="Spela nu" Style="{StaticResource PrimaryButton}" Click="PlaySelected_Click" />
+                        <Button x:Name="PlayNextButton" Content="Spela nästa" Style="{StaticResource SecondaryButton}" Margin="7,0,0,0"
+                                ToolTip="Spela nästa låt i kön. När slumpning är på väljs en slumpmässig låt." Click="PlayNext_Click" />
                         <Button Content="Ta bort" Style="{StaticResource SecondaryButton}" Margin="7,0" Click="RemoveSelected_Click" />
                         <Button Content="↑" Style="{StaticResource SecondaryButton}" Width="40" Padding="0" Click="MoveUp_Click" />
                         <Button Content="↓" Style="{StaticResource SecondaryButton}" Width="40" Padding="0" Margin="5,0,0,0" Click="MoveDown_Click" />
@@ -100,7 +102,7 @@
                                 <TextBlock Text="s" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="4,0,0,0" />
                             </StackPanel>
                         </Border>
-                    </StackPanel>
+                    </WrapPanel>
                 </Grid>
             </Border>
 

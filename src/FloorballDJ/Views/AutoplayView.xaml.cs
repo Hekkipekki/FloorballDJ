@@ -190,6 +190,11 @@ public partial class AutoplayView : UserControl
         QueueList.Dispatcher.BeginInvoke(() => QueueList.ScrollIntoView(item));
     }
     private void PlaySelected_Click(object sender, RoutedEventArgs e) { CancelPlaylistPreparation(); if (QueueList.SelectedItem is Jingle item) ViewModel.PlayQueuedItem(item); }
+    private void PlayNext_Click(object sender, RoutedEventArgs e)
+    {
+        CancelPlaylistPreparation();
+        ViewModel.PlayNextQueued(crossfade: true);
+    }
     private void MoveUp_Click(object sender, RoutedEventArgs e) { if (QueueList.SelectedItem is Jingle item) { ViewModel.MoveQueueItem(item, -1); QueueList.SelectedItem = item; } }
     private void MoveDown_Click(object sender, RoutedEventArgs e) { if (QueueList.SelectedItem is Jingle item) { ViewModel.MoveQueueItem(item, 1); QueueList.SelectedItem = item; } }
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await RefreshAvailableAsync();

@@ -321,6 +321,8 @@ public static class LanguageService
         ["TILLGÄNGLIGA LÅTAR OCH JINGLAR"] = "AVAILABLE SONGS AND JINGLES", ["ÖVERGÅNG"] = "TRANSITION",
         ["Kön ligger kvar. Space tonar ut och återupptar samma låt; nästa låt startar automatiskt vid slutet."] = "The queue remains. Space fades out and resumes the same song; the next song starts automatically at the end.",
         ["Ladda spellista"] = "Load playlist", ["Spara spellista"] = "Save playlist", ["Spela nu"] = "Play now",
+        ["Spela nästa"] = "Play next",
+        ["Spela nästa låt i kön. När slumpning är på väljs en slumpmässig låt."] = "Play the next song in the queue. When shuffle is on, a random song is selected.",
         ["Välj musikmapp"] = "Choose music folder", ["🎧 FÖRLYSSNING"] = "🎧 PREVIEW",
         ["Blanda nästa låt"] = "Shuffle next song", ["Loopa spellistan från början"] = "Loop the playlist from the beginning",
         ["Lägg till i kön"] = "Add to queue", ["Sök titel"] = "Search title", ["Visa nästa deckflik"] = "Show next deck tab",

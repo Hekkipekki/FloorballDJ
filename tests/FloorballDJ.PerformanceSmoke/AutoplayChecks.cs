@@ -26,6 +26,7 @@ internal static class AutoplayChecks
             await CheckCache(directory);
             await CheckPlaylistSemantics(directory);
             await CheckCancellation(directory);
+            await CheckSearchAndNextButton(directory);
             await CheckHotkeyWithoutScan(directory);
             await CheckPrefetch(directory);
         }
@@ -265,6 +266,82 @@ internal static class AutoplayChecks
         deck.StartSeconds = .4; deck.GainDb = 7;
         editRelease.Set(); await edit;
         Check(ReferenceEquals(editVm.PlaybackQueue.Single(), deck) && editVm.PlaybackQueue[0].StartSeconds == .4 && editVm.PlaybackQueue[0].GainDb == 7, "Live clips/effects are resolved after preparation");
+    }
+
+    private static async Task CheckSearchAndNextButton(string root)
+    {
+        var window = new MainWindow();
+        var vm = (MainViewModel)window.DataContext;
+        var view = (AutoplayView)window.FindName("EmbeddedAutoplay");
+        using var source = new HwndSource(new HwndSourceParameters("autoplay input fixture") { Width = 1, Height = 1, WindowStyle = 0 });
+        try
+        {
+            Keyboard.ClearFocus();
+            vm.SetAutoplayMode(true);
+            vm.Settings.MasterVolumeDb = -60;
+            vm.Settings.FadeInSeconds = 0;
+            vm.Settings.TrackSession = false;
+            vm.QueueTransitionSeconds = 0;
+            vm.QueueShuffleEnabled = false;
+            vm.QueueLoopEnabled = true;
+            var first = new Jingle { Title = "First", FilePath = Wave(root, "manual-first.wav") };
+            var second = new Jingle { Title = "Second", FilePath = Wave(root, "manual-second.wav") };
+            vm.ReplaceQueue([first, second]);
+
+            void CheckTextSpace(string name)
+            {
+                var textBox = (TextBox)view.FindName(name);
+                var active = vm.ActiveQueueItem;
+                var args = new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, Key.Space)
+                    { RoutedEvent = Keyboard.PreviewKeyDownEvent };
+                textBox.RaiseEvent(args);
+                Check(!args.Handled && ReferenceEquals(vm.ActiveQueueItem, active) && !vm.IsSpaceResumePending,
+                    $"Space in {name} must remain available to text entry without starting/fading playback");
+            }
+
+            CheckTextSpace("SearchBox");
+            CheckTextSpace("TransitionSecondsBox");
+            var next = (Button)view.FindName("PlayNextButton");
+            next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(ReferenceEquals(vm.ActiveQueueItem, first), "Next button starts the first queued song when idle");
+            CheckTextSpace("SearchBox");
+            CheckTextSpace("TransitionSecondsBox");
+            next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(ReferenceEquals(vm.ActiveQueueItem, second), "Next button advances sequentially independent of selected row");
+            next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(ReferenceEquals(vm.ActiveQueueItem, first), "Next button obeys queue loop");
+            vm.QueueShuffleEnabled = true;
+            next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(ReferenceEquals(vm.ActiveQueueItem, second), "Shuffle next excludes the currently playing song");
+            next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(ReferenceEquals(vm.ActiveQueueItem, first), "Shuffle next keeps using the queue's shuffle policy");
+            vm.QueueShuffleEnabled = false;
+            vm.QueueLoopEnabled = false;
+            vm.PlayQueuedItem(second);
+            next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(ReferenceEquals(vm.ActiveQueueItem, second), "Next at end without loop leaves current playback alone");
+            vm.ReplaceQueue([]);
+            next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(vm.ActiveQueueItem is null, "Next with an empty queue is harmless");
+            await vm.Audio.StopAllDeClickedAsync();
+
+            // Outside a text field the global Space transport still starts Autoplay.
+            vm.ReplaceQueue([first, second]);
+            if (Keyboard.Modifiers == ModifierKeys.None)
+            {
+                var args = new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, Key.Space)
+                    { RoutedEvent = Keyboard.PreviewKeyDownEvent };
+                view.RaiseEvent(args);
+                Check(args.Handled && ReferenceEquals(vm.ActiveQueueItem, first), "Space outside text entry retains the global transport");
+            }
+        }
+        finally
+        {
+            view.CancelPlaylistPreparation();
+            typeof(MainWindow).GetField("_closeCommitted", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(window, true);
+            window.Close();
+        }
+        await Task.Yield();
     }
 
     private static async Task CheckHotkeyWithoutScan(string root)
