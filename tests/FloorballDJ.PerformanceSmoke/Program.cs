@@ -55,6 +55,7 @@ internal static class Program
                 else if (arguments.Contains("--autoplay-checks")) await AutoplayChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--ui-work-checks")) await UiWorkChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--random-settings-checks")) await RandomSettingsChecks.RunAsync(root, Argument(arguments, "--output"));
+                else if (arguments.Contains("--random-setup-selection-checks")) await RandomSetupSelectionChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--main-view-analysis")) await MainViewSettingsAnalysis.RunAsync(root, Argument(arguments, "--output"), int.TryParse(Argument(arguments, "--main-view-trials"), out var mainViewTrials) ? mainViewTrials : 6, arguments.Contains("--main-view-interactions"));
                 else if (arguments.Contains("--main-startup-checks")) await MainViewSettingsAnalysis.CheckStartupAsync(root);
                 else if (arguments.Contains("--fit-checks")) await WindowFitChecks.RunAsync(Argument(arguments, "--output"));

@@ -26,6 +26,7 @@ internal static class AutoplayChecks
             await CheckCache(directory);
             await CheckPlaylistSemantics(directory);
             await CheckCancellation(directory);
+            await AutoplayScopeChecks.RunAsync(directory, output);
             await CheckSearchAndNextButton(directory);
             await CheckHotkeyWithoutScan(directory);
             await CheckPrefetch(directory);
@@ -52,10 +53,11 @@ internal static class AutoplayChecks
                 measurement = "Real managed autoplay hotkey starts silent WASAPI playback before a blocked full-library scan is released. Not physical input or speaker onset.",
                 playlistCacheEntryLimit = 32, playlistCacheEstimatedByteLimit = 4 * 1024 * 1024,
                 playlistCacheLifetimeSeconds = 30, nextItemPrefixByteLimit = MediaPrefixPrefetcher.MaximumBytes,
+                scopedPlaylistShortcuts = true, settingsSaveCancelAndReopen = true,
                 lostEvents = session.DroppedEvents
             }, new JsonSerializerOptions { WriteIndented = true }));
         }
-        Console.WriteLine("PASS: autoplay hotkey independent of full-library scan, playlist format/order/identity/clip/gain parity, bounded fresh cache, stale load rejection and bounded next-file prefix hint.");
+        Console.WriteLine("PASS: scoped Autoplay shortcuts, settings save/cancel/reopen, search and next button, autoplay hotkey independent of full-library scan, playlist format/order/identity/clip/gain parity, bounded fresh cache, stale load rejection and bounded next-file prefix hint.");
     }
 
     private static async Task CheckCache(string root)
@@ -362,7 +364,13 @@ internal static class AutoplayChecks
             }));
         vm.Settings.MusicFolderPath = folder;
         vm.Settings.MasterVolumeDb = -60; vm.Settings.FadeInSeconds = 0; vm.QueueTransitionSeconds = 0;
-        vm.Settings.AutoplayProfiles = [new AutoplayProfile { PlaylistPath = path, Shortcut = "F9", VolumeDb = -9 }];
+        var inactiveSetup = new RandomPoolSetup { Name = "Inactive" };
+        var activeSetup = new RandomPoolSetup { Name = "Active" };
+        vm.Settings.RandomPoolSetups = [inactiveSetup, activeSetup];
+        vm.Settings.ActiveRandomPoolSetupId = activeSetup.Id;
+        vm.Settings.AutoplayProfiles = [
+            new AutoplayProfile { PlaylistPath = path, Shortcut = "F9", VolumeDb = -21, RandomPoolSetupId = inactiveSetup.Id },
+            new AutoplayProfile { PlaylistPath = path, Shortcut = "F9", VolumeDb = -9, RandomPoolSetupId = activeSetup.Id }];
         using var source = new HwndSource(new HwndSourceParameters("autoplay fixture") { Width = 1, Height = 1, WindowStyle = 0 });
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         vm.PrimaryPlaybackStarted += (_, _) => started.TrySetResult();

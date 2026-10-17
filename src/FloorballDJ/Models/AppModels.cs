@@ -99,6 +99,7 @@ public sealed class AutoplayProfile
     public string Name { get; set; } = "Ny Autoplay-lista";
     public string? PlaylistPath { get; set; }
     public string? Shortcut { get; set; }
+    public Guid? RandomPoolSetupId { get; set; }
     public double VolumeDb { get; set; }
 }
 

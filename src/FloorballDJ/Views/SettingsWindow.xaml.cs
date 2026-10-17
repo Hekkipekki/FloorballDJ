@@ -53,7 +53,13 @@ public partial class SettingsWindow : Window
             Languages = [new LanguageChoice("English", "en"), new LanguageChoice("Svenska", "sv")],
             LanguageCode = _originalLanguage,
             RandomPoolProfiles = profileDrafts,
-            AutoplayProfiles = autoplayDrafts
+            AutoplayProfiles = autoplayDrafts,
+            AutoplayRandomSetups = [new(Guid.Empty, LanguageService.IsEnglish ? "All random profiles" : "Alla slumpprofiler"),
+                .. project.Settings.RandomPoolSetups.Select(setup => new AutoplayRandomSetupChoice(setup.Id, setup.Name)),
+                .. autoplayDrafts.Where(profile => profile.RandomPoolSetupId != Guid.Empty &&
+                        !project.Settings.RandomPoolSetups.Any(setup => setup.Id == profile.RandomPoolSetupId))
+                    .Select(profile => profile.RandomPoolSetupId).Distinct()
+                    .Select(id => new AutoplayRandomSetupChoice(id, LanguageService.IsEnglish ? "Deleted random profile" : "Borttagen slumpprofil"))]
         };
         ViewData.SelectedRandomPoolProfile = profileDrafts[0];
         ViewData.SelectedAutoplayProfile = autoplayDrafts[0];
@@ -225,19 +231,19 @@ public partial class SettingsWindow : Window
                 "Dubblett av snabbtangent", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        var duplicateAutoplayShortcut = ViewData.AutoplayProfiles
-            .Where(profile => !string.IsNullOrWhiteSpace(profile.Shortcut))
-            .GroupBy(profile => ShortcutService.Normalize(profile.Shortcut), StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault(group => group.Count() > 1);
+        var duplicateAutoplayShortcut = ViewData.AutoplayProfiles.FirstOrDefault(profile =>
+            ViewData.AutoplayProfiles.Any(other => other != profile && AutoplayShortcutsConflict(profile, other)));
         if (duplicateAutoplayShortcut is not null)
         {
-            MessageBox.Show(this, $"Snabbtangenten {duplicateAutoplayShortcut.Key} används av flera Autoplay-listor. Välj en unik tangent för varje lista.",
+            MessageBox.Show(this, LanguageService.IsEnglish
+                    ? $"Shortcut {duplicateAutoplayShortcut.Shortcut} is used by multiple Autoplay playlists in the same random profile. Choose different shortcuts or different random profiles."
+                    : $"Snabbtangenten {duplicateAutoplayShortcut.Shortcut} används av flera Autoplay-listor i samma slumpprofil. Välj olika tangenter eller olika slumpprofiler.",
                 "Dubblett av snabbtangent", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
         var duplicateGlobalShortcut = ViewData.RandomPoolProfiles
             .Select(profile => (Shortcut: ShortcutService.Normalize(profile.Shortcut), Source: $"slumpgruppen ‘{profile.Name}’"))
-            .Concat(ViewData.AutoplayProfiles.Select(profile =>
+            .Concat(ViewData.AutoplayProfiles.Where(AutoplayAppliesToActiveSetup).Select(profile =>
                 (Shortcut: ShortcutService.Normalize(profile.Shortcut), Source: $"Autoplay-listan ‘{profile.Name}’")))
             .Where(item => item.Shortcut is not null)
             .GroupBy(item => item.Shortcut!, StringComparer.OrdinalIgnoreCase)
@@ -254,6 +260,7 @@ public partial class SettingsWindow : Window
             Id = profile.Id,
             Name = string.IsNullOrWhiteSpace(profile.Name) ? "Autoplay" : profile.Name.Trim(),
             PlaylistPath = string.IsNullOrWhiteSpace(profile.PlaylistPath) ? null : profile.PlaylistPath,
+            RandomPoolSetupId = Scope(profile),
             Shortcut = ShortcutService.Normalize(profile.Shortcut),
             VolumeDb = Math.Clamp(profile.VolumeDb, -60, 12)
         }).ToList();
@@ -354,6 +361,7 @@ public partial class SettingsWindow : Window
             Id = profile.Id,
             Name = profile.Name,
             PlaylistPath = profile.PlaylistPath,
+            RandomPoolSetupId = profile.RandomPoolSetupId,
             Shortcut = ShortcutService.Normalize(profile.Shortcut),
             VolumeDb = profile.VolumeDb
         }).ToList() ?? [];
@@ -461,7 +469,7 @@ public partial class SettingsWindow : Window
             .Where(team => string.Equals(ShortcutService.Normalize(team.Shortcut), shortcut, StringComparison.OrdinalIgnoreCase))
             .ToArray();
         var conflictingAutoplayProfiles = ViewData.AutoplayProfiles
-            .Where(profile => string.Equals(ShortcutService.Normalize(profile.Shortcut), shortcut, StringComparison.OrdinalIgnoreCase))
+            .Where(profile => AutoplayAppliesToActiveSetup(profile) && string.Equals(ShortcutService.Normalize(profile.Shortcut), shortcut, StringComparison.OrdinalIgnoreCase))
             .ToArray();
         if (conflictingProfiles.Length == 0 && conflictingJingles.Length == 0 && conflictingTeams.Length == 0 && conflictingAutoplayProfiles.Length == 0) return true;
 
@@ -489,6 +497,7 @@ public partial class SettingsWindow : Window
         Id = profile.Id == Guid.Empty ? Guid.NewGuid() : profile.Id,
         Name = string.IsNullOrWhiteSpace(profile.Name) ? "Autoplay" : profile.Name,
         PlaylistPath = profile.PlaylistPath,
+        RandomPoolSetupId = profile.RandomPoolSetupId ?? Guid.Empty,
         Shortcut = ShortcutService.Normalize(profile.Shortcut),
         VolumeDb = Math.Clamp(profile.VolumeDb, -60, 12)
     };
@@ -497,10 +506,11 @@ public partial class SettingsWindow : Window
     {
         if (string.IsNullOrWhiteSpace(shortcut)) return true;
         var conflictingProfiles = ViewData.RandomPoolProfiles
-            .Where(profile => string.Equals(ShortcutService.Normalize(profile.Shortcut), shortcut, StringComparison.OrdinalIgnoreCase))
+            .Where(profile => AutoplayAppliesToActiveSetup(selected) && string.Equals(ShortcutService.Normalize(profile.Shortcut), shortcut, StringComparison.OrdinalIgnoreCase))
             .ToArray();
         var conflictingAutoplayProfiles = ViewData.AutoplayProfiles
-            .Where(profile => profile != selected && string.Equals(ShortcutService.Normalize(profile.Shortcut), shortcut, StringComparison.OrdinalIgnoreCase))
+            .Where(profile => profile != selected && AutoplayShortcutService.ScopesOverlap(Scope(profile), Scope(selected)) &&
+                ShortcutService.MatchesCanonical(profile.Shortcut, ShortcutService.Canonicalize(shortcut)))
             .ToArray();
         var conflictingJingles = _target.Decks.SelectMany(deck => deck.Jingles)
             .Where(jingle => string.Equals(ShortcutService.Normalize(jingle.Shortcut), shortcut, StringComparison.OrdinalIgnoreCase) ||
@@ -526,6 +536,16 @@ public partial class SettingsWindow : Window
         _confirmedShortcutReplacements.Add(shortcut);
         return true;
     }
+
+    private static Guid? Scope(AutoplayProfileDraft profile) =>
+        profile.RandomPoolSetupId == Guid.Empty ? null : profile.RandomPoolSetupId;
+
+    private bool AutoplayAppliesToActiveSetup(AutoplayProfileDraft profile) =>
+        Scope(profile) is null || Scope(profile) == ViewData.Draft.ActiveRandomPoolSetup?.Id;
+
+    internal static bool AutoplayShortcutsConflict(AutoplayProfileDraft first, AutoplayProfileDraft second) =>
+        AutoplayShortcutService.ScopesOverlap(Scope(first), Scope(second)) &&
+        ShortcutService.MatchesCanonical(first.Shortcut, ShortcutService.Canonicalize(second.Shortcut));
 }
 
 public sealed class SettingsViewData : INotifyPropertyChanged
@@ -537,6 +557,7 @@ public sealed class SettingsViewData : INotifyPropertyChanged
     public required ObservableCollection<FontChoice> Fonts { get; init; }
     public required ObservableCollection<RandomPoolProfileDraft> RandomPoolProfiles { get; init; }
     public required ObservableCollection<AutoplayProfileDraft> AutoplayProfiles { get; init; }
+    public required IReadOnlyList<AutoplayRandomSetupChoice> AutoplayRandomSetups { get; init; }
     public required ObservableCollection<RecentProfileChoice> RecentProfiles { get; init; }
     public required IReadOnlyList<LanguageChoice> Languages { get; init; }
     public string LanguageCode { get; set; } = "en";
@@ -561,7 +582,9 @@ public sealed class AutoplayProfileDraft : INotifyPropertyChanged
     private string? _playlistPath;
     private string? _shortcut;
     private double _volumeDb;
+    private Guid _randomPoolSetupId;
     public Guid Id { get; init; }
+    public Guid RandomPoolSetupId { get => _randomPoolSetupId; set { if (_randomPoolSetupId == value) return; _randomPoolSetupId = value; Raise(); } }
     public string Name { get => _name; set { if (_name == value) return; _name = value; Raise(); } }
     public string? PlaylistPath { get => _playlistPath; set { if (_playlistPath == value) return; _playlistPath = value; Raise(); } }
     public string? Shortcut { get => _shortcut; set { if (_shortcut == value) return; _shortcut = value; Raise(); Raise(nameof(ShortcutDisplay)); } }
@@ -572,6 +595,7 @@ public sealed class AutoplayProfileDraft : INotifyPropertyChanged
 }
 
 public sealed record RecentProfileChoice(string Name, string Path);
+public sealed record AutoplayRandomSetupChoice(Guid Id, string Name);
 public sealed record LanguageChoice(string Name, string Code);
 
 public sealed class RandomPoolProfileDraft : INotifyPropertyChanged

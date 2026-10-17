@@ -213,6 +213,7 @@
                             <StackPanel>
                                 <TextBlock Style="{StaticResource HelpBody}">Dra rader i kön eller använd upp/ned. Spela nu startar vald rad. Delete eller Ta bort tar bort den valda raden från kön, inte från disken. När en låt tar slut går Autoplay vidare. Loop börjar om från rad 1; Shuffle väljer nästa slumpmässigt.</TextBlock>
                                 <TextBlock Style="{StaticResource HelpBody}" Margin="0,8,0,0">Under Verktyg &gt; Inställningar &gt; Autoplay kan du skapa flera namngivna Autoplay-listor. Varje post har egen sparad spellista, snabbtangent och fast volymändring. Tangenten öppnar Autoplay, laddar rätt lista och startar första låten automatiskt. Ett negativt värde som −8 dB passar när periodpausens musik ska ligga tydligt lägre.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,8,0,0">Gäller för slumpprofil kopplar listans snabbtangent till exempelvis Dalen eller Dalendam. Tangenten fungerar då bara när den slumpprofilen är aktiv. Alla slumpprofiler behåller det vanliga beteendet. Samma tangent kan starta olika listor i olika slumpprofiler. Kopplingen följer med när profilen sparas eller flyttas till en annan dator. En borttagen slumpprofil gör kopplingen inaktiv tills du väljer en ny.</TextBlock>
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Övergång" Style="{StaticResource HelpGroup}">

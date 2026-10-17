@@ -93,7 +93,8 @@ internal static class TransferAndDraftChecks
         var project = ProjectService.CreateDefault(); project.Name = "Dalen";
         project.Decks[0].Name = "Autoplay";
         project.Decks[0].Jingles[0].Title = "Mål"; project.Decks[0].Jingles[0].FilePath = media[0];
-        project.Settings.AutoplayProfiles = [new() { Name = "Uppvärmning", PlaylistPath = playlist, Shortcut = "F8", VolumeDb = -3 }];
+        var setupId = project.Settings.RandomPoolSetups[0].Id;
+        project.Settings.AutoplayProfiles = [new() { Name = "Uppvärmning", PlaylistPath = playlist, Shortcut = "F8", VolumeDb = -3, RandomPoolSetupId = setupId }];
         project.Settings.AutoplayLastPlaylistPath = playlist;
         project.Settings.AutoplayQueueItems = [new() { Title = "Osparad kö", FilePath = media[2], GainDb = -2 }];
         project.Settings.AutoplayQueueShuffleEnabled = true; project.Settings.AutoplayQueueLoopEnabled = false;
@@ -122,6 +123,8 @@ internal static class TransferAndDraftChecks
         var versions = projects.GetTransferVersions(relocated);
         var restored = await projects.RestoreTransferVersionAsync(relocated, versions.Single(version => version.Manifest.ProfileFile == second.Manifest.ProfileFile));
         var loaded = await projects.LoadAsync(restored.ProfilePath);
+        Check(loaded.Settings.AutoplayProfiles.Single().RandomPoolSetupId == setupId && loaded.Settings.RandomPoolSetups.Any(setup => setup.Id == setupId),
+            "Sync transfer retains the Autoplay setup link");
         Check(loaded.Id == project.Id && loaded.Name == "Dalen" && loaded.Decks[0].Jingles[0].Title == "Ny målknapp", "Relocated profile preserves name, identity and selected version");
         Check(restored.MissingMediaCount == 0 && loaded.Settings.AutoplayQueueItems.Single().GainDb == -2 && File.Exists(loaded.Settings.AutoplayQueueItems.Single().FilePath), "Queue-only media and queue settings survive relocation");
         var prepared = await PlaylistService.Shared.PrepareAsync(loaded.Settings.AutoplayProfiles.Single().PlaylistPath!, null);
@@ -129,6 +132,8 @@ internal static class TransferAndDraftChecks
         var profileJson = await File.ReadAllTextAsync(restored.ProfilePath);
         Check(!profileJson.Contains(source, StringComparison.OrdinalIgnoreCase) && !profileJson.Contains(root.Replace("\\", "\\\\"), StringComparison.OrdinalIgnoreCase), "Persisted portable profile has relative paths");
         var packageResult = await projects.RestoreTransferPackageAsync(package);
+        Check((await projects.LoadAsync(packageResult.ProfilePath)).Settings.AutoplayProfiles.Single().RandomPoolSetupId == setupId,
+            "Single-file transfer retains the Autoplay setup link");
         Check((await projects.LoadAsync(packageResult.ProfilePath)).Name == "Dalen" && packageResult.MissingMediaCount == 0, "Single-file package is independently usable after source deletion");
         var older = await projects.RestoreTransferVersionAsync(relocated, versions.Single(version => version.Manifest.ProfileFile == first.Manifest.ProfileFile));
         Check((await projects.LoadAsync(older.ProfilePath)).Decks[0].Jingles[0].Title == "Mål", "An older immutable version remains independently restorable");

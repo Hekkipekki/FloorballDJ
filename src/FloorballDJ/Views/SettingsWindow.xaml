@@ -139,6 +139,13 @@
                                                 HelpText="0 dB är oförändrat. Ett negativt värde, exempelvis −8 dB, ger lugnare pausmusik utan att ändra originalfilerna." />
                             <TextBox Grid.Column="5" Text="{Binding SelectedAutoplayProfile.VolumeDb, Converter={StaticResource FlexibleDouble}, Mode=TwoWay}" Margin="0,4" TextAlignment="Center" />
                         </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <controls:InfoLabel Text="Gäller för slumpprofil" HelpText="Välj när listans snabbtangent ska fungera. Alla slumpprofiler gäller alltid. Samma tangent kan användas för olika listor i olika slumpprofiler." />
+                            <ComboBox x:Name="AutoplayRandomSetupCombo" Grid.Column="1" Style="{StaticResource DarkComboBox}"
+                                      ItemsSource="{Binding AutoplayRandomSetups}" DisplayMemberPath="Name" SelectedValuePath="Id"
+                                      SelectedValue="{Binding SelectedAutoplayProfile.RandomPoolSetupId, Mode=TwoWay}" Margin="0,4" />
+                        </Grid>
                         <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap"
                                    Text="Varje Autoplay-lista har egen spellista, snabbtangent och volym. Tangenten öppnar Autoplay, ersätter kön och startar första låten automatiskt." />
                     </StackPanel>

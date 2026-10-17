@@ -832,8 +832,7 @@ public partial class MainWindow : Window
         if (!e.IsRepeat && Keyboard.FocusedElement is not TextBoxBase and not ComboBox)
         {
             var pressedShortcut = ShortcutService.Canonicalize(ShortcutService.FromKeyEvent(e));
-            var autoplayProfile = (ViewModel.Settings.AutoplayProfiles ?? [])
-                .FirstOrDefault(profile => ShortcutService.MatchesCanonical(profile.Shortcut, pressedShortcut));
+            var autoplayProfile = AutoplayShortcutService.Find(ViewModel.Settings, pressedShortcut);
             if (autoplayProfile is not null)
             {
                 PerformanceDiagnostics.RouteResolved("autoplay");

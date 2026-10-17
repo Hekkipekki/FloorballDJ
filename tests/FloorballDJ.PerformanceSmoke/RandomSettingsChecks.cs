@@ -62,6 +62,7 @@ internal static class RandomSettingsChecks
         await CheckEditing(root);
         await CheckVisibleSelection(root, "en");
         await CheckVisibleSelection(root, "sv");
+        await RandomSetupSelectionChecks.RunAsync(root, output);
         await RandomSettingsSearchChecks.RunAsync(root, output);
         await RandomSettingsLayoutChecks.RunAsync(root, output);
         await IntrinsicCardChecks.RunAsync(output);
