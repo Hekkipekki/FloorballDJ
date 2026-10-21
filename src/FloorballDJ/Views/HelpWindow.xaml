@@ -121,7 +121,7 @@
                             <TextBlock Style="{StaticResource HelpBody}">Öppna <Run FontWeight="Bold">Verktyg → Inställningar</Run>. Välj publikens ljudutgång och vid behov Utgångsenhet 2 för hörlurar. Börja med låg programvolym och kalibrera mot mixerbordet eller hallens PA.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="2. Skapa eller öppna en profil" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">En profil innehåller decks, knappar, färger, start/slut, snabbtangenter och ljudinställningar. Välj <Run FontWeight="Bold">Profil → Nytt projekt</Run>, öppna en befintlig profil eller importera en Snap XML-profil.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Välj <Run FontWeight="Bold">Profil → Nytt projekt</Run>, öppna en befintlig profil eller importera en Snap XML-profil. Har du ett flyttpaket från en annan dator väljer du <Run FontWeight="Bold">Profil → Öppna flyttpaket</Run>. Profilen samlar deck, jinglar, slumpprofiler, Team Deck och Autoplay-inställningar. Välj ljudutgångar för den här datorn när profilen är öppnad.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="3. Lägg till ljud" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Klicka på en tom knapp och välj en eller flera ljudfiler. Du kan även dra flera filer från Utforskaren till en knapp. Filerna placeras från den valda platsen och en extra rad skapas om decket blir fullt.</TextBlock>
@@ -130,10 +130,13 @@
                             <TextBlock Style="{StaticResource HelpBody}">Öppna <Run FontWeight="Bold">Verktyg → Analysera och balansera ljud</Run>. För idrottshall är <Run FontWeight="Bold">−16 LUFS</Run> och <Run FontWeight="Bold">−1 till −2 dBTP</Run> en bra start. Analysera mäter; Analysera och balansera aktiverar en fast Auto gain per jingle. Originalfilerna ändras aldrig.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="5. Testa före publikinsläpp" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Aktivera Förlyssning om du vill testa i hörlurar. Kontrollera Solo/Mix/Duck, fades, start/slut och snabbtangenter. Skapa därefter en projekt- och mediabackup som reserv.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Aktivera Förlyssning om du vill testa i hörlurar. Kontrollera Solo/Mix/Duck, fades, start/slut och snabbtangenter. Välj rätt slumpprofil för laget och provkör Team Deck och Autoplay-listor om de ska användas. Stäng sedan av Förlyssning och testa publikens utgång.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="6. Spara och ta med musiken" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Välj <Run FontWeight="Bold">Profil → Spara</Run> eller <Run FontWeight="Bold">Ctrl+S</Run> för att uppdatera den namngivna profilen. Autosparning skyddar ändringar i en separat lokal arbetskopia. För en annan dator: välj <Run FontWeight="Bold">Spara flyttpaket för USB eller Drive</Run>. Paketets .fdjbackup-fil tar med profilen, registrerade spellistor, aktuell Autoplay-kö och deras ljudfiler.</TextBlock>
                         </GroupBox>
                         <Border Background="#1836E0B4" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" CornerRadius="8" Padding="13">
-                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Matchcheck: " />rätt utgång • huvudvolym testad • Session aktiverad • saknade filer = 0 • backup skapad.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Matchcheck: " />rätt utgång • Förlyssning av • huvudvolym testad • rätt slumpprofil • Session aktiverad • saknade filer = 0 • profil och backup sparade.</TextBlock>
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
@@ -157,7 +160,7 @@
                             <TextBlock Style="{StaticResource HelpBody}">Mikrofonknappen tonar mjukt ned huvudutgången medan speakern talar och tonar upp den igen vid nästa klick. PA/Talk stängs också automatiskt av när en ny Solo-jingle startas, så nästa låt spelas på normal nivå. Dämpningen ställs under <Run FontWeight="Bold">Verktyg → Inställningar → PA/Talk-dämpning</Run>. Förlyssningsutgången påverkas inte. Håll <Run FontWeight="Bold">Ctrl+↑/↓</Run> för att höja eller sänka huvudvolymen i steg om 0,5 dB.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Space i deck-vyn" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Utan kö: Space tonar ut och sparar positionen i <Run FontWeight="Bold">två minuter</Run>; nästa Space återupptar samma låt där toningen slutade. Med Ctrl-kö: första Space tonar ut aktuell låt och nästa Space startar nästa köade jingle.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Utan kö: Space tonar ut och sparar positionen i <Run FontWeight="Bold">två minuter</Run>; nästa Space återupptar samma låt där toningen slutade. Trycker du igen medan den Space-startade uttoningen pågår avbryts faden och låten fortsätter från aktuell position och nivå. Med Ctrl-kö: första Space tonar ut aktuell låt och nästa Space startar nästa köade jingle. I textfält skriver Space ett vanligt mellanslag.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Spellägen" Style="{StaticResource HelpGroup}">
                             <StackPanel>
@@ -167,7 +170,10 @@
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Session och förlyssning" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Session" /> startar automatiskt varje gång FloorballDJ öppnas och markerar spelade jinglar med en grön punkt. Slumpgrupper, globala slumpknappar och Autoplays Shuffle prioriterar jinglar som ännu inte har spelats; när alla i den aktuella poolen är spelade används hela poolen igen. När Session stängs av rensas markeringarna. <Run FontWeight="Bold" Text="Förlyssning" /> gör att nya ljud spelas via Utgångsenhet 2. När läget stängs av stoppas förlyssningsljudet innan huvudutgången återaktiveras.</TextBlock>
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Session" /> aktiveras vid varje programstart och alla låtar börjar som ospelade, även i äldre profiler. Spelade jinglar får en grön punkt. Slumpgrupper, globala slumpknappar och Autoplays Shuffle prioriterar ospelade ljud; när alla i poolen är spelade används hela poolen igen. Sparning och byte av deck behåller markeringarna under den pågående sessionen. Spelräknarna sparas inte i profilen. Stänger du av Session rensas markeringarna.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,6,0,0"><Run FontWeight="Bold" Text="Förlyssning" /> gör att nya ljud spelas via Utgångsenhet 2. När läget stängs av stoppas förlyssningsljudet innan huvudutgången återaktiveras.</TextBlock>
+                            </StackPanel>
                         </GroupBox>
                     </StackPanel>
                 </ScrollViewer>
@@ -187,7 +193,13 @@
                             <TextBlock Style="{StaticResource HelpBody}">Högerklicka på en deckflik för att byta namn, lägga till, ta bort, sortera A–Ö/Ö–A, ändra hela deckets utseende eller ändra rader/kolumner. Varje sida kan ha en egen rad- och kolumnlayout. Om utrymmet minskas flyttas jinglar som inte längre får plats vidare och FloorballDJ skapar automatiskt fler sidor vid behov. Ett deck med flera sidor visar 1, 2, 3 under namnet. Klicka på ett nummer eller scrolla över deckfliken för att byta sida. Senast aktiva sida sparas i profilen. Du kan också dra en jingle till ett sidnummer för att flytta den till sidans första lediga plats. Sökning och snabbtangenten Hoppa till öppnar automatiskt rätt deck och sida.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Team Deck" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Öppna <Run FontWeight="Bold">Verktyg → Team Deck</Run> för att skapa ett eller flera lag i den aktuella profilen. Välj lagnamn, snabbtangent och lagets standardjingle, och lägg sedan till spelare med varsin övergångsjingle. När snabbtangenten trycks spelas standardjingeln och en separat stream deck-liknande spelarvy öppnas. Klicka på en spelare för att spela spelarens ljud med profilens vanliga fade-regler. Team Deck följer profilen och en komplett flyttbackup.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Öppna <Run FontWeight="Bold">Verktyg → Team Deck</Run> för att skapa lagets standardjingle och spelarknappar. Lagets snabbtangent startar standardjingeln och öppnar spelarvyn. Klicka på en spelare för att välja vilket ljud som ska crossfadas in vid den inställda övergångspunkten. Se <Run FontWeight="Bold">09 Team Deck</Run> för startpositioner, fades och spelarordning.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Flikstorlek och läsbarhet" Style="{StaticResource HelpGroup}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HelpBody}">Under <Run FontWeight="Bold">Verktyg → Inställningar → Deckflikar</Run> väljer du gemensam flikbredd, flikhöjd och max antal flikar per rad. Flikarna radbryts när fönstret blir smalare. Högerklicka på en flik och välj <Run FontWeight="Bold">Anpassa flik</Run> för egna mått eller <Run FontWeight="Bold">Börja på ny rad</Run>. Dessa val sparas i profilen.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,6,0,0">Under <Run FontWeight="Bold">Typografi</Run> väljer du typsnitt, titelstorlek och om jinglarnas längd ska visas i hörnet. Titelstorleken sparas bara på den här datorn och gäller även när du byter profil. Den följer inte med i flyttbackup. Längd och snabbtangent visas i knappens hörn så att titeln får mer plats.</TextBlock>
+                            </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Sökning och slumpkategorier" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold">Ctrl+F</Run> söker över alla deck och växlar till samt markerar bästa träffen. Tryck <Run FontWeight="Bold">Enter</Run> för att spela den markerade träffen, pil ned eller Tab för nästa träff och Esc för att stänga sökningen. Dra en deckflik till en annan flik för att ändra deckordningen. Under <Run FontWeight="Bold">Verktyg → Slumpmässig låtspelare</Run> finns en separat arbetsvy där du kan skapa flera namngivna slumpgrupper, exempelvis Mål och Utvisning. Överst kan du skapa separata slumpprofiler för olika lag som använder samma musikprofil; varje slumpprofil har egna grupper, pooler och snabbtangenter och endast den aktiva uppsättningen lyssnar på tangenterna. Sök och markera hela deck eller enskilda jinglar och följ poolens innehåll i översikten till höger. Första trycket spelar slumpmässigt, andra tonar ut och tredje väljer nästa. Jingle-egenskaper har dessutom separata slumpkategorier för situationsspecifika grupper.</TextBlock>
@@ -207,11 +219,12 @@
                         <TextBlock Text="AUTOPLAY OCH KÖER" Style="{StaticResource EyebrowText}" />
                         <TextBlock Text="Musiklistor som spelar vidare" Style="{StaticResource SectionTitle}" FontSize="24" Margin="0,3,0,14" />
                         <GroupBox Header="Bygg kön" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Öppna Autoplay-fliken. Välj Alla eller filtrera på ett deck, sök efter titel och dubbelklicka eller använd vänsterpilen för att lägga till. Högerpilen vid deckfiltren flyttar till nästa flik när alla inte ryms. Alla kan även visa råa filer från vald musikmapp; deckfilter använder jinglarna med deras sparade start/slut och egenskaper.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Öppna Autoplay. Välj <Run FontWeight="Bold">Alla</Run> eller ett deck i dropdownmenyn ovanför de tillgängliga låtarna. Sök efter titel och dubbelklicka på en låt eller använd vänsterpilen för att lägga till den i kön. Alla kan även visa råa filer från vald musikmapp; ett deckfilter använder jinglarna med deras sparade start/slut och egenskaper. Mellanslag fungerar som vanlig text i sökfältet.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Ordning och uppspelning" Style="{StaticResource HelpGroup}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource HelpBody}">Dra rader i kön eller använd upp/ned. Spela nu startar vald rad. Delete eller Ta bort tar bort den valda raden från kön, inte från disken. När en låt tar slut går Autoplay vidare. Loop börjar om från rad 1; Shuffle väljer nästa slumpmässigt.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,8,0,0"><Run FontWeight="Bold">Spela nästa</Run> byter låt direkt med den inställda övergångstiden. Knappen följer köordningen eller väljer slumpmässigt när Shuffle är på och tar hänsyn till Loop. Utan Loop startar kön inte om efter sista låten.</TextBlock>
                                 <TextBlock Style="{StaticResource HelpBody}" Margin="0,8,0,0">Under Verktyg &gt; Inställningar &gt; Autoplay kan du skapa flera namngivna Autoplay-listor. Varje post har egen sparad spellista, snabbtangent och fast volymändring. Tangenten öppnar Autoplay, laddar rätt lista och startar första låten automatiskt. Ett negativt värde som −8 dB passar när periodpausens musik ska ligga tydligt lägre.</TextBlock>
                                 <TextBlock Style="{StaticResource HelpBody}" Margin="0,8,0,0">Gäller för slumpprofil kopplar listans snabbtangent till exempelvis Dalen eller Dalendam. Tangenten fungerar då bara när den slumpprofilen är aktiv. Alla slumpprofiler behåller det vanliga beteendet. Samma tangent kan starta olika listor i olika slumpprofiler. Kopplingen följer med när profilen sparas eller flyttas till en annan dator. En borttagen slumpprofil gör kopplingen inaktiv tills du väljer en ny.</TextBlock>
                             </StackPanel>
@@ -220,10 +233,16 @@
                             <TextBlock Style="{StaticResource HelpBody}">Övergångstiden delas så att ungefär 75 % används för uttoning och 25 % för intoning. Börja runt 4 sekunder och anpassa efter materialet. Auto gain för varje analyserad låt är fast under hela övergången.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Space och vyisolering" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Autoplay-kön används endast när Autoplay-vyn är aktiv. Space tonar ut aktuell låt och nästa Space återupptar den inom två minuter. Naturligt låtslut går vidare i kön. När du går tillbaka till ett deck ignoreras Autoplay-kön.</TextBlock>
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HelpBody}">Autoplay-kön används endast när Autoplay-vyn är aktiv. Space tonar ut aktuell låt och nästa Space återupptar den inom två minuter. Ett nytt tryck under den Space-startade uttoningen avbryter faden. Naturligt låtslut går vidare i kön. Använd Spela nästa för att byta låt manuellt. I sök- och andra textfält skriver Space ett mellanslag.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,6,0,0">När du lämnar Autoplay med låtar i kön får du bekräfta bytet. Kön behålls och ljud som redan spelas stoppas inte av själva vybytet, men nästa kölåt startar inte automatiskt i deck-vyn. En direkt snabbtangent till en jingle lämnar Autoplay och visar jingelns deck och sida utan denna bekräftelse.</TextBlock>
+                            </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Spellistor och förlyssning" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Spara/ladda köer som spellistor. Spellistan kommer ihåg både <Run FontWeight="Bold">Shuffle</Run> och <Run FontWeight="Bold">Loop</Run> och återställer dem vid manuell laddning eller snabbstart. Äldre spellistor utan dessa uppgifter öppnas med Shuffle av och Loop på. Välj musikmapp för råa filer. När Förlyssning och Utgångsenhet 2 är aktiverade kan du <Run FontWeight="Bold">Shift+klicka</Run> en låt för att lyssna i hörlurar utan att byta publikens huvudutgång.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Kön följer profilen" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Aktuell Autoplay-kö samt Shuffle och Loop sparas i profilen och arbetskopian. De följer även med flyttpaket och synkmapp tillsammans med registrerade spellistor och deras ljud. Efter öppning eller återställning startar uppspelningen inte automatiskt.</TextBlock>
                         </GroupBox>
                     </StackPanel>
                 </ScrollViewer>
@@ -243,7 +262,7 @@
                             <TextBlock Style="{StaticResource HelpBody}">Poolöversikten visar hur många ljud och hur stor procentandel som kommer från varje deltagande deck. Aktivera <Run FontWeight="Bold">Deckvariation</Run> om ett stort deck inte ska dominera. När det valda maxantalet från samma deck har spelats i följd väljs nästa ljud från ett annat deltagande deck om det finns något spelbart. Ospelade ljud prioriteras, men ett tidigare spelat ljud från ett annat deck kan användas som säkerhetsventil. Inställningen sparas separat för varje slumpgrupp.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Välj och sortera ljud" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Sökfältet söker i alla deck och öppnar automatiskt decket med bästa träffen. Välj hela decket eller markera enskilda ljud. Knapparna <Run FontWeight="Bold">Deck</Run>, <Run FontWeight="Bold">A–Ö</Run> och <Run FontWeight="Bold">Ö–A</Run> ändrar bara visningsordningen och gör det enklare att kontrollera poolen; de ändrar inte deckets verkliga ordning.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Sökfältet söker i alla deck och öppnar automatiskt decket med bästa träffen. Välj <Run FontWeight="Bold">Använd hela decket</Run> för att även inkludera nya spelbara jinglar som läggs till senare, eller markera enskilda ljud för ett bestämt urval. Knapparna <Run FontWeight="Bold">Deck</Run>, <Run FontWeight="Bold">A–Ö</Run> och <Run FontWeight="Bold">Ö–A</Run> ändrar bara visningsordningen; de ändrar inte deckets verkliga ordning.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Automatisk följdlåt" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Välj en eller flera följdlåtar om den slumpade låten automatiskt ska lämna över när den spelat färdigt naturligt. Med flera val väljs en av dem slumpmässigt. Manuell Fade, Stopp eller ett andra tryck på gruppens tangent startar aldrig följdlåten.</TextBlock>
@@ -285,8 +304,14 @@
                         <GroupBox Header="Manuell finjustering och säkerhet" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Manuell gain läggs ovanpå Auto gain och är avsedd för öronmässig finjustering. Säkerhetslimitern fångar toppar. Automatiskt mixutrymme används vid avsiktligt samtidiga ljud, men en vanlig uttonande låt ändrar inte nästa låts gain.</TextBlock>
                         </GroupBox>
+                        <GroupBox Header="Limiter och aktiv ljudutgång" Style="{StaticResource HelpGroup}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HelpBody}">Tryck på <Run FontWeight="Bold">LIMITER</Run> i transportfältet för att tillfälligt förbikoppla huvudutgångens limiter. Knappen visar då <Run FontWeight="Bold">LIMITER AV</Run>. Normalisering och förlyssningens skydd behålls. Tryck igen för att återgå till profilens limiterinställning. Automatiskt mixutrymme är av i nya profiler och kan aktiveras under Inställningar när flera ljud ska spelas samtidigt.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,6,0,0">Under <Run FontWeight="Bold">Verktyg → Inställningar → Ljud → Håll huvudutgången aktiv</Run> kan du behålla en tyst ljudström mellan låtar. Valet är av från början. Prova det vid brus eller knäppar efter tystnad; effekten beror på ljudkort och drivrutin och kan öka batteriförbrukningen.</TextBlock>
+                            </StackPanel>
+                        </GroupBox>
                         <GroupBox Header="Jinglebyggaren" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Välj <Run FontWeight="Bold">06 Jinglebyggaren</Run> i menyn till vänster för en steg-för-steg-guide till mållåtar, övergångar, parallella ljudeffekter och export.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Välj <Run FontWeight="Bold">07 Jinglebyggare och långmix</Run> i menyn till vänster för en steg-för-steg-guide till mållåtar, övergångar, parallella ljudeffekter och export.</TextBlock>
                         </GroupBox>
                         <Border Background="#18FFC15A" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" CornerRadius="8" Padding="13">
                             <TextBlock Style="{StaticResource HelpBody}"><Run FontWeight="Bold" Text="Observera: " />analysrutorna visar källans analys före manuell gain, EQ och kompressor. Ändrar du dessa påverkas den verkliga utgången; analysera om efter större ljudändringar.</TextBlock>
@@ -294,7 +319,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- 06 Jinglebyggaren -->
+                <!-- 07 Jinglebyggaren -->
                 <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="JingleBuilderPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="JINGLEBYGGAREN" Style="{StaticResource EyebrowText}" />
@@ -340,7 +365,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- 07 Egenskaper -->
+                <!-- 08 Egenskaper -->
                 <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="PropertiesPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="JINGLE-EGENSKAPER" Style="{StaticResource EyebrowText}" />
@@ -358,7 +383,7 @@
                             <TextBlock Style="{StaticResource HelpBody}">Normalisering ger jämn grundnivå och manuell gain finjusterar. Bas/Mellan/Diskant formar tonen. Kompressorn dämpar signal över tröskeln; högre ratio ger kraftigare kontroll, Attack bestämmer hur snabbt den reagerar och Release hur snabbt den släpper.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Pitch, tempo och rate" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Pitch ändrar tonhöjd. Tempo/Rate-reglagen visas i betaversionen men är ännu inte fullt inkopplade i huvuduppspelningen. Förlita dig därför inte på dem i en skarp match innan funktionen färdigställts.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Pitch ändrar tonhöjd. Tempo/Rate-reglagen visas i RC-versionen men är ännu inte fullt inkopplade i huvuduppspelningen. Förlita dig därför inte på dem i en skarp match innan funktionen färdigställts.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Teknisk information" Style="{StaticResource HelpGroup}">
                             <TextBlock Style="{StaticResource HelpBody}">Fliken visar bland annat format, samplingsfrekvens, kanaler, bitrate och filstorlek. Informationen är främst till för kontroll och felsökning.</TextBlock>
@@ -366,7 +391,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- 08 Team Deck -->
+                <!-- 09 Team Deck -->
                 <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="TeamDeckPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="TEAM DECK" Style="{StaticResource EyebrowText}" />
@@ -395,7 +420,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- 09 Profiler -->
+                <!-- 10 Profiler -->
                 <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="ProfilesPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="PROFILER OCH BACKUP" Style="{StaticResource EyebrowText}" />
@@ -404,11 +429,12 @@
                             <TextBlock Style="{StaticResource HelpBody}">Nytt projekt skapar en tom profil. Öppna eller Importera profil laddar en .floorballdj.json-profil. Importera profil kan också konvertera Snap Jingle Player XML och anpassar då decks/layout efter innehållet. Dialogen Spara profil föreslår programmets mapp <Run FontWeight="Bold">Profiler</Run>; byggaren föreslår <Run FontWeight="Bold">Skapade jinglar</Run>. Under Senast använda profiler visas de fem senaste giltiga profilerna; en stjärna markerar standardprofilen. För flera identiska varianter öppnar du grundprofilen och använder Spara som med ett nytt namn för varje kopia.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Standardprofil" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Välj en standardprofil under <Run FontWeight="Bold">Verktyg → Inställningar → Profiler</Run> om samma matchprofil alltid ska öppnas vid start. Dropdownen visar upp till fem senast använda, namngivna profilfiler. Den vanliga interna autosparningen visas inte som en separat profil. Välj Ingen standard för att återgå till autosparningen.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Välj en standardprofil under <Run FontWeight="Bold">Verktyg → Inställningar → Profiler</Run> om samma matchprofil alltid ska öppnas vid start. Dropdownen visar upp till fem senast använda, namngivna profilfiler. Den lokala arbetskopian visas inte som en separat profil. Välj Ingen standard för att återgå till den vanliga autosparningen.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Autosparning och historik" Style="{StaticResource HelpGroup}">
                             <StackPanel>
                             <TextBlock Style="{StaticResource HelpBody}">Ändringar autosparas i en lokal arbetskopia. Den namngivna profilen ändras först när du väljer Spara eller Spara som. Efter lyckad sparning tas arbetskopian bort. Vid avslut eller profilbyte kan du välja Spara, Spara inte eller Avbryt. Efter en krasch erbjuds återställning av arbetskopian. Sessionshistoriken återställs alltid vid programstart.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0"><Run FontWeight="Bold">Spara inte</Run> kastar även den tillfälliga arbetskopian och lämnar den sparade profilen orörd. <Run FontWeight="Bold">Avbryt</Run> behåller ändringarna och avbryter avslutet eller profilbytet. Även avbruten eller misslyckad sparning lämnar programmet öppet.</TextBlock>
                             <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0">Under Hjälp → Autosparningshistorik visas tidigare sparade versioner och arbetskopians historik. En återställd revision behöver sparas manuellt innan den ersätter den namngivna profilen.</TextBlock>
                             </StackPanel>
                         </GroupBox>
@@ -429,6 +455,8 @@
                                 <TextBlock Style="{StaticResource HelpBody}">Profil → Spara flyttpaket för USB eller Drive skapar en enda .fdjbackup-fil. Kopiera den till nästa dator och välj Öppna flyttpaket. Profilnamn, spellistor och aktuell Autoplay-kö behålls.</TextBlock>
                                 <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0">För återkommande överflyttning: välj Google Drive / synkmapp → Spara till synkmapp. Mappen koms ihåg, oförändrade ljud återanvänds och varje version märks med datum och dator. Låt Google Drive synka färdigt. På nästa dator väljer du Hämta från synkmapp och önskad version.</TextBlock>
                                 <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0">Filerna kontrolleras och kopieras lokalt innan den hämtade profilen används. Relativa sökvägar gör att enhetsbokstaven kan skilja sig mellan datorerna. Arbetet kan fortsätta utan Drive eller USB när importen är klar.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0">Google Drive för datorn sköter molnsynkningen. Att FloorballDJ visar att versionen är skapad betyder att den är klar lokalt. Vänta tills Drive har synkat färdigt innan du byter dator. Saknade eller ändrade filer stoppar en ofullständig överföring.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}" Margin="0,5,0,0">Äldre synkversioner finns kvar och kan väljas vid hämtning. Ändringar från olika datorer slås inte ihop automatiskt. Använd Välj annan synkmapp om du vill byta plats för kommande överföringar.</TextBlock>
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="Ljudfiler och egna typsnitt" Style="{StaticResource HelpGroup}">
@@ -437,14 +465,16 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- 10 Kortkommandon -->
+                <!-- 11 Kortkommandon -->
                 <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="ShortcutsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="KORTKOMMANDON" Style="{StaticResource EyebrowText}" />
                         <TextBlock Text="Snabb kontroll utan att leta" Style="{StaticResource SectionTitle}" FontSize="24" Margin="0,3,0,14" />
                         <GroupBox Header="Globalt" Style="{StaticResource HelpGroup}">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Space          " />tona ut/återuppta; med deck-kö startar nästa Space nästa köade ljud.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Space          " />tona ut/återuppta; med deck-kö startar nästa Space nästa köade ljud. I textfält skriver du mellanslag.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Ctrl+↑/↓       " />höj/sänk huvudvolymen med 0,5 dB per steg.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Ctrl+F         " />sök jinglar i alla deck; Enter spelar träffen, pil ned eller Tab visar nästa och Esc stänger sökningen.</TextBlock>
                                 <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Ctrl+S         " />spara profilen.</TextBlock>
                                 <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="F1             " />öppna hjälpcentret.</TextBlock>
                                 <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Egen tangent   " />spela jingeln som fått snabbtangenten i Egenskaper.</TextBlock>
@@ -455,7 +485,7 @@
                             <StackPanel>
                                 <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Ctrl+klick     " />lägg till/ta bort deck-jingle i kön.</TextBlock>
                                 <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Shift+klick    " />förlyssna en låt i Autoplay när Utgångsenhet 2 är aktiv.</TextBlock>
-                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Scroll flikar  " />byt deck.</TextBlock>
+                                <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Scroll flikar  " />byt sida över en flik med flera sidor; annars byt deck.</TextBlock>
                                 <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Scroll volym   " />ändra mastergain när pekaren är över volymreglaget.</TextBlock>
                                 <TextBlock Style="{StaticResource HelpBody}"><Run FontFamily="Cascadia Mono" FontWeight="Bold" Text="Klick waveform " />hoppa till vald position.</TextBlock>
                             </StackPanel>
@@ -473,7 +503,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- 11 Licens -->
+                <!-- 12 Licens -->
                 <ScrollViewer Focusable="False" FocusVisualStyle="{x:Null}" x:Name="LicensingPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="LICENS OCH PROVPERIOD" Style="{StaticResource EyebrowText}" />
@@ -520,7 +550,10 @@
                             <TextBlock Style="{StaticResource HelpBody}">Analysen blir inaktuell om filen eller klippets start/slut ändras. Analysera om. EQ, kompressor och manuell gain påverkar den verkliga utgången även om källanalysens LUFS/true peak ligger kvar i informationsrutorna.</TextBlock>
                         </GroupBox>
                         <GroupBox Header="Krasch eller återställning" Style="{StaticResource HelpGroup}">
-                            <TextBlock Style="{StaticResource HelpBody}">Starta om programmet och kontrollera autosparningshistoriken. Kraschloggar sparas i FloorballDJ:s Logs-mapp under lokal appdata. Behåll loggen, profilfilen och en kort beskrivning av senaste åtgärden när felet rapporteras.</TextBlock>
+                            <TextBlock Style="{StaticResource HelpBody}">Starta om programmet och välj att återställa arbetskopian om det erbjuds. Granska resultatet och spara profilen manuellt. Tidigare versioner finns under Hjälp → Autosparningshistorik. Kraschloggar sparas i FloorballDJ:s Logs-mapp under lokal appdata. Behåll loggen, profilfilen och en kort beskrivning av senaste åtgärden när felet rapporteras.</TextBlock>
+                        </GroupBox>
+                        <GroupBox Header="Autoplay startar inte rätt lista" Style="{StaticResource HelpGroup}">
+                            <TextBlock Style="{StaticResource HelpBody}">Kontrollera spellistans sökväg och snabbtangent under Verktyg → Inställningar → Autoplay. Gäller för slumpprofil måste matcha den aktiva slumpprofilen eller vara Alla slumpprofiler. Har slumpprofilen tagits bort behöver kopplingen ändras. Vill du byta från en pausad låt till nästa använder du Spela nästa i stället för Space.</TextBlock>
                         </GroupBox>
                     </StackPanel>
                 </ScrollViewer>
