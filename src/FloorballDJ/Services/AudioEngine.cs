@@ -296,17 +296,19 @@ public sealed class AudioEngine : IDisposable
             {
                 var activeInstanceCount = _voices.Count(voice => !voice.IsDisposed && !voice.StopRequested &&
                     voice.UsesSecondaryDevice == _useSecondaryDevice &&
-                    (voice.Jingle.Id == jingle.Id || string.Equals(voice.Jingle.FilePath, jingle.FilePath, StringComparison.OrdinalIgnoreCase)));
+                    voice.Jingle.Id == jingle.Id);
                 if (activeInstanceCount >= MaxConcurrentInstancesPerJingle)
                 {
                     performance.Mark("PlaybackAction", detail: "PolyphonyLimitReached");
                     return PlaybackAction.PolyphonyLimitReached;
                 }
             }
+            // Buttons sharing a source file still have independent playback and clip settings.
+            // Only another press of the same button should toggle its active voices off.
             var matching = jingle.AllowMultipleClicks
                 ? Array.Empty<Voice>()
                 : _voices.Where(voice => voice.UsesSecondaryDevice == _useSecondaryDevice &&
-                    (voice.Jingle.Id == jingle.Id || string.Equals(voice.Jingle.FilePath, jingle.FilePath, StringComparison.OrdinalIgnoreCase))).ToArray();
+                    voice.Jingle.Id == jingle.Id).ToArray();
             if (matching.Length > 0)
             {
                 foreach (var active in matching)
@@ -318,8 +320,7 @@ public sealed class AudioEngine : IDisposable
             var previous = jingle.PlayMode is JinglePlayMode.Mix or JinglePlayMode.Duck
                 ? Array.Empty<Voice>()
                 : _voices.Where(voice => voice.UsesSecondaryDevice == _useSecondaryDevice && voice.Jingle.PlayMode != JinglePlayMode.Mix &&
-                    !(jingle.AllowMultipleClicks && (voice.Jingle.Id == jingle.Id ||
-                        string.Equals(voice.Jingle.FilePath, jingle.FilePath, StringComparison.OrdinalIgnoreCase)))).ToArray();
+                    !(jingle.AllowMultipleClicks && voice.Jingle.Id == jingle.Id)).ToArray();
             var resetTalkForNewPrimary = releaseTalkDucking && !_useSecondaryDevice && jingle.PlayMode == JinglePlayMode.Solo;
 
             AudioFileReader? reader = null;
@@ -424,7 +425,7 @@ public sealed class AudioEngine : IDisposable
                 {
                     var polyphonyGroup = _voices.Where(candidate => !candidate.IsDisposed && !candidate.StopRequested &&
                         candidate.UsesSecondaryDevice == voice.UsesSecondaryDevice && candidate.Jingle.AllowMultipleClicks &&
-                        (candidate.Jingle.Id == jingle.Id || string.Equals(candidate.Jingle.FilePath, jingle.FilePath, StringComparison.OrdinalIgnoreCase))).ToArray();
+                        candidate.Jingle.Id == jingle.Id).ToArray();
                     // En ny kopia får egen säkerhetsmarginal, men redan spelande
                     // kopior ändras aldrig i efterhand. Tidigare sänktes hela gruppen
                     // på nytt vid varje klick, vilket lät som att effekten blev svagare
@@ -710,7 +711,7 @@ public sealed class AudioEngine : IDisposable
             if (_primary == voice) _primary = _voices.LastOrDefault();
             var sameJingleStillPlaying = voice.Jingle.AllowMultipleClicks && _voices.Any(candidate =>
                 !candidate.IsDisposed && !candidate.StopRequested && !candidate.NaturalEndRequested && candidate.UsesSecondaryDevice == voice.UsesSecondaryDevice &&
-                (candidate.Jingle.Id == voice.Jingle.Id || string.Equals(candidate.Jingle.FilePath, voice.Jingle.FilePath, StringComparison.OrdinalIgnoreCase)));
+                candidate.Jingle.Id == voice.Jingle.Id);
             completed = error is null && !voice.StopRequested && !sameJingleStillPlaying;
             RefreshActiveVolumes();
         }

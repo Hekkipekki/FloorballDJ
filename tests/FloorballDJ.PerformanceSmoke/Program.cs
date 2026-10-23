@@ -50,6 +50,7 @@ internal static class Program
                 else if (arguments.Contains("--local-font-checks")) await LocalTypographyChecks.RunAsync(root);
                 else if (arguments.Contains("--waveform-checks")) await WaveformChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--output-reuse-checks")) await OutputReuseChecks.RunAsync(root, Argument(arguments, "--output"));
+                else if (arguments.Contains("--jingle-playback-checks")) await JinglePlaybackChecks.RunAsync(root);
                 else if (arguments.Contains("--save-checks")) await SaveChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--metadata-checks")) await MetadataChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--autoplay-checks")) await AutoplayChecks.RunAsync(root, Argument(arguments, "--output"));
@@ -96,6 +97,7 @@ internal static class Program
         await RandomPoolAvailabilityChecks.RunAsync(root, null);
         await WaveformChecks.RunAsync(root);
         await OutputReuseChecks.RunAsync(root);
+        await JinglePlaybackChecks.RunAsync(root);
         await SaveChecks.RunAsync(root);
         await TransferAndDraftChecks.RunAsync(root, null);
         await MetadataChecks.RunAsync(root);
