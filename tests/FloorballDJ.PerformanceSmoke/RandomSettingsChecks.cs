@@ -60,6 +60,7 @@ internal static class RandomSettingsChecks
             }
         }
         await CheckEditing(root);
+        await CheckWholeDeckExclusion(root);
         await CheckVisibleSelection(root, "en");
         await CheckVisibleSelection(root, "sv");
         await RandomSetupSelectionChecks.RunAsync(root, output);
@@ -82,6 +83,51 @@ internal static class RandomSettingsChecks
             }, new JsonSerializerOptions { WriteIndented = true }));
         }
         Console.WriteLine("PASS: random-settings bounded owned background preparation, fresh path deduplication, lazy group/summary/save parity, draft isolation, search/sort/bulk edits, fresh additions, stale/close/failure guards and main/preview playback during blocked file checks.");
+    }
+
+    private static async Task CheckWholeDeckExclusion(string root)
+    {
+        var project = Fixture(root, 85, 2);
+        var window = new RandomPlayerSettingsWindow(project);
+        Check(await window.Initialization, "Whole-deck exclusion fixture ready");
+        var profile = window.ViewData.SelectedProfile!;
+        var deck = profile.Decks[0];
+        foreach (var song in deck.Jingles) song.IsIncluded = false;
+        deck.IncludeWholeDeck = true;
+        var excluded = deck.Jingles[0];
+        Call(window, "ApplySearch", excluded.Title);
+        excluded.DisplayIsIncluded = false;
+        await Idle();
+        Check(!deck.IncludeWholeDeck && !excluded.DisplayIsIncluded &&
+            deck.Jingles.Skip(1).All(song => song.DisplayIsIncluded),
+            "Deselecting one whole-deck song preserves all other songs, including search-hidden songs");
+        Check(deck.SelectedCount == deck.Jingles.Count - 1 &&
+            window.ViewData.PoolItems.Single(item => item.DeckName == deck.Name).SoundCount == deck.SelectedCount,
+            "Overview reflects a whole-deck exclusion");
+        var retained = deck.Jingles.Skip(1).Select(song => song.JingleId).ToHashSet();
+        Check(window.TryApplyDraft(), "Whole-deck exclusion saves");
+        var saved = project.Settings.RandomPoolSetups[0].Profiles[0];
+        Check(!saved.DeckIds.Contains(deck.DeckId) && !saved.JingleIds.Contains(excluded.JingleId) &&
+            retained.IsSubsetOf(saved.JingleIds), "Save uses individual IDs so the excluded song cannot return through the deck rule");
+        window.Close();
+        var projects = new ProjectService();
+        var path = Path.Combine(root, "whole-deck-exclusion.floorballdj.json");
+        await projects.SaveAsync(project, path);
+        project = await projects.LoadAsync(path);
+        window = new RandomPlayerSettingsWindow(project);
+        Check(await window.Initialization, "Saved exclusion reopens");
+        deck = window.ViewData.SelectedProfile!.Decks[0];
+        Check(!deck.IncludeWholeDeck && !deck.Jingles.Single(song => song.JingleId == excluded.JingleId).DisplayIsIncluded &&
+            deck.Jingles.Where(song => retained.Contains(song.JingleId)).All(song => song.DisplayIsIncluded),
+            "Excluded and retained songs survive disk save and reopen");
+        excluded = deck.Jingles.Single(song => song.JingleId == excluded.JingleId);
+        excluded.DisplayIsIncluded = true;
+        Check(deck.SelectedCount == deck.Jingles.Count, "Excluded song can be selected again");
+        deck.IncludeWholeDeck = true;
+        excluded.DisplayIsIncluded = false;
+        Call(window, "ClearSelectedDeck_Click", null, new RoutedEventArgs());
+        Check(deck.SelectedCount == 0 && deck.Jingles.All(song => !song.DisplayIsIncluded), "Clear deck resets a customized whole-deck selection");
+        window.Close();
     }
 
     private static async Task CheckEditing(string root)
@@ -116,9 +162,9 @@ internal static class RandomSettingsChecks
         Call(window, "SelectVisible_Click", null, new RoutedEventArgs()); await Idle();
         Check(deck.Jingles.All(item => item.IsIncluded) && deck.SelectedCount == deck.Jingles.Count, "Select visible retains individual choices");
         deck.IncludeWholeDeck = true;
-        Check(deck.Jingles.All(item => item.DisplayIsIncluded && !item.CanToggleIndividually), "Whole-deck locking/display preserved");
+        Check(deck.Jingles.All(item => item.DisplayIsIncluded), "Whole-deck display preserved");
         deck.IncludeWholeDeck = false;
-        Check(deck.Jingles.All(item => item.IsIncluded && item.CanToggleIndividually), "Individual choices survive whole-deck toggle");
+        Check(deck.Jingles.All(item => item.IsIncluded), "Individual choices survive whole-deck toggle");
         Call(window, "SortButton_Click", new Button { Tag = "desc" }, new RoutedEventArgs());
         Check(deck.Jingles.Select(item => item.Title).SequenceEqual(deck.Jingles.Select(item => item.Title).OrderByDescending(title => title, StringComparer.CurrentCultureIgnoreCase)), "Descending sort preserved");
         Call(window, "SortButton_Click", new Button { Tag = "deck" }, new RoutedEventArgs());
@@ -182,7 +228,7 @@ internal static class RandomSettingsChecks
             }
             Check(tabs.SelectedIndex == 0 && ReferenceEquals(tabs.SelectedContent, window.ViewData.SelectedProfile!.Decks[0]), "Opening a loaded empty tab control selects and displays the first populated deck");
             Check(VisualChildren(tabs).OfType<CheckBox>().Any(check => check.Content as string == LanguageService.Translate("Använd hela decket")), "Deck template uses the selected language");
-            Check(VisualChildren(tabs).OfType<TextBlock>().Any(text => text.Text == LanguageService.Translate("Nya spelbara jinglar som senare läggs till i decket inkluderas automatiskt.")), "Late-created deck help uses the selected language");
+            Check(VisualChildren(tabs).OfType<TextBlock>().Any(text => text.Text == LanguageService.Translate("Nya låtar inkluderas automatiskt. Avmarkera en låt för att använda ett eget urval i stället.")), "Late-created deck help uses the selected language");
             tabs.SelectedIndex = 1; await Idle();
             CurrentView();
             Check(tabs.SelectedIndex == 1, "Later generation preserves an existing deck choice");

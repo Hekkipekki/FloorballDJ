@@ -77,9 +77,16 @@ internal static class RandomSettingsLayoutChecks
                     Check(panel.Work.NewContainers == work.NewContainers && panel.Work.Recycled > work.Recycled, "Distant scrolling reuses the existing bounded container pool");
                     CheckReferenceWrap(songs);
                     deck.IncludeWholeDeck = true; await Idle();
-                    Check(Children(songs).OfType<CheckBox>().All(check => check.IsChecked == true && !check.IsEnabled), "Whole-deck display/locking applies to recycled cards");
+                    Check(Children(songs).OfType<CheckBox>().All(check => check.IsChecked == true && check.IsEnabled), "Whole-deck songs remain individually editable in recycled cards");
                     deck.IncludeWholeDeck = false; await Idle();
                     Check(deck.Jingles.Count(item => item.IsIncluded) == 1 && last.IsChecked == true && last.IsEnabled, "Whole-deck toggle retains all individual states");
+                    deck.IncludeWholeDeck = true; await Idle();
+                    last.IsChecked = false; await Idle();
+                    Check(!deck.IncludeWholeDeck && !deck.Jingles[^1].DisplayIsIncluded &&
+                        deck.Jingles.Take(deck.Jingles.Count - 1).All(song => song.DisplayIsIncluded),
+                        "A real recycled checkbox excludes one song while retaining the rest of the deck");
+                    last.IsChecked = true; await Idle();
+                    Check(deck.Jingles[^1].IsIncluded, "An excluded recycled song can be selected again");
                     scroll.ScrollToTop(); await Idle();
                     window.Activate();
                     Check(songs.FocusItem(0), "First card accepts real WPF keyboard focus");
@@ -131,6 +138,29 @@ internal static class RandomSettingsLayoutChecks
                         window.Width = width; await Idle(); scroll.ScrollToTop(); await Idle();
                         CheckReferenceWrap(songs); Bound(songs);
                     }
+                    foreach (var (width, height) in new[] { (1460d, 860d), (1040d, 680d) })
+                    {
+                        window.Width = width; window.Height = height;
+                        LanguageService.TranslateTree(window); await Idle();
+                        var help = (TextBlock)window.FindName("DeckVariationHelp");
+                        var variation = (CheckBox)window.FindName("DeckVariationCheck");
+                        var overview = (ScrollViewer)window.FindName("PoolOverviewScroll");
+                        help.BringIntoView(); await Idle();
+                        var checkText = (TextBlock)variation.Content;
+                        Check(checkText.TextWrapping == TextWrapping.Wrap && checkText.ActualWidth < variation.ActualWidth &&
+                            checkText.DesiredSize.Height <= checkText.ActualHeight + 1, "Deck variation checkbox text wraps within its available width");
+                        Check(help.ActualHeight + help.Margin.Top + help.Margin.Bottom + 1 >= help.DesiredSize.Height && help.ActualWidth <= overview.ViewportWidth + 1,
+                            "Complete variation instructions fit the panel width and retain their full height");
+                        var position = help.TransformToAncestor(overview).Transform(new Point());
+                        Check(position.Y >= -1 && position.Y + help.ActualHeight <= overview.ActualHeight + 1,
+                            "Variation instructions can be scrolled fully into view at laptop and desktop sizes");
+                        if (output is not null)
+                        {
+                            Directory.CreateDirectory(output);
+                            SaveImage(overview, Path.Combine(output, $"deck-variation-{locale}-{width}.png"));
+                        }
+                    }
+                    window.Width = 1460; window.Height = 860; await Idle();
                     songs.FontSize = 22; await Idle(); CheckReferenceWrap(songs); Bound(songs);
                     songs.FontSize = window.FontSize; await Idle();
                     var originalFamily = songs.FontFamily;
@@ -145,6 +175,19 @@ internal static class RandomSettingsLayoutChecks
                         panel.Columns, panel.CardHeight, overviewWidth, realDpi = VisualTreeHelper.GetDpi(window).PixelsPerInchX });
                 }
                 finally { window.Close(); await Idle(); }
+                var restore = new RestoreBackupSourceWindow { ShowInTaskbar = false };
+                try
+                {
+                    restore.Show(); LanguageService.TranslateTree(restore); await Idle();
+                    Check(restore.Title == LanguageService.Translate("Återställ flyttbackup") &&
+                        Children(restore).OfType<Button>().Count() == 3, "Restore offers folder, package and Cancel in both languages");
+                    if (output is not null)
+                    {
+                        SaveImage((FrameworkElement)restore.Content, Path.Combine(output, $"restore-backup-{locale}.png"));
+                    }
+                }
+                finally { restore.Close(); await Idle(); }
+                Check(restore.SourcePath is null, "Cancelling restore leaves the source unset");
                 var cancelled = new RandomPlayerSettingsWindow(project);
                 Check(await cancelled.Initialization, "Cancel fixture initializes");
                 var beforeCancel = JsonSerializer.Serialize(project.Settings);
@@ -164,6 +207,19 @@ internal static class RandomSettingsLayoutChecks
             }, new JsonSerializerOptions { WriteIndented = true }));
         }
         Console.WriteLine("PASS: shown random settings bounded wrapped recycling, reference layout/pixels, focus/navigation, search/sort/offscreen choices, stable overview and main/preview progress.");
+    }
+
+    private static void SaveImage(FrameworkElement element, string path)
+    {
+        var bounds = new Rect(element.RenderSize);
+        var offset = VisualTreeHelper.GetOffset(element);
+        var visual = new DrawingVisual();
+        using (var drawing = visual.RenderOpen())
+            drawing.DrawRectangle(new VisualBrush(element) { ViewboxUnits = BrushMappingMode.Absolute, Viewbox = new Rect(new Point(offset.X, offset.Y), element.RenderSize) }, null, bounds);
+        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(bounds.Width), (int)Math.Ceiling(bounds.Height), 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(visual);
+        var png = new PngBitmapEncoder(); png.Frames.Add(BitmapFrame.Create(bitmap));
+        using var file = File.Create(path); png.Save(file);
     }
 
     private static void CheckReferenceWrap(VirtualizingSongItemsControl songs)

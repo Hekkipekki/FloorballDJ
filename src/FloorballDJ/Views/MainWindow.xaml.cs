@@ -2318,7 +2318,7 @@ public partial class MainWindow : Window
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Importera FloorballDJ- eller Snap-profil",
+            Title = LanguageService.Translate("Importera profil (Snap Jingle/FloorballDJ)"),
             Filter = "Profiler|*.floorballdj.json;*.xml|FloorballDJ-profil|*.floorballdj.json|Snap Jingle Player XML|*.xml|Alla filer|*.*",
             InitialDirectory = UserContentFolders.ProfilesDirectory
         };
@@ -2388,9 +2388,11 @@ public partial class MainWindow : Window
 
     private async void RestoreBackup_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFolderDialog { Title = "Välj FloorballDJ-backupmappen" };
-        if (dialog.ShowDialog(this) != true) return;
+        if (_transferInProgress) return;
+        var dialog = new RestoreBackupSourceWindow { Owner = this };
+        if (dialog.ShowDialog() != true || dialog.SourcePath is not { } source) return;
         if (!await ConfirmProfileChangesAsync()) return;
+        _transferInProgress = true;
 
         PortableRestoreResult? result = null;
         Exception? failure = null;
@@ -2402,7 +2404,9 @@ public partial class MainWindow : Window
         {
             progressWindow.Show();
             await Dispatcher.Yield(DispatcherPriority.Render);
-            result = await _projects.RestorePortableBackupAsync(dialog.FolderName, progressWindow);
+            result = Directory.Exists(source)
+                ? await _projects.RestorePortableBackupAsync(source, progressWindow)
+                : await _projects.RestoreTransferPackageAsync(source, progressWindow);
             progressWindow.Report(new PortableBackupProgress("Öppnar den återställda profilen…", 100,
                 Detail: Path.GetFileNameWithoutExtension(result.ProfilePath)));
             await OpenProfileAsync(result.ProfilePath);
@@ -2413,7 +2417,7 @@ public partial class MainWindow : Window
         {
             failure = ex;
         }
-        finally { progressWindow.CloseAfterOperation(); }
+        finally { progressWindow.CloseAfterOperation(); _transferInProgress = false; }
 
         if (failure is not null)
         {

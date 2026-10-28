@@ -1,0 +1,23 @@
+<Window x:Class="FloorballDJ.Views.RestoreBackupSourceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Återställ flyttbackup" Width="520" SizeToContent="Height"
+        ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Text="Återställ flyttbackup" Style="{StaticResource SectionTitle}" FontSize="24" TextWrapping="Wrap" />
+        <TextBlock Grid.Row="1" Text="Välj en komplett backupmapp eller ett tidigare sparat flyttpaket (.fdjbackup). Profil och ljudfiler kopieras till den här datorn."
+                   Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,10,0,18" />
+        <StackPanel Grid.Row="2">
+            <Button Content="Välj backupmapp…" Style="{StaticResource PrimaryButton}" Click="ChooseFolder_Click" Margin="0,0,0,8" />
+            <Button Content="Välj flyttpaket…" Style="{StaticResource SecondaryButton}" Click="ChoosePackage_Click" />
+        </StackPanel>
+        <Button Grid.Row="3" Content="Avbryt" IsCancel="True" Style="{StaticResource SecondaryButton}"
+                HorizontalAlignment="Right" MinWidth="100" Margin="0,18,0,0" />
+    </Grid>
+</Window>

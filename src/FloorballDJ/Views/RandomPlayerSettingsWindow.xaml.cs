@@ -196,6 +196,7 @@ public partial class RandomPlayerSettingsWindow : Window
                     NormalizedSearchText = jingle.NormalizedSearchText, DurationSeconds = jingle.Duration, OriginalOrder = jingle.Order,
                     IsIncluded = jingleIds.Contains(jingle.Id),
                     IsWholeDeckIncluded = deckEditor.IncludeWholeDeck,
+                    UseIndividualSelection = deckEditor.UseIndividualSelection,
                 };
                 item.PropertyChanged += (_, args) =>
                 {
@@ -759,6 +760,14 @@ public sealed class RandomPlayerDeckEditor : INotifyPropertyChanged
     }
     private readonly OrderedJingles _jingles = new();
     public ObservableCollection<RandomPlayerJingleEditor> Jingles => _jingles;
+    internal void UseIndividualSelection()
+    {
+        if (!IncludeWholeDeck) return;
+        // Preserve the effective selection, including songs hidden by search,
+        // before replacing the deck rule with individual song IDs.
+        foreach (var jingle in Jingles) jingle.IsIncluded = true;
+        IncludeWholeDeck = false;
+    }
     internal void ApplyOrder(RandomPlayerJingleEditor[] ordered) => _jingles.ApplyOrder(ordered);
     private sealed class OrderedJingles : ObservableCollection<RandomPlayerJingleEditor>
     {
@@ -782,7 +791,7 @@ public sealed class RandomPlayerDeckEditor : INotifyPropertyChanged
     };
     // The deck template can appear after the window's initial translation pass.
     public string WholeDeckLabel => LanguageService.Translate("Använd hela decket");
-    public string WholeDeckHelp => LanguageService.Translate("Nya spelbara jinglar som senare läggs till i decket inkluderas automatiskt.");
+    public string WholeDeckHelp => LanguageService.Translate("Nya låtar inkluderas automatiskt. Avmarkera en låt för att använda ett eget urval i stället.");
     public int SelectedCount => IncludeWholeDeck ? Jingles.Count : Jingles.Count(item => item.IsIncluded);
     public string MatchSummary => LanguageService.IsEnglish
         ? $"{Jingles.Count(item => item.IsVisible)} of {Jingles.Count} shown" : $"{Jingles.Count(item => item.IsVisible)} av {Jingles.Count} visas";
@@ -824,15 +833,22 @@ public sealed class RandomPlayerJingleEditor : INotifyPropertyChanged
             _isWholeDeckIncluded = value;
             Raise();
             Raise(nameof(DisplayIsIncluded));
-            Raise(nameof(CanToggleIndividually));
         }
     }
     public bool DisplayIsIncluded
     {
         get => IsWholeDeckIncluded || IsIncluded;
-        set { if (!IsWholeDeckIncluded) IsIncluded = value; }
+        set
+        {
+            if (IsWholeDeckIncluded)
+            {
+                if (value) return;
+                UseIndividualSelection?.Invoke();
+            }
+            IsIncluded = value;
+        }
     }
-    public bool CanToggleIndividually => !IsWholeDeckIncluded;
+    internal Action? UseIndividualSelection { get; init; }
     public bool IsVisible { get => _isVisible; set { if (_isVisible == value) return; _isVisible = value; Raise(); } }
     public event PropertyChangedEventHandler? PropertyChanged;
     private void Raise([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
