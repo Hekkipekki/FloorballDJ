@@ -150,7 +150,10 @@ public partial class MainWindow : Window
             StartupReady = true;
             initialization.Mark("MainWindowReady");
             if (_shutdownApplicationOnClose && !Environment.GetCommandLineArgs().Contains("--smoke-test", StringComparer.OrdinalIgnoreCase))
+            {
                 await OfferWorkingCopyRecoveryAsync();
+                _ = CheckForStartupUpdatesAsync();
+            }
             if (Environment.GetCommandLineArgs().Contains("--smoke-test", StringComparer.OrdinalIgnoreCase))
             {
                 RefreshRecentProfilesMenu();
@@ -2546,32 +2549,41 @@ public partial class MainWindow : Window
         "Om FloorballDJ", MessageBoxButton.OK, MessageBoxImage.Information);
     private void Help_Click(object sender, RoutedEventArgs e) => new HelpWindow { Owner = this }.ShowDialog();
     private async void CheckForUpdates_Click(object sender, RoutedEventArgs e)
-    {
-        var dialog = new UpdateWindow { Owner = this };
-        if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.InstallerPath) || !File.Exists(dialog.InstallerPath)) return;
-        if (ViewModel.NowPlaying.JingleId is not null)
-        {
-            MessageBox.Show(this,
-                "Stoppa pågående ljud innan uppdateringen installeras. Den verifierade installationsfilen finns kvar och behöver inte hämtas manuellt.",
-                "Ljud spelas", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-        if (!await ConfirmProfileChangesAsync()) return;
+        => await ShowUpdateAndInstallAsync();
 
+    private async Task ShowUpdateAndInstallAsync(UpdateManifest? manifest = null, bool startupNotification = false)
+    {
+        if (_updateDialogOpen || _closeInProgress || _closeCommitted) return;
+        _updateDialogOpen = true;
         try
         {
-            Process.Start(new ProcessStartInfo(dialog.InstallerPath)
+            var dialog = new UpdateWindow(manifest, startupNotification) { Owner = this };
+            if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.InstallerPath) || !File.Exists(dialog.InstallerPath)) return;
+            if (ViewModel.NowPlaying.JingleId is not null || ViewModel.HasPreview)
             {
-                UseShellExecute = true,
-                Arguments = "/SP- /NORESTART"
-            });
-            _closeCommitted = true;
-            Application.Current.Shutdown();
+                MessageBox.Show(this,
+                    "Stoppa pågående ljud innan uppdateringen installeras. Den verifierade installationsfilen finns kvar och behöver inte hämtas manuellt.",
+                    "Ljud spelas", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (!await ConfirmProfileChangesAsync()) return;
+
+            try
+            {
+                Process.Start(new ProcessStartInfo(dialog.InstallerPath)
+                {
+                    UseShellExecute = true,
+                    Arguments = "/SP- /NORESTART"
+                });
+                _closeCommitted = true;
+                Application.Current.Shutdown();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Kunde inte starta installationen", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
-        catch (Exception ex)
-        {
-            MessageBox.Show(this, ex.Message, "Kunde inte starta installationen", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
+        finally { _updateDialogOpen = false; }
     }
     private void License_Click(object sender, RoutedEventArgs e)
     {

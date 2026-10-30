@@ -8,16 +8,32 @@ public partial class UpdateWindow : Window
     private readonly UpdateService _updates = new();
     private UpdateManifest? _manifest;
     private CancellationTokenSource? _downloadCancellation;
+    private readonly CancellationTokenSource _lifetime = new();
+    private readonly bool _startupNotification;
+    private bool _closed;
 
     public string? InstallerPath { get; private set; }
 
-    public UpdateWindow()
+    public UpdateWindow(UpdateManifest? manifest = null, bool startupNotification = false)
     {
         InitializeComponent();
-        VersionText.Text = $"Installerad version: {_updates.CurrentVersion}";
+        _manifest = manifest;
+        _startupNotification = startupNotification;
+        VersionText.Text = string.Format(LanguageService.Translate("Installerad version: {0}"), _updates.CurrentVersion);
+        if (startupNotification)
+        {
+            HeadingText.Text = LanguageService.Translate("Utdaterad version");
+            IntroText.Text = LanguageService.Translate("En nyare version av FloorballDJ finns. Uppdatera nu eller fortsätt med din nuvarande version.");
+            CloseButton.Content = LanguageService.Translate("Senare");
+            InstallButton.Content = LanguageService.IsEnglish ? "Update" : "Uppdatera";
+        }
         WindowPlacementService.FitToOwnerMonitor(this);
-        Loaded += async (_, _) => await CheckAsync();
-        Closed += (_, _) => _downloadCancellation?.Cancel();
+        Loaded += async (_, _) =>
+        {
+            if (_manifest is not null) ShowManifest(_manifest);
+            else await CheckAsync();
+        };
+        Closed += (_, _) => { _closed = true; _lifetime.Cancel(); _downloadCancellation?.Cancel(); };
     }
 
     private async Task CheckAsync()
@@ -25,44 +41,54 @@ public partial class UpdateWindow : Window
         SetCheckingState();
         try
         {
-            _manifest = await _updates.CheckAsync();
-            ReleaseNotesButton.Visibility = Visibility.Visible;
-            DownloadPageButton.Visibility = Visibility.Visible;
-            if (_updates.IsNewer(_manifest))
-            {
-                StateIcon.Text = "↓";
-                StateTitle.Text = "En ny version finns";
-                VersionText.Text = $"Installerad: {_updates.CurrentVersion}  ·  Tillgänglig: {_manifest.Version}";
-                SummaryText.Text = string.IsNullOrWhiteSpace(_manifest.Summary)
-                    ? "Uppdateringen kan hämtas och installeras direkt."
-                    : _manifest.Summary;
-                InstallButton.Visibility = Visibility.Visible;
-            }
-            else
-            {
-                StateIcon.Text = "✓";
-                StateTitle.Text = "Du använder senaste versionen";
-                VersionText.Text = $"Installerad version: {_updates.CurrentVersion}";
-                SummaryText.Text = "Ingen nyare publicerad version finns tillgänglig.";
-            }
+            var manifest = await _updates.CheckAsync(_lifetime.Token);
+            if (!_closed) ShowManifest(manifest);
         }
+        catch (OperationCanceledException) when (_closed) { }
         catch (Exception ex)
         {
+            if (_closed) return;
             StateIcon.Text = "!";
-            StateTitle.Text = "Kunde inte söka efter uppdateringar";
-            VersionText.Text = $"Installerad version: {_updates.CurrentVersion}";
-            SummaryText.Text = "Kontrollera internetanslutningen och försök igen. FloorballDJ påverkas inte av felet.";
+            StateTitle.Text = LanguageService.Translate("Kunde inte söka efter uppdateringar");
+            VersionText.Text = string.Format(LanguageService.Translate("Installerad version: {0}"), _updates.CurrentVersion);
+            SummaryText.Text = LanguageService.Translate("Kontrollera internetanslutningen och försök igen. FloorballDJ påverkas inte av felet.");
             DownloadStatusText.Text = ex.Message;
             RetryButton.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void ShowManifest(UpdateManifest manifest)
+    {
+        _manifest = manifest;
+        ReleaseNotesButton.Visibility = Visibility.Visible;
+        DownloadPageButton.Visibility = Visibility.Visible;
+        if (_updates.IsNewer(manifest))
+        {
+            StateIcon.Text = "↓";
+            StateTitle.Text = LanguageService.Translate("En nyare version finns");
+            VersionText.Text = string.Format(LanguageService.Translate("Installerad: {0}  ·  Tillgänglig: {1}"), _updates.CurrentVersion, manifest.Version);
+            SummaryText.Text = _startupNotification
+                ? LanguageService.Translate("Du använder en äldre version. Välj Uppdatera för att ladda ned och installera den nya versionen, eller Senare för att fortsätta som vanligt.")
+                : string.IsNullOrWhiteSpace(manifest.Summary)
+                    ? LanguageService.Translate("Uppdateringen kan hämtas och installeras direkt.") : manifest.Summary;
+            InstallButton.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            StateIcon.Text = "✓";
+            StateTitle.Text = LanguageService.Translate("Du använder senaste versionen");
+            VersionText.Text = string.Format(LanguageService.Translate("Installerad version: {0}"), _updates.CurrentVersion);
+            SummaryText.Text = LanguageService.Translate("Ingen nyare publicerad version finns tillgänglig.");
+            InstallButton.Visibility = Visibility.Collapsed;
         }
     }
 
     private void SetCheckingState()
     {
         StateIcon.Text = "↻";
-        StateTitle.Text = "Kontrollerar…";
-        VersionText.Text = $"Installerad version: {_updates.CurrentVersion}";
-        SummaryText.Text = "Hämtar den senaste versionsinformationen från floorballdj.netlify.app.";
+        StateTitle.Text = LanguageService.Translate("Kontrollerar…");
+        VersionText.Text = string.Format(LanguageService.Translate("Installerad version: {0}"), _updates.CurrentVersion);
+        SummaryText.Text = LanguageService.Translate("Hämtar den senaste versionsinformationen från floorballdj.netlify.app.");
         DownloadStatusText.Text = "";
         DownloadProgress.Visibility = Visibility.Collapsed;
         InstallButton.Visibility = Visibility.Collapsed;
@@ -80,31 +106,38 @@ public partial class UpdateWindow : Window
         RetryButton.IsEnabled = false;
         DownloadProgress.Value = 0;
         DownloadProgress.Visibility = Visibility.Visible;
-        DownloadStatusText.Text = "Laddar ned installationsfilen…";
-        _downloadCancellation = new CancellationTokenSource();
+        DownloadStatusText.Text = LanguageService.Translate("Laddar ned installationsfilen…");
+        _downloadCancellation?.Dispose();
+        _downloadCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         try
         {
             var progress = new Progress<double>(value =>
             {
+                if (_closed) return;
                 DownloadProgress.Value = value;
-                DownloadStatusText.Text = $"Laddar ned… {value:0}%";
+                DownloadStatusText.Text = string.Format(LanguageService.Translate("Laddar ned… {0:0}%"), value);
             });
             InstallerPath = await _updates.DownloadInstallerAsync(_manifest, progress, _downloadCancellation.Token);
-            DownloadStatusText.Text = "Nedladdningen är verifierad och klar.";
+            if (_closed) return;
+            DownloadStatusText.Text = LanguageService.Translate("Nedladdningen är verifierad och klar.");
             DialogResult = true;
         }
         catch (OperationCanceledException)
         {
-            DownloadStatusText.Text = "Nedladdningen avbröts.";
+            if (_closed) return;
+            DownloadStatusText.Text = LanguageService.Translate("Nedladdningen avbröts.");
             InstallButton.IsEnabled = true;
         }
         catch (Exception ex)
         {
+            if (_closed) return;
             DownloadStatusText.Text = ex.Message;
             InstallButton.IsEnabled = true;
             RetryButton.IsEnabled = true;
         }
     }
+
+    private void Close_Click(object sender, RoutedEventArgs e) => DialogResult = false;
 
     private void ReleaseNotes_Click(object sender, RoutedEventArgs e)
     {

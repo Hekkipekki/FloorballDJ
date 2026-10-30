@@ -88,6 +88,12 @@ jobs:
           dotnet run --project tests/FloorballDJ.PerformanceSmoke/FloorballDJ.PerformanceSmoke.csproj --configuration Release -- --transfer-draft-checks
           if ($LASTEXITCODE -ne 0) { throw "Transfer and working-copy regression checks failed." }
 
+      - name: Verify startup update notification and help
+        shell: pwsh
+        run: |
+          dotnet run --project tests/FloorballDJ.PerformanceSmoke/FloorballDJ.PerformanceSmoke.csproj --configuration Release -- --update-checks
+          if ($LASTEXITCODE -ne 0) { throw "Startup update and help regression checks failed." }
+
       - name: Build installer
         shell: pwsh
         run: |

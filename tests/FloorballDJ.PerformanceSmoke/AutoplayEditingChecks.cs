@@ -107,9 +107,12 @@ internal static class AutoplayEditingChecks
                 Check(vm.AutoplayModeActive && vm.AutoplaySongPickerActive && view.Visibility == Visibility.Collapsed && tabs.SelectedContent is Deck,
                     "Picker displays the existing populated deck view while keeping Autoplay active");
                 Check(vm.ActiveQueueItem == playing, "Entering picker leaves playback tracking intact");
+                first.SessionPlayCount = 3;
                 tabs.SelectedIndex = 0; vm.Decks[0].ActivePage = 0; await Idle();
                 Button Card(Jingle song) => Children(tabs).OfType<Button>().Single(button => ReferenceEquals(button.DataContext, song) && button.Content is Grid);
                 Check(Children(Card(first)).OfType<Border>().Single(border => border.Name == "AutoplayPickerCheck").IsVisible, "Selected song has a visible corner checkbox");
+                Check(!Children(Card(first)).OfType<Border>().Single(border => border.Name == "SessionPlayedBadge").IsVisible && first.SessionPlayCount == 3,
+                    "Picker hides the green played indicator without clearing session history or the selection checkmark");
                 var pageButton = Children(tabs).OfType<System.Windows.Controls.Primitives.ToggleButton>().Single(button => button.DataContext is int n && n == 2);
                 pageButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await Idle();
                 Check(vm.AutoplayModeActive && vm.AutoplaySongPickerActive && vm.Decks[0].ActivePage == 1, "Page navigation stays in picker without an exit prompt");
@@ -157,6 +160,9 @@ internal static class AutoplayEditingChecks
                 if (output is not null) Save((FrameworkElement)main.Content, output, $"after-autoplay-{locale}.png");
                 // The next pass begins from an actual normal deck selection.
                 vm.Decks[0].ActivePage = 0; tabs.SelectedIndex = 0;
+                await Idle();
+                Check(Children(tabs).OfType<Border>().Any(border => border.Name == "SessionPlayedBadge" && ReferenceEquals(border.DataContext, first) && border.IsVisible),
+                    "The played indicator returns in the normal deck view");
                 vm.Audio.StopAll();
                 vm.ReplaceQueue([first]);
                 Call(main, "Autoplay_Click", main, new RoutedEventArgs()); await Idle(); vm.PlayQueuedItem(first); playing = first;

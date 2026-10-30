@@ -615,7 +615,7 @@
                                                     <TextBlock Text="SAKNAS" Foreground="White" FontSize="11" FontWeight="Bold" />
                                                     <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsMissing}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Border.Style>
                                                 </Border>
-                                                <Border Width="21" Height="21" CornerRadius="11" Background="#39F2A9" BorderBrush="White" BorderThickness="3"
+                                                <Border x:Name="SessionPlayedBadge" Width="21" Height="21" CornerRadius="11" Background="#39F2A9" BorderBrush="White" BorderThickness="3"
                                                         HorizontalAlignment="Right" VerticalAlignment="Top" ToolTip="Spelad under sessionen">
                                                     <Border.Effect><DropShadowEffect Color="#42E5A8" BlurRadius="8" ShadowDepth="0" Opacity="0.75" /></Border.Effect>
                                                     <Border.Style>
@@ -623,6 +623,7 @@
                                                             <Setter Property="Visibility" Value="Visible" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding SessionPlayCount}" Value="0"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                                                <DataTrigger Binding="{Binding DataContext.AutoplaySongPickerActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
                                                     </Border.Style>

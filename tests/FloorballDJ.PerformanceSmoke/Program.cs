@@ -55,6 +55,7 @@ internal static class Program
                 else if (arguments.Contains("--metadata-checks")) await MetadataChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--autoplay-checks")) await AutoplayChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--autoplay-editing-checks")) await AutoplayEditingChecks.RunAsync(root, Argument(arguments, "--output"));
+                else if (arguments.Contains("--update-checks")) await UpdateNotificationChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--ui-work-checks")) await UiWorkChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--random-settings-checks")) await RandomSettingsChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--random-settings-layout-checks")) await RandomSettingsLayoutChecks.RunAsync(root, Argument(arguments, "--output"));
@@ -104,6 +105,7 @@ internal static class Program
         await TransferAndDraftChecks.RunAsync(root, null);
         await MetadataChecks.RunAsync(root);
         await AutoplayChecks.RunAsync(root);
+        await UpdateNotificationChecks.RunAsync(root, null);
         await UiWorkChecks.RunAsync(root);
         await PresentationFixChecks.RunAsync(root, null);
         await RcWorkflowChecks.RunAsync(root, null);
