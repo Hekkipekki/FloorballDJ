@@ -48,6 +48,19 @@ public static class LanguageService
 
     private static readonly IReadOnlyDictionary<string, string> English = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        ["Välj från deck"] = "Choose from decks",
+        ["Knappen Välj från deck till höger om Övergång visar den vanliga deckvyn med markeringsrutor. Byt deck och sida och markera eller avmarkera låtar. Markerade låtar läggs sist i aktuell kö och Autoplay fortsätter spela. Välj Klar – tillbaka till Autoplay eller tryck Escape när du är klar. Spara spellista sparar den uppdaterade kön."] = "Choose from decks, to the right of Transition, opens the regular deck view with selection boxes. Browse decks and pages and select or deselect songs. Selected songs are appended to the current queue while Autoplay continues. Choose Done – back to Autoplay or press Escape when finished. Save playlist saves the updated queue.",
+        ["Välj låtar från deck och sidor till den aktuella kön utan att avbryta Autoplay."] = "Choose songs from decks and pages for the current queue without interrupting Autoplay.",
+        ["VÄLJ LÅTAR TILL AUTOPLAY"] = "CHOOSE SONGS FOR AUTOPLAY",
+        ["Byt deck och sida. Markera låtar för att lägga till dem sist i kön, avmarkera för att ta bort. Uppspelningen fortsätter."] = "Switch decks and pages. Select songs to add them to the end of the queue, deselect to remove. Playback continues.",
+        ["Klar – tillbaka till Autoplay"] = "Done – back to Autoplay",
+        ["Tillagd i Autoplay-kön: {0}"] = "Added to the Autoplay queue: {0}",
+        ["Borttagen från Autoplay-kön: {0}"] = "Removed from the Autoplay queue: {0}",
+        ["Vald till Autoplay-kön"] = "Selected for the Autoplay queue",
+        ["Lämna Autoplay"] = "Leave Autoplay",
+        ["Lämna Autoplay?"] = "Leave Autoplay?",
+        ["Stanna i Autoplay"] = "Stay in Autoplay",
+        ["De köade låtarna fortsätter inte automatiskt när du lämnar Autoplay. Kön behålls."] = "The queued songs will not continue automatically when you leave Autoplay. The queue is retained.",
         ["Flytta via USB eller Drive"] = "Transfer via USB or Drive",
         ["Skapa en komplett flyttbackup och kopiera hela backupmappen till USB eller Drive. Låt Drive synka färdigt innan du byter dator."] = "Create a complete transfer backup and copy the entire backup folder to USB or Drive. Let Drive finish syncing before switching computers.",
         ["På nästa dator väljer du Profil → Återställ flyttbackup och sedan backupmappen. Äldre .fdjbackup-filer öppnas på samma ställe genom Välj flyttpaket."] = "On the next computer, choose Profile → Restore transfer backup and then the backup folder. Older .fdjbackup files can be opened in the same place using Choose transfer package.",

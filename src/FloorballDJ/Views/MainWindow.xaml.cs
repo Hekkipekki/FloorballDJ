@@ -312,6 +312,12 @@ public partial class MainWindow : Window
         using var performanceCommand = PerformanceDiagnostics.BeginCommand("mouse");
         if (_suppressNextClick) { _suppressNextClick = false; return; }
         if ((sender as Button)?.DataContext is not Jingle jingle) return;
+        if (ViewModel.AutoplaySongPickerActive)
+        {
+            ToggleAutoplayPickerSong(jingle);
+            e.Handled = true;
+            return;
+        }
         if (jingle.IsTextBlock) return;
         if (!jingle.HasAudio) { await LoadAudioAsync(jingle); return; }
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
@@ -328,6 +334,7 @@ public partial class MainWindow : Window
 
     private void Jingle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (ViewModel.AutoplaySongPickerActive) { _dragSource = null; _suppressNextClick = false; return; }
         _dragStart = e.GetPosition(this);
         _dragSource = (sender as FrameworkElement)?.DataContext as Jingle;
         _suppressNextClick = false;
@@ -363,6 +370,7 @@ public partial class MainWindow : Window
 
     private void Jingle_DragOver(object sender, DragEventArgs e)
     {
+        if (ViewModel.AutoplaySongPickerActive) { e.Effects = DragDropEffects.None; e.Handled = true; return; }
         var target = (sender as FrameworkElement)?.DataContext as Jingle;
         var droppedFiles = e.Data.GetData(DataFormats.FileDrop) as string[];
         if (target is not null && droppedFiles is not null && droppedFiles.Any(IsAudioFile))
@@ -654,6 +662,7 @@ public partial class MainWindow : Window
         _inlineSearchDebounceTimer.Stop();
         var match = _inlineSearchHighlight ?? FindNextInlineSearchResult(false);
         if (match is null) return;
+        if (ViewModel.AutoplaySongPickerActive) { ToggleAutoplayPickerSong(match); return; }
         ClearSpaceResume();
         try
         {
@@ -696,10 +705,10 @@ public partial class MainWindow : Window
         }
 
         var match = matches[Math.Clamp(_inlineSearchIndex, 0, matches.Count - 1)];
-        if (!TryLeaveAutoplay()) return null;
+        if (!CanBrowseDecks()) return null;
         ClearInlineSearchHighlight();
         EmbeddedAutoplay.Visibility = Visibility.Collapsed;
-        ViewModel.SetAutoplayMode(false);
+        if (!ViewModel.AutoplaySongPickerActive) ViewModel.SetAutoplayMode(false);
         ShowJinglePage(match.Deck, match.Jingle);
         match.Jingle.IsSearchMatch = true;
         _inlineSearchHighlight = match.Jingle;
@@ -752,6 +761,12 @@ public partial class MainWindow : Window
     private async void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         using var performanceCommand = PerformanceDiagnostics.BeginCommand("keyboard");
+        if (ViewModel.AutoplaySongPickerActive && e.Key == Key.Escape && !JingleSearchBox.IsKeyboardFocusWithin)
+        {
+            e.Handled = true;
+            FinishAutoplaySongPicker();
+            return;
+        }
         // Den automatiska sökningen kan byta aktivt deck. WPF kan då flytta
         // tangentfokus från sökrutan trots att texten och markeringen är kvar.
         // Låt därför Enter spela den synliga träffen även efter ett sådant
@@ -1183,7 +1198,7 @@ public partial class MainWindow : Window
 
     private void DeckTabs_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        if (!TryLeaveAutoplay()) { e.Handled = true; return; }
+        if (!CanBrowseDecks()) { e.Handled = true; return; }
 
         // När pekaren ligger över en deckflik med flera sidor används hjulet
         // för sidbyte inom det decket. På ensidiga deck behålls det tidigare
@@ -1212,6 +1227,7 @@ public partial class MainWindow : Window
 
     private void DeckTabs_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (ViewModel.AutoplaySongPickerActive) { e.Handled = true; return; }
         var tab = FindAncestor<TabItem>(e.OriginalSource as DependencyObject);
         if (tab?.Content is not Deck deck) return;
         tab.IsSelected = true;
@@ -1500,10 +1516,10 @@ public partial class MainWindow : Window
     private void DeckPage_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not ToggleButton { DataContext: int pageNumber, Tag: Deck deck }) return;
-        if (!TryLeaveAutoplay()) return;
+        if (!CanBrowseDecks()) return;
         deck.ActivePage = pageNumber - 1;
         ViewModel.SelectedDeck = deck;
-        ViewModel.SetAutoplayMode(false);
+        if (!ViewModel.AutoplaySongPickerActive) ViewModel.SetAutoplayMode(false);
         EmbeddedAutoplay.Visibility = Visibility.Collapsed;
         ViewModel.Status = $"{deck.Name} · sida {pageNumber} av {deck.PageCount}";
         ViewModel.RequestSave();
@@ -1574,19 +1590,21 @@ public partial class MainWindow : Window
     private void DeckTabs_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         EndDeckDrag();
+        if (ViewModel.AutoplaySongPickerActive) return;
         var tab = FindAncestor<TabItem>(e.OriginalSource as DependencyObject);
         _deckDragStart = e.GetPosition(DeckTabsControl);
         _deckDragSource = tab?.DataContext as Deck ?? tab?.Content as Deck;
         if (tab is not null)
         {
             if (!TryLeaveAutoplay()) { EndDeckDrag(); e.Handled = true; }
+            else RestoreDeckAfterAutoplay(tab.Content as Deck);
         }
     }
 
     private void DeckTabs_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (!e.Handled && e.Key is Key.Left or Key.Right or Key.Home or Key.End &&
-            FindAncestor<TabItem>(Keyboard.FocusedElement as DependencyObject) is not null && !TryLeaveAutoplay())
+            FindAncestor<TabItem>(Keyboard.FocusedElement as DependencyObject) is not null && !CanBrowseDecks())
             e.Handled = true;
     }
 
@@ -1708,16 +1726,12 @@ public partial class MainWindow : Window
     {
         if (ViewModel.AutoplayModeActive && confirmQueued && ViewModel.PlaybackQueue.Count > 0)
         {
-            var accepted = ConfirmAutoplayExit?.Invoke() ?? (MessageBox.Show(this,
-                LanguageService.IsEnglish
-                    ? "The queued songs will not continue automatically when you leave Autoplay. The queue is retained. Leave Autoplay?"
-                    : "De köade låtarna fortsätter inte automatiskt när du lämnar Autoplay. Kön behålls. Vill du lämna Autoplay?",
-                LanguageService.IsEnglish ? "Leave Autoplay" : "Lämna Autoplay", MessageBoxButton.YesNo,
-                MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes);
+            var accepted = ConfirmAutoplayExit?.Invoke() ?? new AutoplayExitWindow { Owner = this }.ShowDialog() == true;
             if (!accepted) return false;
         }
         ViewModel.SetAutoplayMode(false);
         EmbeddedAutoplay.Visibility = Visibility.Collapsed;
+        RestoreDeckAfterAutoplay();
         return true;
     }
 
@@ -1738,6 +1752,8 @@ public partial class MainWindow : Window
 
     private async Task ActivateAutoplayAsync(bool refreshLibrary = true)
     {
+        if (!ViewModel.AutoplayModeActive) _deckBeforeAutoplay = ViewModel.SelectedDeck;
+        ViewModel.AutoplaySongPickerActive = false;
         var performance = PerformanceDiagnostics.BeginOperation("AutoplayActivationRequested");
         using var duration = performance.Measure("AutoplayActivation");
         DeckTabsControl.SelectedIndex = -1;

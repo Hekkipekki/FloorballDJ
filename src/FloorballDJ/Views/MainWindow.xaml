@@ -12,6 +12,7 @@
         <shell:WindowChrome CaptionHeight="46" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" />
     </shell:WindowChrome.WindowChrome>
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolVisibility" />
         <conv:HexBrushConverter x:Key="HexBrush" />
         <conv:ButtonGradientConverter x:Key="ButtonGradient" />
         <conv:DurationConverter x:Key="Duration" />
@@ -408,7 +409,22 @@
             </Grid>
 
             <!-- Seamless deck workspace -->
-            <TabControl x:Name="DeckTabsControl" Grid.Row="2" Style="{StaticResource DeckTabs}" SelectedItem="{Binding SelectedDeck}" ItemContainerStyle="{StaticResource DeckTab}"
+            <Grid Grid.Row="2">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <Border x:Name="AutoplaySongPickerBanner" Background="#102A2C" BorderBrush="{StaticResource AccentBrush}"
+                        BorderThickness="0,0,0,1" Padding="16,10" Visibility="{Binding AutoplaySongPickerActive, Converter={StaticResource BoolVisibility}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                            <TextBlock Text="VÄLJ LÅTAR TILL AUTOPLAY" Style="{StaticResource EyebrowText}"/>
+                            <TextBlock Text="Byt deck och sida. Markera låtar för att lägga till dem sist i kön, avmarkera för att ta bort. Uppspelningen fortsätter."
+                                       Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        </StackPanel>
+                        <Button x:Name="FinishSongPickerButton" Grid.Column="1" Content="Klar – tillbaka till Autoplay"
+                                Style="{StaticResource PrimaryButton}" VerticalAlignment="Center" Click="FinishSongPicker_Click"/>
+                    </Grid>
+                </Border>
+            <TabControl x:Name="DeckTabsControl" Grid.Row="1" Style="{StaticResource DeckTabs}" SelectedItem="{Binding SelectedDeck}" ItemContainerStyle="{StaticResource DeckTab}"
                         PreviewMouseWheel="DeckTabs_PreviewMouseWheel" PreviewMouseLeftButtonDown="DeckTabs_PreviewMouseLeftButtonDown"
                         PreviewKeyDown="DeckTabs_PreviewKeyDown"
                         PreviewMouseMove="DeckTabs_PreviewMouseMove" PreviewMouseLeftButtonUp="DeckTabs_PreviewMouseLeftButtonUp"
@@ -512,6 +528,7 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type models:Jingle}">
                                         <Button Style="{StaticResource JingleButton}" Click="Jingle_Click"
+                                                PreviewMouseRightButtonDown="Jingle_PreviewMouseRightButtonDown"
                                                 PreviewMouseLeftButtonDown="Jingle_PreviewMouseLeftButtonDown"
                                                 PreviewMouseMove="Jingle_PreviewMouseMove"
                                                 DragOver="Jingle_DragOver" DragLeave="Jingle_DragLeave" Drop="Jingle_Drop"
@@ -615,7 +632,38 @@
                                                     <TextBlock Text="{Binding QueuePosition, StringFormat=⏱ {0}}" Foreground="White" FontSize="11" FontWeight="Bold" />
                                                     <Border.Style>
                                                         <Style TargetType="Border"><Setter Property="Visibility" Value="Visible" />
-                                                            <Style.Triggers><DataTrigger Binding="{Binding QueuePosition}" Value="0"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding QueuePosition}" Value="0"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                                                <DataTrigger Binding="{Binding DataContext.AutoplaySongPickerActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                </Border>
+                                                <Border x:Name="AutoplayPickerCheck" Width="25" Height="25" CornerRadius="4"
+                                                        BorderBrush="{StaticResource AccentBrush}" BorderThickness="2"
+                                                        HorizontalAlignment="Left" VerticalAlignment="Top" ToolTip="Vald till Autoplay-kön" IsHitTestVisible="False">
+                                                    <TextBlock Text="✓" Foreground="#07140F" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible"/>
+                                                                <Style.Triggers><DataTrigger Binding="{Binding AutoplayQueuePosition}" Value="0"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+                                                            <Style.Triggers>
+                                                                <MultiDataTrigger>
+                                                                    <MultiDataTrigger.Conditions>
+                                                                        <Condition Binding="{Binding DataContext.AutoplaySongPickerActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                                                                        <Condition Binding="{Binding HasAudio}" Value="True"/>
+                                                                        <Condition Binding="{Binding IsTextBlock}" Value="False"/>
+                                                                    </MultiDataTrigger.Conditions>
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </MultiDataTrigger>
+                                                                <DataTrigger Binding="{Binding AutoplayQueuePosition}" Value="0"><Setter Property="Background" Value="#E00E1726"/></DataTrigger>
+                                                            </Style.Triggers>
                                                         </Style>
                                                     </Border.Style>
                                                 </Border>
@@ -638,7 +686,8 @@
                     </DataTemplate>
                 </TabControl.ContentTemplate>
             </TabControl>
-            <views:AutoplayView x:Name="EmbeddedAutoplay" Grid.Row="2" Margin="0,40,0,0" Panel.ZIndex="10" Visibility="Collapsed" />
+            <views:AutoplayView x:Name="EmbeddedAutoplay" Grid.Row="1" Margin="0,40,0,0" Panel.ZIndex="10" Visibility="Collapsed" SongPickerRequested="AutoplaySongPicker_Requested" />
+            </Grid>
         </Grid>
     </DockPanel>
 </Window>

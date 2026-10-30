@@ -30,6 +30,7 @@ internal static class AutoplayChecks
             await CheckSearchAndNextButton(directory);
             await CheckHotkeyWithoutScan(directory);
             await CheckPrefetch(directory);
+            await AutoplayEditingChecks.RunAsync(directory, output);
         }
         finally { await session.DisposeAsync(); }
         var events = File.ReadLines(Path.Combine(capture, "events.jsonl")).Select(line => JsonDocument.Parse(line).RootElement.Clone())

@@ -102,6 +102,9 @@
                                 <TextBlock Text="s" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="4,0,0,0" />
                             </StackPanel>
                         </Border>
+                        <Button x:Name="ChooseDeckSongsButton" Content="Välj från deck" Style="{StaticResource SecondaryButton}"
+                                Margin="7,0,0,0" ToolTip="Välj låtar från deck och sidor till den aktuella kön utan att avbryta Autoplay."
+                                Click="ChooseDeckSongs_Click" />
                     </WrapPanel>
                 </Grid>
             </Border>

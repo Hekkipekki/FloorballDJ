@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Windows.Threading;
 using FloorballDJ.Infrastructure;
 using FloorballDJ.Models;
@@ -33,6 +34,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private bool _queueLoopEnabled = true;
     private bool _queueShuffleEnabled;
     private bool _autoplayModeActive;
+    private bool _autoplaySongPickerActive;
     private bool _isSpaceResumePending;
     private int _queuePlaybackIndex;
     private double _playbackQueueGainOffsetDb;
@@ -71,12 +73,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (_localTitleFontSize.HasValue) _project.Settings.TitleFontSize = _localTitleFontSize.Value;
         _project.Settings.PropertyChanged += LocalAppearanceChanged;
         _audio = audio;
-        PlaybackQueue.CollectionChanged += (_, _) =>
+        PlaybackQueue.CollectionChanged += (_, change) =>
         {
             QueueRevision++;
             CancelQueuePrefetch();
+            if (change.OldItems is not null)
+                foreach (Jingle item in change.OldItems) item.AutoplayQueuePosition = 0;
             if (!_restoringQueue)
             {
+                RebaseQueueCursor(change);
                 Settings.AutoplayQueueItems = PlaybackQueue.ToList();
                 RequestSave();
             }
@@ -99,10 +104,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _audio.PlaybackCompleted += (_, jingle) =>
         {
             if (_previewOnlyJingleId == jingle.Id) { _previewOnlyJingleId = null; return; }
-            if (!AutoplayModeActive) return;
-            if (!PlaybackQueue.Any(item => item.Id == jingle.Id || string.Equals(item.FilePath, jingle.FilePath, StringComparison.OrdinalIgnoreCase))) return;
+            if (!AutoplayModeActive || _activeQueueJingleId != jingle.Id) return;
             System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
             {
+                if (!AutoplayModeActive || _activeQueueJingleId != jingle.Id) return;
                 if (!PlayNextQueued()) ActiveQueueItem = null;
             });
         };
@@ -249,6 +254,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public bool QueueLoopEnabled { get => _queueLoopEnabled; set { if (Set(ref _queueLoopEnabled, value) && !_restoringQueue) { Settings.AutoplayQueueLoopEnabled = value; RequestSave(); } } }
     public bool QueueShuffleEnabled { get => _queueShuffleEnabled; set { if (Set(ref _queueShuffleEnabled, value) && !_restoringQueue) { Settings.AutoplayQueueShuffleEnabled = value; RequestSave(); } } }
     public bool AutoplayModeActive { get => _autoplayModeActive; private set => Set(ref _autoplayModeActive, value); }
+    public bool AutoplaySongPickerActive { get => _autoplaySongPickerActive; internal set => Set(ref _autoplaySongPickerActive, value); }
     public bool IsSpaceResumePending { get => _isSpaceResumePending; set => Set(ref _isSpaceResumePending, value); }
     public Jingle? ActiveQueueItem { get => _activeQueueItem; private set => Set(ref _activeQueueItem, value); }
     public double QueueTransitionSeconds
@@ -470,6 +476,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         AutoplayModeActive = active;
         Raise(nameof(QueuedCount));
         if (active) return;
+        AutoplaySongPickerActive = false;
         _queuePrefetchCancellation?.Cancel();
         _activeQueueJingleId = null;
         _queueTransitionStarted = false;
@@ -517,16 +524,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         if (PlaybackQueue.Any(item => item.Id == jingle.Id && string.Equals(item.FilePath, jingle.FilePath, StringComparison.OrdinalIgnoreCase))) return;
         PlaybackQueue.Add(jingle);
-        _queuePlaybackIndex = 0;
         UpdateQueuePositions();
     }
 
     public void RemoveFromQueue(Jingle jingle)
     {
-        var existing = PlaybackQueue.FirstOrDefault(item => item.Id == jingle.Id ||
-            string.Equals(item.FilePath, jingle.FilePath, StringComparison.OrdinalIgnoreCase));
+        var existing = PlaybackQueue.FirstOrDefault(item => ReferenceEquals(item, jingle)) ??
+            PlaybackQueue.FirstOrDefault(item => item.Id == jingle.Id &&
+                string.Equals(item.FilePath, jingle.FilePath, StringComparison.OrdinalIgnoreCase));
         if (existing is not null) PlaybackQueue.Remove(existing);
-        _queuePlaybackIndex = 0;
         UpdateQueuePositions();
     }
 
@@ -667,11 +673,42 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public void MoveQueueItem(Jingle item, int offset)
     {
         var oldIndex = PlaybackQueue.IndexOf(item);
+        if (oldIndex < 0) return;
         var newIndex = Math.Clamp(oldIndex + offset, 0, PlaybackQueue.Count - 1);
-        if (oldIndex < 0 || oldIndex == newIndex) return;
+        if (oldIndex == newIndex) return;
         PlaybackQueue.Move(oldIndex, newIndex);
-        _queuePlaybackIndex = 0;
         UpdateQueuePositions();
+    }
+
+    private void RebaseQueueCursor(NotifyCollectionChangedEventArgs change)
+    {
+        // Keep the boundary after the playing occurrence, including duplicate
+        // playlist entries. If it is removed, continue at its former successor.
+        if (change.Action == NotifyCollectionChangedAction.Move)
+        {
+            var activeIndex = _queuePlaybackIndex - 1;
+            var oldIndex = change.OldStartingIndex;
+            var newIndex = change.NewStartingIndex;
+            var relocated = activeIndex == oldIndex ? newIndex
+                : oldIndex < activeIndex && newIndex >= activeIndex ? activeIndex - 1
+                : oldIndex > activeIndex && newIndex <= activeIndex ? activeIndex + 1 : activeIndex;
+            if (relocated >= 0 && relocated < PlaybackQueue.Count && ReferenceEquals(PlaybackQueue[relocated], ActiveQueueItem))
+                _queuePlaybackIndex = relocated + 1;
+            else
+            {
+                if (oldIndex < _queuePlaybackIndex) _queuePlaybackIndex--;
+                if (newIndex < _queuePlaybackIndex) _queuePlaybackIndex++;
+            }
+        }
+        else if (change.Action == NotifyCollectionChangedAction.Add && change.NewStartingIndex < _queuePlaybackIndex)
+            _queuePlaybackIndex += change.NewItems!.Count;
+        else if (change.Action == NotifyCollectionChangedAction.Remove && change.OldStartingIndex < _queuePlaybackIndex)
+        {
+            if (change.OldStartingIndex + change.OldItems!.Count >= _queuePlaybackIndex) ActiveQueueItem = null;
+            _queuePlaybackIndex -= Math.Min(change.OldItems!.Count, _queuePlaybackIndex - change.OldStartingIndex);
+        }
+        else if (change.Action == NotifyCollectionChangedAction.Reset)
+            _queuePlaybackIndex = 0;
     }
 
     public void MarkFadingOut()

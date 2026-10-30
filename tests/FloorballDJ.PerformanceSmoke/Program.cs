@@ -54,6 +54,7 @@ internal static class Program
                 else if (arguments.Contains("--save-checks")) await SaveChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--metadata-checks")) await MetadataChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--autoplay-checks")) await AutoplayChecks.RunAsync(root, Argument(arguments, "--output"));
+                else if (arguments.Contains("--autoplay-editing-checks")) await AutoplayEditingChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--ui-work-checks")) await UiWorkChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--random-settings-checks")) await RandomSettingsChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--random-settings-layout-checks")) await RandomSettingsLayoutChecks.RunAsync(root, Argument(arguments, "--output"));

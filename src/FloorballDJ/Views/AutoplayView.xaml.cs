@@ -14,6 +14,8 @@ namespace FloorballDJ.Views;
 
 public partial class AutoplayView : UserControl
 {
+    public event EventHandler? SongPickerRequested;
+    private void ChooseDeckSongs_Click(object sender, RoutedEventArgs e) => SongPickerRequested?.Invoke(this, EventArgs.Empty);
     private readonly ObservableCollection<Jingle> _filtered = [];
     private readonly ObservableCollection<DeckFilter> _filters = [];
     private readonly List<Jingle> _folderItems = [];
