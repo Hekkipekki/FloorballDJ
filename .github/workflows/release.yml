@@ -88,6 +88,12 @@ jobs:
           dotnet run --project tests/FloorballDJ.PerformanceSmoke/FloorballDJ.PerformanceSmoke.csproj --configuration Release -- --transfer-draft-checks
           if ($LASTEXITCODE -ne 0) { throw "Transfer and working-copy regression checks failed." }
 
+      - name: Verify permanent profile backup history
+        shell: pwsh
+        run: |
+          dotnet run --project tests/FloorballDJ.PerformanceSmoke/FloorballDJ.PerformanceSmoke.csproj --configuration Release -- --profile-history-checks
+          if ($LASTEXITCODE -ne 0) { throw "Permanent profile backup history regression checks failed." }
+
       - name: Verify startup update notification and help
         shell: pwsh
         run: |

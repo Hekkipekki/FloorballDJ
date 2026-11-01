@@ -10,11 +10,9 @@ public sealed record WorkingCopyInfo(string ProfilePath, string? SourcePath, str
 public sealed class WorkingCopyService
 {
     private readonly string _root;
-    private readonly string _revisionsRoot;
     public WorkingCopyService(string appDataDirectory)
     {
         _root = Path.Combine(appDataDirectory, "Arbetskopior");
-        _revisionsRoot = Path.Combine(appDataDirectory, "Revisions");
     }
 
     public string GetPath(string? sourcePath, Guid profileId)
@@ -62,10 +60,7 @@ public sealed class WorkingCopyService
         var metadata = Path.Combine(directory, "recovery.json");
         if (File.Exists(metadata)) File.Delete(metadata);
         if (Directory.Exists(directory) && !Directory.EnumerateFileSystemEntries(directory).Any()) Directory.Delete(directory);
-        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Path.GetFullPath(path).ToUpperInvariant())))[..12];
-        var revisions = Path.GetFullPath(Path.Combine(_revisionsRoot, hash));
-        var revisionsRoot = Path.GetFullPath(_revisionsRoot).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        if (!revisions.StartsWith(revisionsRoot, StringComparison.OrdinalIgnoreCase)) throw new IOException("Ogiltig arbetskopiehistorik.");
-        if (Directory.Exists(revisions)) Directory.Delete(revisions, true);
+        // Revisions outlive recovery files. Old revision folders remain readable
+        // and are imported into the profile's permanent history before cleanup.
     }
 }

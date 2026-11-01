@@ -175,7 +175,8 @@
                 </StackPanel>
             </StatusBarItem>
             <Separator />
-            <StatusBarItem Content="Alla ändringar autosparas" />
+            <StatusBarItem Content="Originalprofilen sparas manuellt"
+                           ToolTip="Ändringar säkerhetskopieras lokalt. Spara eller Ctrl+S uppdaterar originalfilen." />
             <Separator />
             <StatusBarItem ToolTip="Öppna Hjälp → Licens och provperiod för information och aktivering.">
                 <TextBlock x:Name="LicenseStatusText" Foreground="{StaticResource MutedBrush}" />
@@ -255,7 +256,7 @@
                         <MenuItem Header="Kom igång och hjälp…" Click="Help_Click" InputGestureText="F1" />
                         <MenuItem Header="Sök efter uppdateringar…" Click="CheckForUpdates_Click" />
                         <MenuItem Header="Licens och provperiod…" Click="License_Click" />
-                        <MenuItem Header="Autosparningshistorik…" Click="RevisionHistory_Click" />
+                        <MenuItem Header="Backup och revisionshistorik…" Click="RevisionHistory_Click" />
                         <Separator />
                         <MenuItem Header="Om FloorballDJ" Click="About_Click" />
                     </MenuItem>

@@ -2209,7 +2209,12 @@ public partial class MainWindow : Window
             var text = string.Format(LanguageService.Translate("Det finns osparade profiländringar för ‘{0}’ från {1}. Vill du återställa dem?\n\nJa: återställ. Nej: kasta arbetskopian. Avbryt: behåll den till senare."), copy.ProfileName, copy.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm"));
             var choice = MessageBox.Show(this, text, LanguageService.Translate("Återställ arbetskopia"), MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
             if (choice == MessageBoxResult.Cancel) break;
-            if (choice == MessageBoxResult.No) { ViewModel.DeleteRecovery(copy); continue; }
+            if (choice == MessageBoxResult.No)
+            {
+                try { await ViewModel.DeleteRecoveryAsync(copy); }
+                catch (Exception ex) { MessageBox.Show(this, ex.Message, LanguageService.Translate("Kunde inte spara"), MessageBoxButton.OK, MessageBoxImage.Warning); break; }
+                continue;
+            }
             try { await ViewModel.RecoverAsync(copy); RefreshOutputName(); }
             catch (Exception ex) { MessageBox.Show(this, ex.Message, LanguageService.Translate("Kunde inte återställa"), MessageBoxButton.OK, MessageBoxImage.Warning); }
             break;

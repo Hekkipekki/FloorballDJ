@@ -1,7 +1,7 @@
 <Window x:Class="FloorballDJ.Views.RevisionHistoryWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Autosparningshistorik" Width="1100" Height="620" MinWidth="820" MinHeight="430"
+        Title="Backup och revisionshistorik" Width="1240" Height="780" MinWidth="950" MinHeight="600"
         WindowStartupLocation="CenterOwner">
     <Grid Margin="24,20">
         <Grid.RowDefinitions>
@@ -11,30 +11,70 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <StackPanel>
-            <TextBlock Text="AUTOSPARADE REVISIONER" Style="{StaticResource EyebrowText}" />
-            <TextBlock Text="Gå tillbaka till en tidigare version" Style="{StaticResource SectionTitle}" FontSize="26" Margin="0,3,0,2" />
-            <TextBlock Text="Sparade profiler och arbetskopior har egen historik. Granska och spara manuellt efter återställning."
+            <TextBlock Text="LOKALA PROFILBACKUPER" Style="{StaticResource EyebrowText}" />
+            <TextBlock x:Name="ProfileTitle" Text="Gå tillbaka till en tidigare version" Style="{StaticResource SectionTitle}" FontSize="26" Margin="0,3,0,2" TextWrapping="Wrap" />
+            <TextBlock Text="Originalprofilen ändras bara när du sparar manuellt. Säkerhetskopiorna finns kvar även efter Spara inte."
                        Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
+            <DockPanel Margin="0,10,0,0">
+                <Button DockPanel.Dock="Right" Content="Öppna backupmapp" Style="{StaticResource SecondaryButton}" Margin="12,0,0,0" Click="OpenFolder_Click" />
+                <TextBlock x:Name="BackupPathText" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            </DockPanel>
         </StackPanel>
         <Border Grid.Row="1" Background="#102038" CornerRadius="7" Padding="12,9" Margin="0,16,0,10">
-            <TextBlock x:Name="StatusText" Text="Läser in historiken…" Foreground="{StaticResource MutedBrush}" />
+            <StackPanel>
+                <TextBlock x:Name="StatusText" Text="Läser in historiken…" Foreground="{StaticResource MutedBrush}" />
+                <WrapPanel Margin="0,8,0,0" VerticalAlignment="Center">
+                    <ComboBox x:Name="HistoryFilter" Width="240" SelectedIndex="0" SelectionChanged="Filter_Changed" Style="{StaticResource DarkComboBox}">
+                        <ComboBoxItem Content="Alla återställningspunkter" Tag="all"/>
+                        <ComboBoxItem Content="Sparade originalversioner" Tag="saved"/>
+                        <ComboBoxItem Content="Osparade ändringar" Tag="draft"/>
+                    </ComboBox>
+                    <TextBlock Text="Sök i ändringar" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="16,0,8,0"/>
+                    <TextBox x:Name="HistorySearch" Width="220" TextChanged="Search_Changed" ToolTip="Sök efter låtnamn, deck, ändring eller datum"/>
+                </WrapPanel>
+            </StackPanel>
         </Border>
-        <ListView x:Name="RevisionList" Grid.Row="2" SelectionMode="Single" MouseDoubleClick="RevisionList_MouseDoubleClick">
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="420"/><ColumnDefinition Width="12"/><ColumnDefinition Width="310"/></Grid.ColumnDefinitions>
+        <ListView x:Name="RevisionList" SelectionMode="Single" SelectionChanged="RevisionList_SelectionChanged"
+                  VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="TIDPUNKT" Width="180" DisplayMemberBinding="{Binding TimestampText}" />
-                    <GridViewColumn Header="HÄNDELSE" Width="420" DisplayMemberBinding="{Binding ChangeDescription}" />
-                    <GridViewColumn Header="PROFIL" Width="190" DisplayMemberBinding="{Binding ProjectName}" />
-                    <GridViewColumn Header="INNEHÅLL" Width="150" DisplayMemberBinding="{Binding Summary}" />
-                    <GridViewColumn Header="STORLEK" Width="80" DisplayMemberBinding="{Binding SizeText}" />
+                    <GridViewColumn Header="TIDPUNKT" Width="165" DisplayMemberBinding="{Binding TimestampText}" />
+                    <GridViewColumn Header="TYP" Width="170" DisplayMemberBinding="{Binding KindText}" />
+                    <GridViewColumn Header="ÄNDRING" Width="310" DisplayMemberBinding="{Binding ChangeDescription}" />
                 </GridView>
             </ListView.View>
         </ListView>
+            <Border Grid.Column="2" Style="{StaticResource CardBorder}" Padding="16">
+                <Grid>
+                    <TextBlock x:Name="SelectionHint" Text="Välj en version för att se ändringsloggen." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"/>
+                    <Grid x:Name="RevisionDetails" DataContext="{Binding ElementName=RevisionList, Path=SelectedItem}" Visibility="Collapsed">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="{Binding KindText}" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding TimestampText}" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                            <TextBlock Text="{Binding Summary}" Foreground="{StaticResource MutedBrush}" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding ProjectName}" Foreground="{StaticResource MutedBrush}" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="1" Text="ÄNDRINGSLOGG" Style="{StaticResource EyebrowText}" Margin="0,20,0,8"/>
+                        <TextBox x:Name="ChangeLogText" Grid.Row="2" Text="{Binding ChangeLog, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
+                                 VerticalContentAlignment="Top"
+                                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AcceptsReturn="True" Padding="8"/>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
         <Grid Grid.Row="3" Margin="0,16,0,0">
-            <TextBlock Text="De 100 senaste ändrade versionerna sparas." Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Manuella sparningar behålls. De 100 senaste automatiska revisionerna sparas separat." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"/>
+                <TextBlock Text="Återställning stoppar uppspelningen och öppnar versionen för granskning. Spara manuellt för att ersätta originalet."
+                           Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                 <Button Content="Stäng" Style="{StaticResource SecondaryButton}" MinWidth="96" Margin="0,0,8,0" IsCancel="True" />
-                <Button Content="Återställ vald" Style="{StaticResource PrimaryButton}" MinWidth="125" Click="Restore_Click" />
+                <Button x:Name="RestoreButton" Content="Återställ för granskning" Style="{StaticResource PrimaryButton}" MinWidth="180" Click="Restore_Click" IsEnabled="False" />
             </StackPanel>
         </Grid>
     </Grid>

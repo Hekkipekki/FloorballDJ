@@ -11,7 +11,7 @@ public partial class UnsavedProfileWindow : Window
     public UnsavedProfileWindow(string profileName)
     {
         InitializeComponent();
-        DescriptionText.Text = string.Format(LanguageService.Translate("Profilen ‘{0}’ har osparade ändringar. Spara inte tar även bort den tillfälliga arbetskopian."), profileName);
+        DescriptionText.Text = string.Format(LanguageService.Translate("Profilen ‘{0}’ har osparade ändringar. Spara inte lämnar originalfilen orörd. En lokal säkerhetskopia och revisionshistoriken behålls."), profileName);
         WindowPlacementService.FitToOwnerMonitor(this);
     }
     private void Save_Click(object sender, RoutedEventArgs e) { Choice = UnsavedProfileChoice.Save; DialogResult = true; }

@@ -34,7 +34,8 @@ public sealed partial class ProjectService
     public async Task SaveAsync(FloorballProject project, string path)
         => await PrepareSave(project, path).SaveAsync().ConfigureAwait(false);
 
-    internal PreparedSave PrepareSave(FloorballProject project, string path)
+    internal PreparedSave PrepareSave(FloorballProject project, string path, ProfileBackupTarget? backup = null,
+        ProfileRevisionKind kind = ProfileRevisionKind.Autosave, ProfileBackupTarget? branchFrom = null)
     {
         var performance = PerformanceDiagnostics.BeginOperation("SaveRequested");
         var started = performance.Timestamp;
@@ -44,7 +45,7 @@ public sealed partial class ProjectService
             using (performance.Measure("SaveSnapshot")) snapshot = ProjectSaveSnapshot.Capture(project);
             snapshot.MakePathsRelativeTo(path);
             performance.Mark("SaveSnapshotReady");
-            return new PreparedSave(this, snapshot, Path.GetFullPath(path), performance, started);
+            return new PreparedSave(this, snapshot, Path.GetFullPath(path), performance, started, backup, kind, branchFrom);
         }
         catch (Exception exception)
         {
@@ -55,7 +56,7 @@ public sealed partial class ProjectService
     }
 
     internal sealed class PreparedSave(ProjectService owner, ProjectSaveSnapshot snapshot, string path,
-        PerformanceOperation performance, long started)
+        PerformanceOperation performance, long started, ProfileBackupTarget? backup, ProfileRevisionKind kind, ProfileBackupTarget? branchFrom)
     {
         private int _state;
         internal string Path { get; } = path;
@@ -73,7 +74,7 @@ public sealed partial class ProjectService
                     {
                         using (performance.Measure("SaveQueueWait"))
                             try { await predecessor.ConfigureAwait(false); } catch { /* A failed save must not strand later saves. */ }
-                        await owner.CommitSaveAsync(snapshot, Path, performance).ConfigureAwait(false);
+                        await owner.CommitSaveAsync(snapshot, Path, performance, backup, kind, branchFrom).ConfigureAwait(false);
                     }
                     catch (Exception exception)
                     {
@@ -93,7 +94,8 @@ public sealed partial class ProjectService
         }
     }
 
-    private async Task CommitSaveAsync(ProjectSaveSnapshot ownedSnapshot, string path, PerformanceOperation performance)
+    private async Task CommitSaveAsync(ProjectSaveSnapshot ownedSnapshot, string path, PerformanceOperation performance,
+        ProfileBackupTarget? backup, ProfileRevisionKind kind, ProfileBackupTarget? branchFrom)
     {
         // Already on the ordered worker. Preserve the original JSON options and bytes.
         byte[] snapshot;
@@ -121,6 +123,8 @@ public sealed partial class ProjectService
                 await Task.Run(() =>
                 {
                     using var revisionDuration = performance.Measure("RevisionAndReplace");
+                    if (backup is not null)
+                        PreserveProfileSnapshot(backup, snapshot, Path.GetDirectoryName(path)!, kind, branchFrom);
                     CreateRevisionIfChanged(path, temporaryPath);
                     File.Move(temporaryPath, path, true);
                 }).ConfigureAwait(false);
@@ -943,6 +947,16 @@ public sealed partial class ProjectService
 public sealed record ProjectRevision(string Path, DateTime Timestamp, string ProjectName, int DeckCount, int JingleCount,
     long FileSize, string ChangeDescription)
 {
+    public ProfileRevisionKind Kind { get; init; } = ProfileRevisionKind.Legacy;
+    public string ChangeLog { get; init; } = "";
+    public string? MediaBaseDirectory { get; init; }
+    public bool IsSavedVersion => Kind is ProfileRevisionKind.Original or ProfileRevisionKind.ManualSave or ProfileRevisionKind.LegacySaved;
+    public string KindText => LanguageService.Translate(Kind switch
+    {
+        ProfileRevisionKind.Original => "Sparad originalprofil", ProfileRevisionKind.ManualSave => "Manuell sparning",
+        ProfileRevisionKind.Discarded => "Behållen efter Spara inte", ProfileRevisionKind.BeforeRestore => "Före återställning",
+        ProfileRevisionKind.LegacySaved => "Äldre sparad profil", ProfileRevisionKind.Legacy => "Äldre arbetskopia", _ => "Autosparning"
+    });
     public string TimestampText => Timestamp.ToString("yyyy-MM-dd  HH:mm:ss");
     public string Summary => $"{DeckCount} deck • {JingleCount} jinglar";
     public string SizeText => FileSize < 1024 ? $"{FileSize} B" : $"{FileSize / 1024d:0.#} KB";

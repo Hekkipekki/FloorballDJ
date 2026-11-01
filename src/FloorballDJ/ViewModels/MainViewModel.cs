@@ -277,6 +277,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public bool HasNamedProfile => _currentPath is not null && !string.Equals(_currentPath, _projects.DefaultProjectPath, StringComparison.OrdinalIgnoreCase);
     public bool HasUnsavedChanges => _savedFingerprint != ProjectService.ContentFingerprint(Project);
     public string WorkingCopyPath => _workingCopies.GetPath(HasNamedProfile ? _currentPath : null, Project.Id);
+    private ProfileBackupTarget CurrentBackupTarget => new(HasNamedProfile ? _currentPath! : WorkingCopyPath,
+        HasNamedProfile ? ProfileDisplayName : "Osparad profil", HasNamedProfile ? _currentPath : null, WorkingCopyPath);
+    public string LocalProfileBackupPath => _projects.ProfileBackupPath(CurrentBackupTarget);
     public IReadOnlyList<WorkingCopyInfo> RecoverableCopies => _workingCopies.Find();
     public string ProfileDisplayName => GetActiveProfileDisplayName();
 
@@ -759,7 +762,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         var oldWorkingPath = WorkingCopyPath;
         var target = Path.GetFullPath(path ?? CurrentProjectPath);
         var fingerprint = ProjectService.ContentFingerprint(Project);
-        var context = new SaveContext(_projects.PrepareSave(Project, target), Project, _projectGeneration, _saveVersion);
+        var previousBackup = CurrentBackupTarget;
+        var namedTarget = !string.Equals(target, Path.GetFullPath(_projects.DefaultProjectPath), StringComparison.OrdinalIgnoreCase);
+        var backupTarget = namedTarget ? new ProfileBackupTarget(target, GetProfileDisplayName(target), target,
+            _workingCopies.GetPath(target, Project.Id)) : previousBackup;
+        var context = new SaveContext(_projects.PrepareSave(Project, target, backupTarget, ProfileRevisionKind.ManualSave, previousBackup),
+            Project, _projectGeneration, _saveVersion);
         await context.Save.SaveAsync().ConfigureAwait(false);
         await _ownerDispatcher.InvokeAsync(async () =>
         {
@@ -786,13 +794,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     // Flush recovery data only. Named profiles change exclusively through SaveAsync.
-    public async Task FlushSavesAsync()
+    public async Task FlushSavesAsync(ProfileRevisionKind kind = ProfileRevisionKind.Autosave)
     {
         do
         {
             CancelDelayedSave();
             SupersedePendingAutosave();
-            var context = CaptureSave();
+            var context = CaptureSave(kind);
             await context.Save.SaveAsync();
             ReportSaveCompleted(context);
             if (_autosaveRunning) await _autosaveTask;
@@ -806,11 +814,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         else if (_autosaveRunning) await _autosaveTask;
     }
 
-    private SaveContext CaptureSave()
+    private SaveContext CaptureSave(ProfileRevisionKind kind = ProfileRevisionKind.Autosave)
     {
         var path = WorkingCopyPath;
         _workingCopies.Prepare(path, HasNamedProfile ? _currentPath : null, ProfileDisplayName);
-        return new(_projects.PrepareSave(Project, path), Project, _projectGeneration, _saveVersion);
+        return new(_projects.PrepareSave(Project, path, CurrentBackupTarget, kind), Project, _projectGeneration, _saveVersion);
     }
 
     private bool IsCurrentSave(SaveContext context) => !_disposed &&
@@ -931,6 +939,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             performance.Mark("ProfileSlotCount", Decks.Sum(deck => deck.Jingles.Count));
         }
         Status = $"Öppnade {Path.GetFileName(path)}";
+        try { await _projects.EnsureProfileBackupAsync(CurrentBackupTarget); }
+        catch (Exception ex) { Status = $"Profilen öppnades, men den lokala backupen kunde inte skapas: {ex.Message}"; }
     }
 
     public async Task RecoverAsync(WorkingCopyInfo copy)
@@ -954,6 +964,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         CancelDelayedSave();
         SupersedePendingAutosave();
         if (_autosaveRunning) await _autosaveTask;
+        // Keep the final edit even if Don't save beats the autosave delay.
+        // Only the temporary crash-recovery file is dismissed below.
+        if (HasUnsavedChanges || _saveDirty) await FlushSavesAsync(ProfileRevisionKind.Discarded);
         CancelDelayedSave();
         SupersedePendingAutosave();
         _workingCopies.Delete(WorkingCopyPath);
@@ -961,7 +974,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _savedFingerprint = ProjectService.ContentFingerprint(Project);
     }
 
-    public void DeleteRecovery(WorkingCopyInfo copy) => _workingCopies.Delete(copy.ProfilePath);
+    public async Task DeleteRecoveryAsync(WorkingCopyInfo copy)
+    {
+        await _projects.PreserveRecoveryAsync(copy);
+        _workingCopies.Delete(copy.ProfilePath);
+    }
 
     public async Task NewProjectAsync()
     {
@@ -1002,30 +1019,28 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public async Task<IReadOnlyList<ProjectRevision>> GetRevisionsAsync()
     {
-        var named = await _projects.GetRevisionsAsync(CurrentProjectPath);
-        var working = await _projects.GetRevisionsAsync(WorkingCopyPath);
-        return named.Concat(working).OrderByDescending(revision => revision.Timestamp).Take(100).ToArray();
+        await FlushRequestedSavesAsync();
+        return await _projects.GetProfileHistoryAsync(CurrentBackupTarget);
     }
 
     public async Task RestoreRevisionAsync(string revisionPath)
     {
-        await FlushRequestedSavesAsync();
         var targetPath = CurrentProjectPath;
-        ClearDeckQueue();
         var restored = await _projects.LoadAsync(revisionPath, _projects.RevisionMediaDirectory(revisionPath, targetPath, WorkingCopyPath));
-        await FlushRequestedSavesAsync();
+        await FlushSavesAsync(ProfileRevisionKind.BeforeRestore);
+        _audio.StopAll();
+        ClearDeckQueue();
         Project = restored;
         ProjectService.EnsureLayout(Project);
         Shortcuts.Refresh();
         SelectedDeck = Decks.FirstOrDefault();
         _currentPath = targetPath;
-        ReplaceQueue([]);
         ConfigureAudio();
         RestoreAutoplayQueue();
         _savedFingerprint = "";
         RequestSave();
         await FlushSavesAsync();
-        Status = $"Återställde revision från {DateTime.Now:HH:mm:ss}";
+        Status = LanguageService.Translate("Versionen är återställd för granskning. Spara manuellt för att ersätta originalprofilen.");
     }
 
     public async Task<bool> ImportLegacyXmlAsync(string path)

@@ -52,6 +52,7 @@ internal static class Program
                 else if (arguments.Contains("--output-reuse-checks")) await OutputReuseChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--jingle-playback-checks")) await JinglePlaybackChecks.RunAsync(root);
                 else if (arguments.Contains("--save-checks")) await SaveChecks.RunAsync(root, Argument(arguments, "--output"));
+                else if (arguments.Contains("--profile-history-checks")) await ProfileHistoryChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--metadata-checks")) await MetadataChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--autoplay-checks")) await AutoplayChecks.RunAsync(root, Argument(arguments, "--output"));
                 else if (arguments.Contains("--autoplay-editing-checks")) await AutoplayEditingChecks.RunAsync(root, Argument(arguments, "--output"));
@@ -102,6 +103,7 @@ internal static class Program
         await OutputReuseChecks.RunAsync(root);
         await JinglePlaybackChecks.RunAsync(root);
         await SaveChecks.RunAsync(root);
+        await ProfileHistoryChecks.RunAsync(root, null);
         await TransferAndDraftChecks.RunAsync(root, null);
         await MetadataChecks.RunAsync(root);
         await AutoplayChecks.RunAsync(root);
