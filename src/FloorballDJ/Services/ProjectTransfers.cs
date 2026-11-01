@@ -61,10 +61,10 @@ public sealed partial class ProjectService
 
     private static async Task<List<string>> FindMissingBackupMediaAsync(FloorballProject project)
     {
-        var missing = project.Decks.SelectMany(deck => deck.Jingles).Concat(project.Settings.AutoplayQueueItems ?? [])
+        var missing = project.Decks.SelectMany(deck => deck.Jingles).Concat(project.Settings.AutoplayQueueItems ?? []).Concat(project.Settings.AutoplaySecondQueueItems ?? [])
             .Where(item => item.IsMissing).Select(item => item.FilePath).ToList();
         var playlists = project.Settings.AutoplayProfiles.Select(item => item.PlaylistPath)
-            .Append(project.Settings.AutoplayLastPlaylistPath).Append(project.Settings.AutoplayDefaultPlaylistPath)
+            .Append(project.Settings.AutoplaySecondPlaylistPath).Append(project.Settings.AutoplayLastPlaylistPath).Append(project.Settings.AutoplayDefaultPlaylistPath)
             .Where(path => !string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.OrdinalIgnoreCase);
         foreach (var playlist in playlists)
         {
@@ -178,7 +178,7 @@ public sealed partial class ProjectService
                 manifest.Files[relative] = hash;
                 progress?.Report(new PortableBackupProgress("Kopierar till synkmappen…", 65 + ++completedMedia * 25d / Math.Max(1, mediaFiles.Length), completedMedia, mediaFiles.Length, Path.GetFileName(media)));
             }
-            foreach (var item in copy.Decks.SelectMany(deck => deck.Jingles).Concat(copy.Settings.AutoplayQueueItems ?? []))
+            foreach (var item in copy.Decks.SelectMany(deck => deck.Jingles).Concat(copy.Settings.AutoplayQueueItems ?? []).Concat(copy.Settings.AutoplaySecondQueueItems ?? []))
                 if (item.HasAudio) item.FilePath = mapping[item.FilePath];
             var playlistMapping = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             async Task<string?> MovePlaylist(string? source)
@@ -199,6 +199,7 @@ public sealed partial class ProjectService
             }
             foreach (var playlist in copy.Settings.AutoplayProfiles) playlist.PlaylistPath = await MovePlaylist(playlist.PlaylistPath);
             copy.Settings.AutoplayLastPlaylistPath = await MovePlaylist(copy.Settings.AutoplayLastPlaylistPath);
+            copy.Settings.AutoplaySecondPlaylistPath = await MovePlaylist(copy.Settings.AutoplaySecondPlaylistPath);
             copy.Settings.AutoplayDefaultPlaylistPath = await MovePlaylist(copy.Settings.AutoplayDefaultPlaylistPath);
             copy.Settings.MusicFolderPath = Path.Combine(root, "Media");
             await SaveAsync(copy, profileTarget);

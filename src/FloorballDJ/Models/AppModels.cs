@@ -6,6 +6,9 @@ using System.Text.Json.Serialization;
 namespace FloorballDJ.Models;
 
 public enum JinglePlayMode { Mix, Solo, Duck }
+public enum AutoplayTransitionType { Crossfade, FadeInOut }
+
+public sealed record AutoplayClipOptions(Guid JingleId, bool UseRawFile = false, double? EndSeconds = null);
 
 public sealed class AppSettings : INotifyPropertyChanged
 {
@@ -46,12 +49,25 @@ public sealed class AppSettings : INotifyPropertyChanged
     public double FadeInSeconds { get; set; } = 1.5;
     public double FadeOutSeconds { get; set; } = 2.5;
     public double AutoplayTransitionSeconds { get; set; } = 4;
+    public AutoplayTransitionType AutoplayTransitionType { get; set; }
+    public double AutoplayFadeInSeconds { get; set; } = 2;
+    public double AutoplayFadeOutSeconds { get; set; } = 2;
+    public double AutoplaySecondTransitionSeconds { get; set; } = 4;
+    public AutoplayTransitionType AutoplaySecondTransitionType { get; set; }
+    public double AutoplaySecondFadeInSeconds { get; set; } = 2;
+    public double AutoplaySecondFadeOutSeconds { get; set; } = 2;
+    public List<AutoplayClipOptions> AutoplayClipOptions { get; set; } = [];
+    public List<AutoplayClipOptions> AutoplaySecondClipOptions { get; set; } = [];
     public string? AutoplayDefaultPlaylistPath { get; set; }
     public string? AutoplayLastPlaylistPath { get; set; }
     public string? AutoplayShortcut { get; set; }
     public double AutoplayDefaultPlaylistVolumeDb { get; set; }
     public List<AutoplayProfile> AutoplayProfiles { get; set; } = [];
     public List<Jingle> AutoplayQueueItems { get; set; } = [];
+    public List<Jingle> AutoplaySecondQueueItems { get; set; } = [];
+    public string? AutoplaySecondPlaylistPath { get; set; }
+    public bool AutoplaySecondQueueShuffleEnabled { get; set; }
+    public bool AutoplaySecondQueueLoopEnabled { get; set; } = true;
     public bool AutoplayQueueShuffleEnabled { get; set; }
     public bool AutoplayQueueLoopEnabled { get; set; } = true;
     public double DuckLevelDb { get; set; } = -12;
@@ -83,6 +99,9 @@ public sealed class AppSettings : INotifyPropertyChanged
         copy.PropertyChanged = null;
         copy.AutoplayProfiles = AutoplayProfiles?.Select(item => item?.CopyForSave()!).ToList()!;
         copy.AutoplayQueueItems = AutoplayQueueItems?.Select(item => item?.CopyForSave()!).ToList()!;
+        copy.AutoplaySecondQueueItems = AutoplaySecondQueueItems?.Select(item => item?.CopyForSave()!).ToList()!;
+        copy.AutoplayClipOptions = AutoplayClipOptions?.Select(item => item with { }).ToList()!;
+        copy.AutoplaySecondClipOptions = AutoplaySecondClipOptions?.Select(item => item with { }).ToList()!;
         copy.RandomPoolDeckIds = RandomPoolDeckIds?.ToList()!;
         copy.RandomPoolJingleIds = RandomPoolJingleIds?.ToList()!;
         copy.RandomPoolProfiles = RandomPoolProfiles?.Select(item => item?.CopyForSave()!).ToList()!;

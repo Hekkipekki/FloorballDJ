@@ -170,7 +170,8 @@ internal static class UpdateNotificationChecks
             var page = (ScrollViewer)help.FindName("AutoplayPage");
             var text = string.Join(" ", Children(page).OfType<TextBlock>().Select(block => block.Text));
             Check(text.Contains(language == "en" ? "session indicator is hidden" : "gröna sessionsikonen är dold") &&
-                text.Contains(language == "en" ? "new order" : "nya ordningen"), "Autoplay help covers edited order and picker/session markers");
+                text.Contains(language == "en" ? "two playlists" : "två spellistor") && text.Contains(language == "en" ? "Select page" : "Markera sidan") &&
+                text.Contains(language == "en" ? "without a save prompt" : "utan sparfråga"), "Autoplay help covers two lists, bulk selection, save prompts and picker/session markers");
             if (output is not null) Save((FrameworkElement)help.Content, output, $"help-autoplay-{language}.png");
             show.Invoke(help, ["license"]); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             var updateText = string.Join(" ", Children((ScrollViewer)help.FindName("LicensingPage")).OfType<TextBlock>().Select(block => block.Text));

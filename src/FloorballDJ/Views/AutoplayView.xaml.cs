@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Globalization;
 using System.ComponentModel;
 using System.Windows;
@@ -16,19 +15,16 @@ public partial class AutoplayView : UserControl
 {
     public event EventHandler? SongPickerRequested;
     private void ChooseDeckSongs_Click(object sender, RoutedEventArgs e) => SongPickerRequested?.Invoke(this, EventArgs.Empty);
-    private readonly ObservableCollection<Jingle> _filtered = [];
-    private readonly ObservableCollection<DeckFilter> _filters = [];
     private readonly List<Jingle> _folderItems = [];
     private readonly SemaphoreSlim _libraryGate = new(1, 1);
     private Point _queueDragStart;
     private Jingle? _queueDragItem;
+    private int _queueDragSlot;
     private ListBoxItem? _queueDropTarget;
     private bool _dropAfter;
     private CancellationTokenSource? _refreshCancellation;
-    private CancellationTokenSource? _filterCancellation;
     private CancellationTokenSource? _playlistCancellation;
     private long _playlistVersion;
-    private bool _updatingFilters;
     private FloorballProject? _folderProject;
     private string? _folderPath;
     internal PlaylistService Playlists { get; init; } = PlaylistService.Shared;
@@ -38,8 +34,6 @@ public partial class AutoplayView : UserControl
     public AutoplayView()
     {
         InitializeComponent();
-        AvailableList.ItemsSource = _filtered;
-        DeckFilterCombo.ItemsSource = _filters;
         DataContextChanged += (_, e) =>
         {
             CancelPlaylistPreparation();
@@ -60,13 +54,19 @@ public partial class AutoplayView : UserControl
             _playlistVersion++;
             CancelPlaylistPreparation();
             _refreshCancellation?.Cancel();
-            _filterCancellation?.Cancel();
         };
     }
 
     private void PrimaryPlaybackStarted(object? sender, EventArgs e) => CancelPlaylistPreparation();
     private void ViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(MainViewModel.EditingQueueIndex)) CancelPlaylistPreparation();
+        if (e.PropertyName == nameof(MainViewModel.ActiveQueueItem) && sender is MainViewModel current && current.ActiveQueueItem is { } active)
+        {
+            var list = ReferenceEquals(current.PlayingPlaybackQueue, current.RightPlaybackQueue) ? RightQueueList : QueueList;
+            list.SelectedItem = active;
+            list.Dispatcher.BeginInvoke(() => { if (list.Items.Contains(active)) list.ScrollIntoView(active); });
+        }
         if (e.PropertyName == nameof(MainViewModel.AutoplayModeActive) && sender is MainViewModel { AutoplayModeActive: false })
             CancelPlaylistPreparation();
     }
@@ -92,13 +92,6 @@ public partial class AutoplayView : UserControl
         var deckPaths = viewModel.Decks.SelectMany(deck => deck.Jingles).Select(jingle => jingle.FilePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
         try
         {
-            _updatingFilters = true;
-            var selectedName = (DeckFilterCombo.SelectedItem as DeckFilter)?.Name ?? "Alla";
-            _filters.Clear();
-            _filters.Add(new DeckFilter("Alla", null));
-            foreach (var deck in viewModel.Decks.Take(viewModel.Settings.DeckCount)) _filters.Add(new DeckFilter(deck.Name, deck));
-            DeckFilterCombo.SelectedItem = _filters.FirstOrDefault(item => item.Name == selectedName) ?? _filters[0];
-            _updatingFilters = false;
             _folderItems.Clear();
             _folderProject = null;
             if (!string.IsNullOrWhiteSpace(folder))
@@ -129,24 +122,13 @@ public partial class AutoplayView : UserControl
             _folderProject = project;
             _folderPath = folder;
             FolderText.Text = string.IsNullOrWhiteSpace(folder) ? "Ingen musikmapp vald" : $"Musikmapp: {new DirectoryInfo(folder).Name}";
-            ApplyFilter();
         }
         catch (OperationCanceledException) { }
         finally
         {
-            _updatingFilters = false;
             Interlocked.CompareExchange(ref _refreshCancellation, null, cancellation);
             cancellation.Dispose();
         }
-    }
-
-    private IEnumerable<Jingle> SelectedSource()
-    {
-        if (DeckFilterCombo.SelectedItem is DeckFilter { Deck: not null } selected)
-            return selected.Deck.Jingles.Where(jingle => jingle.HasAudio);
-        return ViewModel.Decks.Take(ViewModel.Settings.DeckCount).SelectMany(deck => deck.Jingles).Where(jingle => jingle.HasAudio)
-            .Select(jingle => RawFile(jingle.FilePath)).Concat(_folderItems.Select(jingle => RawFile(jingle.FilePath)))
-            .DistinctBy(jingle => jingle.FilePath, StringComparer.OrdinalIgnoreCase);
     }
 
     private static Jingle RawFile(string path) => new()
@@ -156,63 +138,67 @@ public partial class AutoplayView : UserControl
         FadeInOverrideSeconds = null, FadeOutOverrideSeconds = null, PlayMode = JinglePlayMode.Solo
     };
 
-    private void ApplyFilter()
-    {
-        if (DataContext is not MainViewModel) return;
-        var query = SearchBox.Text.Trim();
-        _filtered.Clear();
-        foreach (var item in SelectedSource().Where(item => string.IsNullOrWhiteSpace(query) || item.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase)).OrderBy(item => item.Title))
-            _filtered.Add(item);
-    }
-
     private async void ChooseMusicFolder_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFolderDialog { Title = "Välj mappen där musiken sparas", Multiselect = false };
         if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
-        ViewModel.Settings.MusicFolderPath = dialog.FolderName;
-        await RefreshAvailableAsync();
-        ViewModel.RequestSave();
-        try { await ViewModel.FlushSavesAsync(); } catch { }
+        await AddMusicFolderAsync(dialog.FolderName);
     }
 
-    private void AddSelected_Click(object sender, RoutedEventArgs e) => AddSelected();
-    private void AvailableList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => AddSelected();
-    private void AddSelected() { if (AvailableList.SelectedItem is Jingle item) ViewModel.AddToQueue(item); }
-    private void RemoveSelected_Click(object sender, RoutedEventArgs e) { if (QueueList.SelectedItem is Jingle item) ViewModel.RemoveFromQueue(item); }
+    internal async Task AddMusicFolderAsync(string folder)
+    {
+        var vm = ViewModel;
+        var project = vm.Project;
+        var slot = vm.EditingQueueIndex;
+        var revision = vm.QueueRevision;
+        CancelPlaylistPreparation();
+        vm.Settings.MusicFolderPath = folder;
+        vm.RequestSave();
+        await RefreshAvailableAsync();
+        if (!ReferenceEquals(DataContext, vm) || !ReferenceEquals(project, vm.Project) ||
+            !ReferenceEquals(_folderProject, project) || _folderPath != folder || slot != vm.EditingQueueIndex || revision != vm.QueueRevision) return;
+        var prefix = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var items = vm.Decks.SelectMany(deck => deck.Jingles)
+            .Where(item => item.HasAudio && !item.IsTextBlock && Path.GetFullPath(item.FilePath).StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .Concat(_folderItems).DistinctBy(item => item.FilePath, StringComparer.OrdinalIgnoreCase).OrderBy(item => item.Title).ToArray();
+        vm.InQueue(slot, () => { foreach (var item in items) vm.AddToQueue(item); });
+        try { await vm.FlushSavesAsync(); } catch { }
+    }
+
+    private ListBox SelectedQueueList => ViewModel.EditingQueueIndex == 0 ? QueueList : RightQueueList;
+    internal IReadOnlyList<Jingle> FolderItems => _folderItems;
+    private void PlaylistPanel_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) => SelectPlaylistPanel(sender);
+    private void PlaylistPanel_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e) => SelectPlaylistPanel(sender);
+    private void SelectPlaylistPanel(object sender)
+    {
+        if (DataContext is MainViewModel vm && sender is FrameworkElement { Tag: string tag } && int.TryParse(tag, out var index)) vm.EditingQueueIndex = index;
+    }
+    private void RemoveSelected_Click(object sender, RoutedEventArgs e) => RemoveSelected();
+    private void RemoveSelected()
+    {
+        var list = SelectedQueueList;
+        var index = list.SelectedIndex;
+        if (list.SelectedItem is not Jingle item) return;
+        ViewModel.RemoveFromQueue(item);
+        list.SelectedIndex = Math.Min(index, list.Items.Count - 1);
+        if (list.SelectedItem is { } next) list.ScrollIntoView(next);
+    }
     private void QueueList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => PlaySelected_Click(sender, e);
     private void QueueList_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Delete || QueueList.SelectedItem is not Jingle item) return;
-        ViewModel.RemoveFromQueue(item);
+        if (e.Key != Key.Delete) return;
+        ViewModel.EditingQueueIndex = ReferenceEquals(sender, RightQueueList) ? 1 : 0;
+        RemoveSelected();
         e.Handled = true;
     }
-    private void QueueList_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (QueueList.SelectedItem is not Jingle item || !ReferenceEquals(item, ViewModel.ActiveQueueItem)) return;
-        QueueList.Dispatcher.BeginInvoke(() => QueueList.ScrollIntoView(item));
-    }
-    private void PlaySelected_Click(object sender, RoutedEventArgs e) { CancelPlaylistPreparation(); if (QueueList.SelectedItem is Jingle item) ViewModel.PlayQueuedItem(item); }
+    private void PlaySelected_Click(object sender, RoutedEventArgs e) { CancelPlaylistPreparation(); if (SelectedQueueList.SelectedItem is Jingle item) ViewModel.PlayQueuedItem(item); }
     private void PlayNext_Click(object sender, RoutedEventArgs e)
     {
         CancelPlaylistPreparation();
-        ViewModel.PlayNextQueued(crossfade: true);
+        ViewModel.PlayNextAutoplay(crossfade: true);
     }
-    private void MoveUp_Click(object sender, RoutedEventArgs e) { if (QueueList.SelectedItem is Jingle item) { ViewModel.MoveQueueItem(item, -1); QueueList.SelectedItem = item; } }
-    private void MoveDown_Click(object sender, RoutedEventArgs e) { if (QueueList.SelectedItem is Jingle item) { ViewModel.MoveQueueItem(item, 1); QueueList.SelectedItem = item; } }
-    private async void Refresh_Click(object sender, RoutedEventArgs e) => await RefreshAvailableAsync();
-    private async void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        var cancellation = new CancellationTokenSource();
-        var previousCancellation = Interlocked.Exchange(ref _filterCancellation, cancellation);
-        previousCancellation?.Cancel();
-        previousCancellation?.Dispose();
-        try
-        {
-            await Task.Delay(140, cancellation.Token);
-            ApplyFilter();
-        }
-        catch (OperationCanceledException) { }
-    }
+    private void MoveUp_Click(object sender, RoutedEventArgs e) { if (SelectedQueueList.SelectedItem is Jingle item) { ViewModel.MoveQueueItem(item, -1); SelectedQueueList.SelectedItem = item; } }
+    private void MoveDown_Click(object sender, RoutedEventArgs e) { if (SelectedQueueList.SelectedItem is Jingle item) { ViewModel.MoveQueueItem(item, 1); SelectedQueueList.SelectedItem = item; } }
     private void TransitionSecondsBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (DataContext is not MainViewModel viewModel) return;
@@ -224,7 +210,6 @@ public partial class AutoplayView : UserControl
 
     private void TransitionSecondsBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e) =>
         TransitionSecondsBox.Text = ViewModel.QueueTransitionSeconds.ToString("0.#", CultureInfo.CurrentCulture);
-    private void DeckFilterCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (!_updatingFilters) ApplyFilter(); }
 
     private void PreviewToggle_Changed(object sender, RoutedEventArgs e)
     {
@@ -247,22 +232,17 @@ public partial class AutoplayView : UserControl
         e.Handled = true;
     }
 
-    private void AvailableList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) || !ViewModel.UseSecondaryOutput) return;
-        if ((e.OriginalSource as FrameworkElement)?.DataContext is Jingle item) ViewModel.PlayPreview(item);
-        e.Handled = true;
-    }
-
     private void QueueList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if ((e.OriginalSource as FrameworkElement)?.DataContext is not Jingle item) return;
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) && ViewModel.UseSecondaryOutput)
         {
-            ViewModel.PlayPreview(item);
+            ViewModel.PlayQueuePreview(item);
             e.Handled = true;
             return;
         }
+        ViewModel.EditingQueueIndex = ReferenceEquals(sender, RightQueueList) ? 1 : 0;
+        _queueDragSlot = ViewModel.EditingQueueIndex;
         _queueDragStart = e.GetPosition(this);
         _queueDragItem = item;
     }
@@ -275,9 +255,9 @@ public partial class AutoplayView : UserControl
             Math.Abs(current.Y - _queueDragStart.Y) < SystemParameters.MinimumVerticalDragDistance) return;
         var item = _queueDragItem;
         _queueDragItem = null;
-        var sourceContainer = QueueList.ItemContainerGenerator.ContainerFromItem(item) as ListBoxItem;
+        var sourceContainer = SelectedQueueList.ItemContainerGenerator.ContainerFromItem(item) as ListBoxItem;
         if (sourceContainer is not null) sourceContainer.Opacity = 0.42;
-        try { DragDrop.DoDragDrop(QueueList, new DataObject(typeof(Jingle), item), DragDropEffects.Move); }
+        try { DragDrop.DoDragDrop(SelectedQueueList, new DataObject(typeof(Jingle), item), DragDropEffects.Move); }
         finally
         {
             if (sourceContainer is not null) sourceContainer.Opacity = 1;
@@ -287,10 +267,10 @@ public partial class AutoplayView : UserControl
 
     private void QueueList_DragOver(object sender, DragEventArgs e)
     {
-        e.Effects = e.Data.GetDataPresent(typeof(Jingle)) ? DragDropEffects.Move : DragDropEffects.None;
+        e.Effects = (ReferenceEquals(sender, RightQueueList) ? 1 : 0) == _queueDragSlot && e.Data.GetDataPresent(typeof(Jingle)) ? DragDropEffects.Move : DragDropEffects.None;
         if (e.Effects == DragDropEffects.Move)
         {
-            var container = ItemsControl.ContainerFromElement(QueueList, e.OriginalSource as DependencyObject) as ListBoxItem;
+            var container = ItemsControl.ContainerFromElement(SelectedQueueList, e.OriginalSource as DependencyObject) as ListBoxItem;
             if (container is not null)
             {
                 var position = e.GetPosition(container);
@@ -303,12 +283,12 @@ public partial class AutoplayView : UserControl
 
     private void QueueList_DragLeave(object sender, DragEventArgs e)
     {
-        if (!QueueList.IsMouseOver) ClearQueueDropTarget();
+        if (!SelectedQueueList.IsMouseOver) ClearQueueDropTarget();
     }
 
     private void QueueList_Drop(object sender, DragEventArgs e)
     {
-        if (e.Data.GetData(typeof(Jingle)) is not Jingle source) return;
+        if ((ReferenceEquals(sender, RightQueueList) ? 1 : 0) != _queueDragSlot || e.Data.GetData(typeof(Jingle)) is not Jingle source) return;
         var oldIndex = ViewModel.PlaybackQueue.IndexOf(source);
         if (oldIndex >= 0)
         {
@@ -366,32 +346,40 @@ public partial class AutoplayView : UserControl
         return result;
     }
 
-    private async void SavePlaylist_Click(object sender, RoutedEventArgs e)
+    private async void SavePlaylist_Click(object sender, RoutedEventArgs e) => await SavePlaylistAsync();
+
+    private async Task<bool> SavePlaylistAsync()
     {
-        var dialog = new SaveFileDialog { Filter = "FloorballDJ-spellista|*.fdjplaylist.json", FileName = "Ny spellista.fdjplaylist.json" };
-        if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
+        if (SavePlaylistForTest is not null) return await SavePlaylistForTest();
+        var slot = ViewModel.EditingQueueIndex;
+        var dialog = new SaveFileDialog { Filter = "FloorballDJ-spellista|*.fdjplaylist.json", FileName = ViewModel.QueuePlaylistPath ?? "Ny spellista.fdjplaylist.json" };
+        if (dialog.ShowDialog(Window.GetWindow(this)) != true) return false;
         var document = new PlaylistDocument(
             Version: 2,
             ShuffleEnabled: ViewModel.QueueShuffleEnabled,
             LoopEnabled: ViewModel.QueueLoopEnabled,
-            Entries: ViewModel.PlaybackQueue.Select(item => new PlaylistEntry(item.Title, item.FilePath)).ToList());
+            Entries: ViewModel.PlaybackQueue.Select(item => { var clip = ViewModel.GetQueueClipOptions(slot, item); return new PlaylistEntry(item.Title, item.FilePath, clip.UseRawFile, clip.EndSeconds); }).ToList(),
+            TransitionType: (AutoplayTransitionType)ViewModel.QueueTransitionTypeIndex, TransitionSeconds: ViewModel.QueueTransitionSeconds,
+            FadeInSeconds: ViewModel.QueueFadeInSeconds, FadeOutSeconds: ViewModel.QueueFadeOutSeconds);
         var vm = ViewModel; var project = vm.Project;
         try
         {
             await Playlists.SaveAsync(dialog.FileName, document);
             if (ReferenceEquals(project, vm.Project))
             {
-                vm.Settings.AutoplayLastPlaylistPath = Path.GetFullPath(dialog.FileName);
-                vm.RequestSave();
+                vm.InQueue(slot, () => vm.QueuePlaylistPath = Path.GetFullPath(dialog.FileName));
+                return true;
             }
         }
         catch (Exception ex) { MessageBox.Show(Window.GetWindow(this), ex.Message, "Kunde inte spara spellistan", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        return false;
     }
 
     private async void LoadPlaylist_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog { Filter = "FloorballDJ-spellista|*.fdjplaylist.json|JSON|*.json" };
         if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
+        if (!await ConfirmReplacementAsync()) return;
         try { await LoadPlaylistAsync(dialog.FileName, false); }
         catch (OperationCanceledException) { }
         catch (Exception ex) { MessageBox.Show(Window.GetWindow(this), ex.Message, "Kunde inte läsa spellistan", MessageBoxButton.OK, MessageBoxImage.Warning); }
@@ -399,6 +387,13 @@ public partial class AutoplayView : UserControl
 
     public async Task<bool> LoadDefaultPlaylistAndStartAsync(string path, double volumeDb)
     {
+        if (ViewModel.LoadedPlaylistIndex(path) is { } loaded)
+        {
+            CancelPlaylistPreparation();
+            return await ViewModel.ResumeLoadedPlaylistAsync(loaded, volumeDb);
+        }
+        ViewModel.EditingQueueIndex = ViewModel.ShortcutQueueIndex();
+        if (!await ConfirmReplacementAsync()) return false;
         _refreshCancellation?.Cancel();
         var viewModel = ViewModel;
         var project = viewModel.Project;
@@ -418,6 +413,7 @@ public partial class AutoplayView : UserControl
     internal async Task<bool> LoadPlaylistAsync(string path, bool startPlayback, double queueGainOffsetDb = 0)
     {
         var viewModel = ViewModel;
+        var slot = viewModel.EditingQueueIndex;
         _playlistVersion++;
         var queueRevision = viewModel.QueueRevision;
         var project = viewModel.Project;
@@ -457,15 +453,29 @@ public partial class AutoplayView : UserControl
                     }
                     return item;
                 }).ToArray();
-                viewModel.QueueShuffleEnabled = prepared.Definition.ShuffleEnabled;
-                viewModel.QueueLoopEnabled = prepared.Definition.LoopEnabled;
-                viewModel.ReplaceQueue(items, queueGainOffsetDb);
+                viewModel.InQueue(slot, () =>
+                {
+                    viewModel.QueueShuffleEnabled = prepared.Definition.ShuffleEnabled;
+                    viewModel.QueueLoopEnabled = prepared.Definition.LoopEnabled;
+                    viewModel.ReplaceQueue(items, queueGainOffsetDb);
+                    viewModel.QueueTransitionTypeIndex = (int)prepared.Definition.TransitionType;
+                    viewModel.QueueTransitionSeconds = prepared.Definition.TransitionSeconds ?? 4;
+                    viewModel.QueueFadeInSeconds = prepared.Definition.FadeInSeconds ?? 2;
+                    viewModel.QueueFadeOutSeconds = prepared.Definition.FadeOutSeconds ?? 2;
+                    for (var i = 0; i < items.Length; i++)
+                    {
+                        var entry = prepared.ExistingEntries[i];
+                        var end = entry.EndSeconds;
+                        var start = entry.UseRawFile ? 0 : items[i].StartSeconds;
+                        if (end is { } seconds && (!double.IsFinite(seconds) || seconds <= start || (items[i].DurationSeconds > 0 && seconds > items[i].DurationSeconds))) end = null;
+                        if (entry.UseRawFile || end.HasValue) viewModel.SetQueueClipOptions(slot, items[i], entry.UseRawFile, end);
+                    }
+                    viewModel.QueuePlaylistPath = Path.GetFullPath(path);
+                });
             }
             // The start itself must not cancel its completed preparation.
-            viewModel.Settings.AutoplayLastPlaylistPath = Path.GetFullPath(path);
-            viewModel.RequestSave();
             Interlocked.CompareExchange(ref _playlistCancellation, null, cancellation);
-            return items.Length > 0 && (!startPlayback || viewModel.PlayNextQueued());
+            return items.Length > 0 && (!startPlayback || viewModel.PlayNextFromQueue(slot, false));
         }
         catch (Exception) when (token.IsCancellationRequested) { throw new OperationCanceledException(token); }
         finally
@@ -475,5 +485,5 @@ public partial class AutoplayView : UserControl
         }
     }
 
-    private sealed record DeckFilter(string Name, Deck? Deck);
+
 }

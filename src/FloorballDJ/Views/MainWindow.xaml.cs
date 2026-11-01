@@ -483,6 +483,7 @@ public partial class MainWindow : Window
 
     private async void Stop_Click(object sender, RoutedEventArgs e)
     {
+        ViewModel.CancelAutoplayTransition();
         ClearSpaceResume();
         await _audio.StopAllDeClickedAsync();
     }
@@ -500,7 +501,8 @@ public partial class MainWindow : Window
     private void QueueContextMenu_Opened(object sender, RoutedEventArgs e)
     {
         QueueContextMenu.Items.Clear();
-        var queue = ViewModel.AutoplayModeActive ? ViewModel.PlaybackQueue.ToArray() : ViewModel.DeckPlaybackQueue.ToArray();
+        var slot = ViewModel.AutoplayTransportQueueIndex;
+        var queue = ViewModel.AutoplayModeActive ? ViewModel.AutoplayTransportQueue.ToArray() : ViewModel.DeckPlaybackQueue.ToArray();
         if (queue.Length == 0)
         {
             QueueContextMenu.Items.Add(new MenuItem { Header = "Kön är tom", IsEnabled = false });
@@ -510,7 +512,7 @@ public partial class MainWindow : Window
         var clear = new MenuItem { Header = "Rensa alla kommande" };
         clear.Click += (_, _) =>
         {
-            if (ViewModel.AutoplayModeActive) ViewModel.ReplaceQueue([]);
+            if (ViewModel.AutoplayModeActive) ViewModel.InQueue(slot, () => ViewModel.ReplaceQueue([]));
             else ViewModel.ClearDeckQueue();
         };
         QueueContextMenu.Items.Add(clear);
@@ -520,7 +522,7 @@ public partial class MainWindow : Window
             var item = new MenuItem { Header = $"Ta bort: {queued.Title}" };
             item.Click += (_, _) =>
             {
-                if (ViewModel.AutoplayModeActive) ViewModel.RemoveFromQueue(queued);
+                if (ViewModel.AutoplayModeActive) ViewModel.InQueue(slot, () => ViewModel.RemoveFromQueue(queued));
                 else ViewModel.RemoveFromDeckQueue(queued);
             };
             QueueContextMenu.Items.Add(item);
@@ -534,7 +536,7 @@ public partial class MainWindow : Window
             var resume = _spaceResumeJingle;
             var position = _spaceResumePosition;
             ClearSpaceResume();
-            var queuedItem = ViewModel.AutoplayModeActive && ViewModel.PlaybackQueue.Contains(resume);
+            var queuedItem = ViewModel.AutoplayModeActive && ViewModel.IsAutoplayQueued(resume);
             ViewModel.Resume(resume, position, queuedItem);
             return;
         }
@@ -542,6 +544,7 @@ public partial class MainWindow : Window
     }
     private async void Fade_Click(object sender, RoutedEventArgs e)
     {
+        ViewModel.CancelAutoplayTransition();
         ViewModel.MarkFadingOut();
         await _audio.FadeOutAllAsync(ViewModel.Settings.FadeOutSeconds);
     }
@@ -980,7 +983,8 @@ public partial class MainWindow : Window
             ClearSpaceResume();
             if (ViewModel.NowPlaying.JingleId is not null)
             {
-                ViewModel.MarkFadingOut();
+                ViewModel.CancelAutoplayTransition();
+            ViewModel.MarkFadingOut();
                 await _audio.FadeOutAllAsync(ViewModel.Settings.FadeOutSeconds, allowSpaceResume: true);
                 return;
             }
@@ -1005,13 +1009,13 @@ public partial class MainWindow : Window
             var resume = _spaceResumeJingle;
             var position = _spaceResumePosition;
             ClearSpaceResume();
-            var queuedItem = autoplayActive && ViewModel.PlaybackQueue.Contains(resume);
+            var queuedItem = autoplayActive && ViewModel.IsAutoplayQueued(resume);
             ViewModel.Resume(resume, position, queuedItem);
         }
-        else if (autoplayActive && ViewModel.PlaybackQueue.Count > 0)
+        else if (autoplayActive && ViewModel.AutoplayTransportQueue.Count > 0)
         {
             ClearSpaceResume();
-            ViewModel.PlayNextQueued();
+            ViewModel.PlayNextAutoplay(false);
         }
         else ClearSpaceResume();
     }
@@ -1727,7 +1731,7 @@ public partial class MainWindow : Window
 
     internal bool TryLeaveAutoplay(bool confirmQueued = true)
     {
-        if (ViewModel.AutoplayModeActive && confirmQueued && ViewModel.PlaybackQueue.Count > 0)
+        if (ViewModel.AutoplayModeActive && confirmQueued && (ViewModel.LeftPlaybackQueue.Count > 0 || ViewModel.RightPlaybackQueue.Count > 0))
         {
             var accepted = ConfirmAutoplayExit?.Invoke() ?? new AutoplayExitWindow { Owner = this }.ShowDialog() == true;
             if (!accepted) return false;

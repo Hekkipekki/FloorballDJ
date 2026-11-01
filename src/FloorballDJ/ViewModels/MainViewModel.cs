@@ -7,7 +7,7 @@ using FloorballDJ.Services;
 
 namespace FloorballDJ.ViewModels;
 
-public sealed class MainViewModel : ObservableObject, IDisposable
+public sealed partial class MainViewModel : ObservableObject, IDisposable
 {
     private readonly ProjectService _projects;
     private readonly ProfilePreferencesService _profilePreferences;
@@ -31,13 +31,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string _previewTimeText = "--:-- / --:--";
     private double _previewPositionFraction;
     private double _previewVolumeDb;
-    private bool _queueLoopEnabled = true;
-    private bool _queueShuffleEnabled;
+    private bool _queueLoopEnabled { get => QueueState.Loop; set => QueueState.Loop = value; }
+    private bool _queueShuffleEnabled { get => QueueState.Shuffle; set => QueueState.Shuffle = value; }
     private bool _autoplayModeActive;
     private bool _autoplaySongPickerActive;
     private bool _isSpaceResumePending;
-    private int _queuePlaybackIndex;
-    private double _playbackQueueGainOffsetDb;
+    private int _queuePlaybackIndex { get => QueueState.Cursor; set => QueueState.Cursor = value; }
+    private double _playbackQueueGainOffsetDb { get => QueueState.GainDb; set => QueueState.GainDb = value; }
     private Guid? _activeQueueJingleId;
     private Jingle? _activeQueueItem;
     private bool _queueTransitionStarted;
@@ -73,24 +73,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (_localTitleFontSize.HasValue) _project.Settings.TitleFontSize = _localTitleFontSize.Value;
         _project.Settings.PropertyChanged += LocalAppearanceChanged;
         _audio = audio;
-        PlaybackQueue.CollectionChanged += (_, change) =>
-        {
-            QueueRevision++;
-            CancelQueuePrefetch();
-            if (change.OldItems is not null)
-                foreach (Jingle item in change.OldItems) item.AutoplayQueuePosition = 0;
-            if (!_restoringQueue)
-            {
-                RebaseQueueCursor(change);
-                Settings.AutoplayQueueItems = PlaybackQueue.ToList();
-                RequestSave();
-            }
-        };
+        InitializeAutoplayQueues();
         _shortcuts = new JingleShortcutIndex(_project.Decks);
         _selectedDeck = _project.Decks.FirstOrDefault();
         _audio.SnapshotChanged += (_, snapshot) =>
         {
             NowPlaying = snapshot;
+            RememberQueuePosition(snapshot);
             if (!snapshot.IsFadingOut && _isFadingOutCurrent)
             {
                 _isFadingOutCurrent = false;
@@ -104,10 +93,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _audio.PlaybackCompleted += (_, jingle) =>
         {
             if (_previewOnlyJingleId == jingle.Id) { _previewOnlyJingleId = null; return; }
-            if (!AutoplayModeActive || _activeQueueJingleId != jingle.Id) return;
+            if (!AutoplayModeActive || _sequentialTransitionPending || _activeQueueJingleId != jingle.Id) return;
             System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
             {
-                if (!AutoplayModeActive || _activeQueueJingleId != jingle.Id) return;
+                if (!AutoplayModeActive || _sequentialTransitionPending || _activeQueueJingleId != jingle.Id) return;
                 if (!PlayNextQueued()) ActiveQueueItem = null;
             });
         };
@@ -163,7 +152,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             var previous = _nowPlaying;
             var languageChanged = _snapshotLanguage != LanguageService.CurrentLanguage;
             _snapshotLanguage = LanguageService.CurrentLanguage;
-            if (languageChanged) Raise(nameof(PrimaryLimiterButtonText));
+            if (languageChanged) { Raise(nameof(PrimaryLimiterButtonText)); RefreshQueueBindings(); }
             if (previous != value)
             {
                 var remaining = _remainingText;
@@ -251,27 +240,39 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             _audio.SetSecondaryMonitorVolumeDb(normalized);
         }
     }
-    public bool QueueLoopEnabled { get => _queueLoopEnabled; set { if (Set(ref _queueLoopEnabled, value) && !_restoringQueue) { Settings.AutoplayQueueLoopEnabled = value; RequestSave(); } } }
-    public bool QueueShuffleEnabled { get => _queueShuffleEnabled; set { if (Set(ref _queueShuffleEnabled, value) && !_restoringQueue) { Settings.AutoplayQueueShuffleEnabled = value; RequestSave(); } } }
+    public bool QueueLoopEnabled { get => _queueLoopEnabled; set { if (_queueLoopEnabled == value) return; _queueLoopEnabled = value; Raise(); PersistAutoplayQueues(); } }
+    public bool QueueShuffleEnabled
+    {
+        get => _queueShuffleEnabled;
+        set
+        {
+            if (_queueShuffleEnabled == value) return;
+            if (value) QueueState.ShuffleProgress = _queuePlaybackIndex;
+            _queueShuffleEnabled = value;
+            Raise();
+            PersistAutoplayQueues();
+        }
+    }
     public bool AutoplayModeActive { get => _autoplayModeActive; private set => Set(ref _autoplayModeActive, value); }
     public bool AutoplaySongPickerActive { get => _autoplaySongPickerActive; internal set => Set(ref _autoplaySongPickerActive, value); }
     public bool IsSpaceResumePending { get => _isSpaceResumePending; set => Set(ref _isSpaceResumePending, value); }
-    public Jingle? ActiveQueueItem { get => _activeQueueItem; private set => Set(ref _activeQueueItem, value); }
+    public Jingle? ActiveQueueItem { get => _activeQueueItem; private set { Set(ref _activeQueueItem, value); Raise(nameof(PlaybackSourceLabel)); } }
     public double QueueTransitionSeconds
     {
-        get => Settings.AutoplayTransitionSeconds;
+        get => QueueContextIndex == 0 ? Settings.AutoplayTransitionSeconds : Settings.AutoplaySecondTransitionSeconds;
         set
         {
-            var normalized = Math.Clamp(value, 0, 30);
-            if (Math.Abs(Settings.AutoplayTransitionSeconds - normalized) < 0.001) return;
-            Settings.AutoplayTransitionSeconds = normalized;
+            var normalized = TransitionSeconds(value);
+            if (Math.Abs(QueueTransitionSeconds - normalized) < 0.001) return;
+            if (QueueContextIndex == 0) Settings.AutoplayTransitionSeconds = normalized; else Settings.AutoplaySecondTransitionSeconds = normalized;
+            RequestSave();
             Raise();
         }
     }
-    public ObservableCollection<Jingle> PlaybackQueue { get; } = [];
+    public ObservableCollection<Jingle> PlaybackQueue => QueueState.Items;
     public ObservableCollection<Jingle> DeckPlaybackQueue { get; } = [];
     public bool HasDeckPlaybackQueue => DeckPlaybackQueue.Count > 0;
-    public int QueuedCount => AutoplayModeActive ? PlaybackQueue.Count : DeckPlaybackQueue.Count;
+    public int QueuedCount => AutoplayModeActive ? AutoplayTransportQueue.Count : DeckPlaybackQueue.Count;
     public AudioEngine Audio => _audio;
     public string CurrentProjectPath => _currentPath ?? _projects.DefaultProjectPath;
     public bool HasNamedProfile => _currentPath is not null && !string.Equals(_currentPath, _projects.DefaultProjectPath, StringComparison.OrdinalIgnoreCase);
@@ -347,10 +348,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         try
         {
             var known = Decks.SelectMany(deck => deck.Jingles).DistinctBy(item => item.Id).ToDictionary(item => item.Id);
-            ReplaceQueue((Settings.AutoplayQueueItems ?? []).Select(item => known.GetValueOrDefault(item.Id) ?? item).ToArray());
-            QueueShuffleEnabled = Settings.AutoplayQueueShuffleEnabled;
-            QueueLoopEnabled = Settings.AutoplayQueueLoopEnabled;
-            Settings.AutoplayQueueItems = PlaybackQueue.ToList();
+            var left = (Settings.AutoplayQueueItems ?? []).Select(item => known.GetValueOrDefault(item.Id) ?? item).ToArray();
+            var right = (Settings.AutoplaySecondQueueItems ?? []).Select(item => known.GetValueOrDefault(item.Id) ?? item).ToArray();
+            _editingQueueIndex = 0; _playingQueueIndex = 0;
+            InQueue(0, () => { ReplaceQueue(left); QueueState.Loop = Settings.AutoplayQueueLoopEnabled; QueueState.Shuffle = Settings.AutoplayQueueShuffleEnabled; QueueState.Path = Settings.AutoplayLastPlaylistPath; });
+            InQueue(1, () => { ReplaceQueue(right); QueueState.Loop = Settings.AutoplaySecondQueueLoopEnabled; QueueState.Shuffle = Settings.AutoplaySecondQueueShuffleEnabled; QueueState.Path = Settings.AutoplaySecondPlaylistPath; });
+            RefreshQueueBindings();
         }
         finally { _restoringQueue = false; }
     }
@@ -364,6 +367,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public void Play(Jingle jingle, double? playbackStartSecondsOverride,
         double? fadeInSecondsOverride, double? fadeOutPreviousSecondsOverride)
     {
+        CancelAutoplayTransition();
         _activeQueueJingleId = null;
         _queueTransitionStarted = false;
         ActiveQueueItem = null;
@@ -391,12 +395,22 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         PreviewPlaying = _audio.GetSecondarySnapshot();
     }
 
-    public void Resume(Jingle jingle, TimeSpan clipPosition, bool queuedItem)
+    public void Resume(Jingle jingle, TimeSpan clipPosition, bool queuedItem) => InQueue(queuedItem ? _playingQueueIndex : _editingQueueIndex, () => ResumeCore(jingle, clipPosition, queuedItem));
+
+    private void ResumeCore(Jingle jingle, TimeSpan clipPosition, bool queuedItem)
     {
+        CancelAutoplayTransition();
         if (queuedItem)
         {
-            var index = PlaybackQueue.IndexOf(jingle);
-            if (index >= 0) _queuePlaybackIndex = index + 1;
+            var previousIndex = _queuePlaybackIndex - 1;
+            var index = previousIndex >= 0 && previousIndex < PlaybackQueue.Count && ReferenceEquals(PlaybackQueue[previousIndex], jingle) ? previousIndex : PlaybackQueue.IndexOf(jingle);
+            if (index >= 0)
+            {
+                _queuePlaybackIndex = index + 1;
+                if (!QueueShuffleEnabled || !ReferenceEquals(QueueState.LastItem, jingle)) QueueState.ShuffleProgress = _queuePlaybackIndex;
+            }
+            QueueState.LastItem = jingle;
+            QueueState.ResumePosition = clipPosition;
             _activeQueueJingleId = jingle.Id;
             ActiveQueueItem = jingle;
         }
@@ -420,7 +434,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private bool PlayCore(Jingle jingle, bool honorJingleLoop, bool previewOnly, double? transitionFadeInSeconds = null,
         double? transitionFadeOutSeconds = null, TimeSpan? initialClipPosition = null,
-        double? playbackStartSecondsOverride = null, double playbackGainOffsetDb = 0)
+        double? playbackStartSecondsOverride = null, double playbackGainOffsetDb = 0, PlaybackClip? clipOverride = null)
     {
         var performance = PerformanceDiagnostics.BeginOperation("ViewModelPlayRequested");
         using var duration = performance.Measure("ViewModelPlay");
@@ -431,7 +445,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             action = _audio.Play(jingle, honorJingleLoop, transitionFadeInSeconds, transitionFadeOutSeconds,
                 releaseTalkDucking: !previewOnly, initialClipPosition: initialClipPosition,
                 playbackStartSecondsOverride: playbackStartSecondsOverride,
-                playbackGainOffsetDb: playbackGainOffsetDb);
+                playbackGainOffsetDb: playbackGainOffsetDb,
+                clipOverride: clipOverride ?? (AutoplayModeActive && !honorJingleLoop && !previewOnly ? QueueClip(jingle) : null),
+                forceSolo: AutoplayModeActive && !honorJingleLoop && !previewOnly);
         }
         catch (Exception ex)
         {
@@ -442,7 +458,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         if (action == PlaybackAction.Started)
         {
-            if (!previewOnly && jingle.PlayMode == JinglePlayMode.Solo)
+            if (!previewOnly && (jingle.PlayMode == JinglePlayMode.Solo || (AutoplayModeActive && !honorJingleLoop)))
                 PrimaryPlaybackStarted?.Invoke(this, EventArgs.Empty);
             _isFadingOutCurrent = false;
             Raise(nameof(NowPlayingLabel));
@@ -480,6 +496,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Raise(nameof(QueuedCount));
         if (active) return;
         AutoplaySongPickerActive = false;
+        CancelAutoplayTransition();
         _queuePrefetchCancellation?.Cancel();
         _activeQueueJingleId = null;
         _queueTransitionStarted = false;
@@ -539,38 +556,52 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         UpdateQueuePositions();
     }
 
-    public bool PlayNextQueued(bool crossfade = false)
+    public bool PlayNextQueued(bool crossfade = false) => InQueue(_playingQueueIndex, () => PlayNextQueuedCore(crossfade));
+
+    private bool PlayNextQueuedCore(bool crossfade)
     {
+        if (crossfade && IsQueueFadeInOut) return BeginSequentialTransition();
         if (PlaybackQueue.Count == 0) return false;
         for (var attempt = 0; attempt < PlaybackQueue.Count; attempt++)
         {
-            if (_queuePlaybackIndex >= PlaybackQueue.Count)
+            if ((QueueShuffleEnabled ? QueueState.ShuffleProgress : _queuePlaybackIndex) >= PlaybackQueue.Count)
             {
                 if (!QueueLoopEnabled) return false;
-                _queuePlaybackIndex = 0;
+                if (QueueShuffleEnabled) QueueState.ShuffleProgress = 0;
+                else _queuePlaybackIndex = 0;
             }
-            Jingle next;
+            int nextIndex;
             if (QueueShuffleEnabled)
             {
+                // Select occurrences, not just jingles: duplicate playlist entries
+                // must retain the successor of the occurrence that was selected.
+                var entries = PlaybackQueue.Select((item, index) => (Item: item, Index: index)).ToArray();
                 var shuffleCandidates = Settings.TrackSession
-                    ? PlaybackQueue.Where(item => item.SessionPlayCount == 0).ToArray()
-                    : PlaybackQueue.ToArray();
-                if (shuffleCandidates.Length == 0) shuffleCandidates = PlaybackQueue.ToArray();
+                    ? entries.Where(entry => entry.Item.SessionPlayCount == 0).ToArray()
+                    : entries;
+                if (shuffleCandidates.Length == 0) shuffleCandidates = entries;
                 if (shuffleCandidates.Length > 1 && _activeQueueJingleId is Guid activeId)
                 {
-                    var withoutCurrent = shuffleCandidates.Where(item => item.Id != activeId).ToArray();
+                    var withoutCurrent = shuffleCandidates.Where(entry => entry.Item.Id != activeId).ToArray();
                     if (withoutCurrent.Length > 0) shuffleCandidates = withoutCurrent;
                 }
-                next = shuffleCandidates[Random.Shared.Next(shuffleCandidates.Length)];
+                nextIndex = shuffleCandidates[Random.Shared.Next(shuffleCandidates.Length)].Index;
+                QueueState.ShuffleProgress++;
             }
-            else next = PlaybackQueue[_queuePlaybackIndex];
-            _queuePlaybackIndex++;
+            else nextIndex = _queuePlaybackIndex;
+            var next = PlaybackQueue[nextIndex];
+            // Always anchor sequential playback to the actual playing row.
+            // Shuffle's pass limit is separate from that row's position.
+            _queuePlaybackIndex = nextIndex + 1;
+            QueueState.LastItem = next;
+            QueueState.ResumePosition = TimeSpan.Zero;
+            QueueState.LastDuration = TimeSpan.Zero;
             _activeQueueJingleId = next.Id;
             ActiveQueueItem = next;
             _queueTransitionStarted = false;
             if (PlayCore(next, false, false,
-                    crossfade ? QueueTransitionSeconds * 0.25d : null,
-                    crossfade ? QueueTransitionSeconds * 0.75d : null,
+                    crossfade ? QueueTransitionSeconds : IsQueueFadeInOut ? QueueFadeInSeconds : null,
+                    crossfade ? QueueTransitionSeconds : IsQueueFadeInOut ? 0 : null,
                     playbackGainOffsetDb: _playbackQueueGainOffsetDb))
             {
                 PrefetchNextQueued();
@@ -584,8 +615,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public void PlayQueuedItem(Jingle item)
     {
+        if (!PlaybackQueue.Contains(item)) return;
+        CancelAutoplayTransition();
+        SetPlayingQueue(QueueContextIndex);
         var index = PlaybackQueue.IndexOf(item);
-        if (index >= 0) _queuePlaybackIndex = index + 1;
+        if (index >= 0) QueueState.ShuffleProgress = _queuePlaybackIndex = index + 1;
+        QueueState.LastItem = item;
+        QueueState.ResumePosition = TimeSpan.Zero;
+        QueueState.LastDuration = TimeSpan.Zero;
         _activeQueueJingleId = item.Id;
         ActiveQueueItem = item;
         _queueTransitionStarted = false;
@@ -597,9 +634,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         else PrefetchNextQueued();
     }
 
-    internal string? NextQueuePrefetchPath()
+    internal string? NextQueuePrefetchPath() => InQueue(_playingQueueIndex, NextQueuePrefetchPathCore);
+
+    private string? NextQueuePrefetchPathCore()
     {
-        if (!AutoplayModeActive || PlaybackQueue.Count == 0 || (_queuePlaybackIndex >= PlaybackQueue.Count && !QueueLoopEnabled)) return null;
+        if (!AutoplayModeActive || PlaybackQueue.Count == 0 ||
+            ((QueueShuffleEnabled ? QueueState.ShuffleProgress : _queuePlaybackIndex) >= PlaybackQueue.Count && !QueueLoopEnabled)) return null;
         if (!QueueShuffleEnabled) return PlaybackQueue[_queuePlaybackIndex % PlaybackQueue.Count].FilePath;
         // A hint only: never draw a random number or mutate session/queue state.
         var candidates = Settings.TrackSession ? PlaybackQueue.Where(item => item.SessionPlayCount == 0).ToArray() : PlaybackQueue.ToArray();
@@ -638,10 +678,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void TryStartQueueTransition()
+    private void TryStartQueueTransition() => InQueue(_playingQueueIndex, TryStartQueueTransitionCore);
+
+    private void TryStartQueueTransitionCore()
     {
-        if (!AutoplayModeActive || _queueTransitionStarted || PlaybackQueue.Count < 2 || _activeQueueJingleId is null || NowPlaying.JingleId != _activeQueueJingleId || _previewOnlyJingleId is not null) return;
-        var fadeOutSeconds = QueueTransitionSeconds * 0.75d;
+        if (!AutoplayModeActive || !NowPlaying.IsPlaying || NowPlaying.IsPaused || NowPlaying.IsFadingOut || _queueTransitionStarted || PlaybackQueue.Count < 2 || _activeQueueJingleId is null || NowPlaying.JingleId != _activeQueueJingleId || _previewOnlyJingleId is not null) return;
+        var fadeOutSeconds = IsQueueCrossfade ? QueueTransitionSeconds : QueueFadeOutSeconds;
         if (fadeOutSeconds <= 0 || NowPlaying.Duration <= TimeSpan.Zero || NowPlaying.Position <= TimeSpan.Zero) return;
         if ((NowPlaying.Duration - NowPlaying.Position).TotalSeconds > fadeOutSeconds) return;
         _queueTransitionStarted = true;
@@ -663,13 +705,22 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         finally { _restoringQueue = restoring; }
         if (!restoring)
         {
-            Settings.AutoplayQueueItems = PlaybackQueue.ToList();
-            RequestSave();
+            ClipOptions(QueueContextIndex).Clear();
+            QueueClipOptionsRevision++; Raise(nameof(QueueClipOptionsRevision));
+            PersistAutoplayQueues();
         }
         _queuePlaybackIndex = 0;
-        _activeQueueJingleId = null;
-        ActiveQueueItem = null;
-        _queueTransitionStarted = false;
+        QueueState.ShuffleProgress = 0;
+        QueueState.LastItem = null;
+        QueueState.ResumePosition = TimeSpan.Zero;
+        QueueState.LastDuration = TimeSpan.Zero;
+        if (QueueContextIndex == _playingQueueIndex)
+        {
+            CancelAutoplayTransition();
+            _activeQueueJingleId = null;
+            ActiveQueueItem = null;
+            _queueTransitionStarted = false;
+        }
         UpdateQueuePositions();
     }
 
@@ -695,7 +746,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             var relocated = activeIndex == oldIndex ? newIndex
                 : oldIndex < activeIndex && newIndex >= activeIndex ? activeIndex - 1
                 : oldIndex > activeIndex && newIndex <= activeIndex ? activeIndex + 1 : activeIndex;
-            if (relocated >= 0 && relocated < PlaybackQueue.Count && ReferenceEquals(PlaybackQueue[relocated], ActiveQueueItem))
+            if (relocated >= 0 && relocated < PlaybackQueue.Count && ReferenceEquals(PlaybackQueue[relocated], QueueState.LastItem))
                 _queuePlaybackIndex = relocated + 1;
             else
             {
@@ -707,7 +758,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             _queuePlaybackIndex += change.NewItems!.Count;
         else if (change.Action == NotifyCollectionChangedAction.Remove && change.OldStartingIndex < _queuePlaybackIndex)
         {
-            if (change.OldStartingIndex + change.OldItems!.Count >= _queuePlaybackIndex) ActiveQueueItem = null;
+            if (QueueContextIndex == _playingQueueIndex && change.OldStartingIndex + change.OldItems!.Count >= _queuePlaybackIndex) ActiveQueueItem = null;
             _queuePlaybackIndex -= Math.Min(change.OldItems!.Count, _queuePlaybackIndex - change.OldStartingIndex);
         }
         else if (change.Action == NotifyCollectionChangedAction.Reset)
@@ -726,8 +777,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         foreach (var jingle in Decks.SelectMany(deck => deck.Jingles)) jingle.QueuePosition = 0;
         for (var index = 0; index < DeckPlaybackQueue.Count; index++) DeckPlaybackQueue[index].QueuePosition = index + 1;
-        foreach (var item in PlaybackQueue) item.AutoplayQueuePosition = 0;
-        for (var index = 0; index < PlaybackQueue.Count; index++) PlaybackQueue[index].AutoplayQueuePosition = index + 1;
+        foreach (var item in LeftPlaybackQueue.Concat(RightPlaybackQueue)) item.AutoplayQueuePosition = 0;
+        var selectedItems = _autoplayQueues[_editingQueueIndex].Items;
+        for (var index = 0; index < selectedItems.Count; index++) selectedItems[index].AutoplayQueuePosition = index + 1;
         Raise(nameof(HasDeckPlaybackQueue));
         Raise(nameof(QueuedCount));
     }
@@ -1097,6 +1149,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private void RaiseAll() { Raise(nameof(Settings)); Raise(nameof(Decks)); Raise(nameof(SelectedDeck)); }
     public void Dispose()
     {
+        CancelAutoplayTransition();
         if (_disposed) return;
         _disposed = true;
         Settings.PropertyChanged -= LocalAppearanceChanged;

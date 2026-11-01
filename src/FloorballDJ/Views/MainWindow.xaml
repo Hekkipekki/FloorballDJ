@@ -421,8 +421,14 @@
                             <TextBlock Text="Byt deck och sida. Markera låtar för att lägga till dem sist i kön, avmarkera för att ta bort. Uppspelningen fortsätter."
                                        Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                         </StackPanel>
-                        <Button x:Name="FinishSongPickerButton" Grid.Column="1" Content="Klar – tillbaka till Autoplay"
+                        <WrapPanel Grid.Column="1" VerticalAlignment="Center" MaxWidth="780">
+                            <Button x:Name="SelectPickerPageButton" Content="Markera sidan" Style="{StaticResource SecondaryButton}" Click="SelectPickerPage_Click" Margin="0,3,6,3"/>
+                            <Button Content="Avmarkera sidan" Style="{StaticResource SecondaryButton}" Click="DeselectPickerPage_Click" Margin="0,3,6,3"/>
+                            <Button x:Name="SelectPickerDeckButton" Content="Markera deck" Style="{StaticResource SecondaryButton}" Click="SelectPickerDeck_Click" Margin="0,3,6,3"/>
+                            <Button Content="Avmarkera deck" Style="{StaticResource SecondaryButton}" Click="DeselectPickerDeck_Click" Margin="0,3,6,3"/>
+                        <Button x:Name="FinishSongPickerButton" Content="Klar – tillbaka till Autoplay"
                                 Style="{StaticResource PrimaryButton}" VerticalAlignment="Center" Click="FinishSongPicker_Click"/>
+                        </WrapPanel>
                     </Grid>
                 </Border>
             <TabControl x:Name="DeckTabsControl" Grid.Row="1" Style="{StaticResource DeckTabs}" SelectedItem="{Binding SelectedDeck}" ItemContainerStyle="{StaticResource DeckTab}"

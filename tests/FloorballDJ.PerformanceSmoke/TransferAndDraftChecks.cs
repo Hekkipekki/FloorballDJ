@@ -86,10 +86,10 @@ internal static class TransferAndDraftChecks
     {
         var projects = new ProjectService();
         var source = Path.Combine(root, "home-C"); Directory.CreateDirectory(source);
-        var media = new[] { "deck.mp3", "playlist-only.mp3", "queue-only.mp3" }.Select(name => Path.Combine(source, name)).ToArray();
+        var media = new[] { "deck.mp3", "playlist-only.mp3", "queue-only.mp3", "second-queue-only.mp3" }.Select(name => Path.Combine(source, name)).ToArray();
         for (var i = 0; i < media.Length; i++) await File.WriteAllBytesAsync(media[i], [(byte)(i + 1), 21, 33, 44]);
         var playlist = Path.Combine(source, "Uppvärmning.fdjplaylist.json");
-        await PlaylistService.Shared.SaveAsync(playlist, new(2, true, false, [new("Extra", media[1]), new("Deck", media[0]), new("Extra igen", media[1])]));
+        await PlaylistService.Shared.SaveAsync(playlist, new(2, true, false, [new("Extra", media[1], true, 1.2), new("Deck", media[0]), new("Extra igen", media[1])], AutoplayTransitionType.FadeInOut, .7, .2, .4));
         var project = ProjectService.CreateDefault(); project.Name = "Dalen";
         project.Decks[0].Name = "Autoplay";
         project.Decks[0].Jingles[0].Title = "Mål"; project.Decks[0].Jingles[0].FilePath = media[0];
@@ -97,6 +97,9 @@ internal static class TransferAndDraftChecks
         project.Settings.AutoplayProfiles = [new() { Name = "Uppvärmning", PlaylistPath = playlist, Shortcut = "F8", VolumeDb = -3, RandomPoolSetupId = setupId }];
         project.Settings.AutoplayLastPlaylistPath = playlist;
         project.Settings.AutoplayQueueItems = [new() { Title = "Osparad kö", FilePath = media[2], GainDb = -2 }];
+        project.Settings.AutoplaySecondQueueItems = [new() { Title = "Andra kön", FilePath = media[3], GainDb = -8 }];
+        project.Settings.AutoplaySecondPlaylistPath = playlist;
+        project.Settings.AutoplaySecondQueueShuffleEnabled = true; project.Settings.AutoplaySecondQueueLoopEnabled = false;
         project.Settings.AutoplayQueueShuffleEnabled = true; project.Settings.AutoplayQueueLoopEnabled = false;
         var package = Path.Combine(root, "Dalen.fdjbackup");
         await projects.CreateTransferPackageAsync(project, package, "Dalen");
@@ -107,7 +110,7 @@ internal static class TransferAndDraftChecks
         project.Decks[0].Jingles[0].Title = "Ny målknapp";
         var second = await projects.SaveToSyncFolderAsync(project, sync, "Dalen");
         Check(projects.GetTransferVersions(sync).Count == 2 && first.Manifest.ProfileId == second.Manifest.ProfileId, "Both versions retain the stable profile identity");
-        Check(sharedFiles.Length == 3 && sharedFiles.All(path => File.GetLastWriteTimeUtc(path) == times[path]) && Directory.GetFiles(Path.Combine(sync, "Media")).Length == 3,
+        Check(sharedFiles.Length == 4 && sharedFiles.All(path => File.GetLastWriteTimeUtc(path) == times[path]) && Directory.GetFiles(Path.Combine(sync, "Media")).Length == 4,
             "Unchanged media bytes reuse identical shared files without rewriting");
         var latestBytes = await File.ReadAllBytesAsync(Path.Combine(sync, "floorballdj-backup.json"));
         var oldPackage = await File.ReadAllBytesAsync(package);
@@ -127,8 +130,10 @@ internal static class TransferAndDraftChecks
             "Sync transfer retains the Autoplay setup link");
         Check(loaded.Id == project.Id && loaded.Name == "Dalen" && loaded.Decks[0].Jingles[0].Title == "Ny målknapp", "Relocated profile preserves name, identity and selected version");
         Check(restored.MissingMediaCount == 0 && loaded.Settings.AutoplayQueueItems.Single().GainDb == -2 && File.Exists(loaded.Settings.AutoplayQueueItems.Single().FilePath), "Queue-only media and queue settings survive relocation");
+        Check(loaded.Settings.AutoplaySecondQueueItems.Single().GainDb == -8 && File.Exists(loaded.Settings.AutoplaySecondQueueItems.Single().FilePath) && File.Exists(loaded.Settings.AutoplaySecondPlaylistPath) && loaded.Settings.AutoplaySecondQueueShuffleEnabled && !loaded.Settings.AutoplaySecondQueueLoopEnabled, "Second playlist and its unique audio survive a transfer to a different root");
         var prepared = await PlaylistService.Shared.PrepareAsync(loaded.Settings.AutoplayProfiles.Single().PlaylistPath!, null);
         Check(prepared!.ExistingEntries.Length == 3 && prepared.Definition.ShuffleEnabled && !prepared.Definition.LoopEnabled && prepared.ExistingEntries[0].Title == "Extra", "Playlist-only audio, duplicate order and flags survive");
+        Check(prepared.Definition.TransitionType == AutoplayTransitionType.FadeInOut && prepared.Definition.FadeOutSeconds == .4 && prepared.ExistingEntries[0].UseRawFile && prepared.ExistingEntries[0].EndSeconds == 1.2, "Transfer preserves playlist audio choices and transition timings");
         var profileJson = await File.ReadAllTextAsync(restored.ProfilePath);
         Check(!profileJson.Contains(source, StringComparison.OrdinalIgnoreCase) && !profileJson.Contains(root.Replace("\\", "\\\\"), StringComparison.OrdinalIgnoreCase), "Persisted portable profile has relative paths");
         var packageResult = await projects.RestoreTransferPackageAsync(package);

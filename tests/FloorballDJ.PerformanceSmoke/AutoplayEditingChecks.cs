@@ -18,6 +18,9 @@ internal static class AutoplayEditingChecks
     {
         var directory = Path.Combine(root, "autoplay-editing"); Directory.CreateDirectory(directory);
         await CheckQueue(directory);
+        await CheckShuffleToSequential(directory);
+        await AutoplayAudioChecks.RunAsync(directory, output);
+        await DualAutoplayChecks.RunAsync(directory, output);
         await CheckPicker(directory, output);
         Console.WriteLine("PASS: edited Autoplay order for manual next, natural completion and crossfade; add/remove/current/duplicate/loop cases; live deck/page checkmarks and return; quiet themed exit and selected deck restoration.");
     }
@@ -64,6 +67,54 @@ internal static class AutoplayEditingChecks
         vm.ReplaceQueue([a, removed, c]); vm.PlayQueuedItem(removed); vm.RemoveFromQueue(removed);
         await Until(() => vm.ActiveQueueItem == c, "A removed current song still advances when it finishes");
         audio.StopAll(); vm.SetAutoplayMode(false);
+    }
+
+    private static async Task CheckShuffleToSequential(string root)
+    {
+        using var audio = new AudioEngine();
+        var projects = new ProjectService();
+        using var vm = new MainViewModel(projects, new ProfilePreferencesService(projects.AppDataDirectory, projects.DefaultProjectPath), audio);
+        vm.Settings.MasterVolumeDb = -60; vm.Settings.TrackSession = true; vm.SetAutoplayMode(true);
+        var songs = Enumerable.Range(0, 5).Select(i => Song(root, $"shuffle-order-{i}", 10)).ToArray();
+        var shortSong = Song(root, "shuffle-to-sequential-short", .8);
+        foreach (var slot in new[] { 0, 1 })
+        foreach (var mode in new[] { "manual", "completion", "crossfade" })
+        {
+            audio.StopAll(); vm.EditingQueueIndex = slot;
+            var target = mode == "manual" ? songs[2] : shortSong;
+            vm.ReplaceQueue([songs[0], songs[1], target, songs[3], songs[4]]);
+            vm.QueueLoopEnabled = false; vm.QueueShuffleEnabled = false;
+            vm.QueueTransitionSeconds = mode == "crossfade" ? .3 : 0;
+            foreach (var item in vm.PlaybackQueue) item.SessionPlayCount = 1;
+            target.SessionPlayCount = 0; // Exactly one unplayed candidate makes the random choice deterministic.
+            vm.PlayQueuedItem(songs[0]); vm.QueueShuffleEnabled = true;
+            Check(vm.PlayNextAutoplay(false) && vm.ActiveQueueItem == target, "Shuffle jumps away from the former sequential cursor");
+            vm.QueueShuffleEnabled = false;
+            Check(vm.NextQueuePrefetchPath() == songs[3].FilePath, "Turning shuffle off prepares the successor of the randomly selected song");
+            vm.EditingQueueIndex = 1 - slot;
+            if (mode == "manual") Check(vm.PlayNextAutoplay() && vm.ActiveQueueItem == songs[3], "Manual next after shuffle follows the actual playing position in its source list");
+            else await Until(() => vm.ActiveQueueItem == songs[3], "Natural completion/crossfade after shuffle follows the actual playing position in its source list");
+        }
+        audio.StopAll(); vm.EditingQueueIndex = 0; vm.QueueTransitionSeconds = 0;
+        vm.ReplaceQueue(songs); vm.QueueShuffleEnabled = false; vm.QueueLoopEnabled = false;
+        foreach (var item in songs) item.SessionPlayCount = 1;
+        songs[^1].SessionPlayCount = 0;
+        vm.PlayQueuedItem(songs[0]); vm.QueueShuffleEnabled = true;
+        Check(vm.PlayNextQueued() && vm.ActiveQueueItem == songs[^1], "Shuffle can select the final row");
+        vm.QueueShuffleEnabled = false;
+        Check(vm.NextQueuePrefetchPath() is null && !vm.PlayNextAutoplay(), "Sequential playback stops after a shuffled final row when loop is off");
+        vm.QueueLoopEnabled = true;
+        Check(vm.PlayNextAutoplay() && vm.ActiveQueueItem == songs[0], "Sequential playback wraps after a shuffled final row only with loop enabled");
+        audio.StopAll(); vm.QueueLoopEnabled = false; vm.ReplaceQueue(songs);
+        foreach (var item in songs) item.SessionPlayCount = 1;
+        songs[^1].SessionPlayCount = 0;
+        vm.PlayQueuedItem(songs[0]); vm.QueueShuffleEnabled = true;
+        Check(vm.PlayNextQueued() && vm.ActiveQueueItem == songs[^1], "Non-looping shuffle can jump to the final row without ending its pass early");
+        vm.Resume(songs[^1], TimeSpan.FromSeconds(.1), queuedItem: true);
+        for (var i = 0; i < songs.Length - 2; i++) Check(vm.PlayNextQueued(), "Shuffle pass length remains independent of the selected row index");
+        Check(!vm.PlayNextQueued(), "Non-looping shuffle retains its bounded pass length");
+        audio.StopAll(); vm.SetAutoplayMode(false);
+        Console.WriteLine("PASS: shuffle-to-sequential manual next, natural completion and crossfade in both playlists; final-row loop policy and bounded shuffle pass.");
     }
 
     private static async Task CheckPicker(string root, string? output)
@@ -179,6 +230,24 @@ internal static class AutoplayEditingChecks
             choose.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await Idle();
             Call(main, "MainWindow_PreviewKeyDown", main, new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(main), 0, Key.Escape) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
             Check(!vm.AutoplaySongPickerActive && vm.AutoplayModeActive && view.IsVisible, "Escape also returns to Autoplay");
+            vm.EditingQueueIndex = 1; vm.ReplaceQueue([]); tabs.SelectedIndex = 0; vm.Decks[0].ActivePage = 0;
+            var leftBefore = vm.LeftPlaybackQueue.ToArray();
+            choose.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await Idle();
+            tabs.SelectedIndex = 0; vm.Decks[0].ActivePage = 0; await Idle();
+            main.SetPickerSelection(false, true);
+            var firstPageCount = vm.Decks[0].Jingles.Take(6).Count(item => item.HasAudio && !item.IsTextBlock);
+            Check(vm.RightPlaybackQueue.Count == firstPageCount && vm.LeftPlaybackQueue.SequenceEqual(leftBefore), "Whole-page selection targets only the chosen playlist");
+            Call(main, "ToggleAutoplayPickerSong", first);
+            Check(!vm.RightPlaybackQueue.Contains(first) && vm.RightPlaybackQueue.Count == firstPageCount - 1, "Bulk selection supports individual deselection");
+            main.SetPickerSelection(true, true); main.SetPickerSelection(true, true);
+            Check(vm.RightPlaybackQueue.Count == vm.Decks[0].Jingles.Count(item => item.HasAudio && !item.IsTextBlock), "Whole-deck selection includes all pages and is idempotent");
+            main.SetPickerSelection(false, false);
+            Check(vm.RightPlaybackQueue.All(item => vm.Decks[0].Jingles.Skip(6).Contains(item)), "Deselect page preserves the other pages");
+            main.SetPickerSelection(true, false); Check(vm.RightPlaybackQueue.Count == 0, "Deselect deck removes its selected songs");
+            main.SetPickerSelection(true, true); await Idle();
+            if (output is not null) Save((FrameworkElement)main.Content, output, "autoplay-bulk-picker.png");
+            finish.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await Idle();
+            vm.EditingQueueIndex = 0;
             vm.Audio.StopAll();
         }
         finally

@@ -43,6 +43,23 @@ public partial class MainWindow
         ViewModel.Status = string.Format(LanguageService.Translate(queued.Length == 0 ? "Tillagd i Autoplay-kön: {0}" : "Borttagen från Autoplay-kön: {0}"), jingle.Title);
     }
 
+    private void SelectPickerPage_Click(object sender, RoutedEventArgs e) => SetPickerSelection(false, true);
+    private void DeselectPickerPage_Click(object sender, RoutedEventArgs e) => SetPickerSelection(false, false);
+    private void SelectPickerDeck_Click(object sender, RoutedEventArgs e) => SetPickerSelection(true, true);
+    private void DeselectPickerDeck_Click(object sender, RoutedEventArgs e) => SetPickerSelection(true, false);
+
+    internal void SetPickerSelection(bool wholeDeck, bool selected)
+    {
+        if (!ViewModel.AutoplaySongPickerActive || ViewModel.SelectedDeck is not { } deck) return;
+        var songs = wholeDeck ? deck.Jingles.AsEnumerable() : deck.Jingles.Skip(deck.GetPageStartIndex(deck.ActivePage)).Take(deck.GetPageCapacity(deck.ActivePage));
+        foreach (var song in songs.Where(song => song.HasAudio && !song.IsTextBlock).ToArray())
+        {
+            if (selected) ViewModel.AddToQueue(song);
+            else
+                foreach (var item in ViewModel.PlaybackQueue.Where(item => item.Id == song.Id && string.Equals(item.FilePath, song.FilePath, StringComparison.OrdinalIgnoreCase)).ToArray()) ViewModel.RemoveFromQueue(item);
+        }
+    }
+
     private void RestoreDeckAfterAutoplay(Deck? preferred = null)
     {
         var available = DeckTabsControl.Items.Cast<Deck>().ToArray();

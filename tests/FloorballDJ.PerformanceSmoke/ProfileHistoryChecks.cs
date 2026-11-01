@@ -40,6 +40,11 @@ internal static class ProfileHistoryChecks
         var project = ProjectService.CreateDefault(); project.Name = name;
         var song = project.Decks[0].Jingles[0]; song.Title = "Original låt"; song.FilePath = media;
         project.Settings.AutoplayQueueItems = [song];
+        project.Settings.AutoplayClipOptions = [new(song.Id, true, .5)];
+        project.Settings.AutoplayTransitionType = AutoplayTransitionType.FadeInOut;
+        project.Settings.AutoplaySecondQueueItems = [new() { Title = "Andra listan", FilePath = media, GainDb = -8 }];
+        project.Settings.AutoplaySecondPlaylistPath = playlist;
+        project.Settings.AutoplaySecondQueueLoopEnabled = false;
         project.Settings.MusicFolderPath = directory; project.Settings.AutoplayDefaultPlaylistPath = playlist;
         project.Settings.AutoplayProfiles = [new() { Name = "Paus", PlaylistPath = playlist }];
         var path = Path.Combine(directory, name + ".floorballdj.json");

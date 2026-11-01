@@ -31,10 +31,11 @@ internal sealed class ProjectSaveSnapshot
         var directory = Path.GetDirectoryName(Path.GetFullPath(path))!;
         string? Relative(string? value) => string.IsNullOrWhiteSpace(value) || !Path.IsPathRooted(value)
             ? value : Path.GetRelativePath(directory, value);
-        foreach (var item in _project.Decks.SelectMany(deck => deck.Jingles).Concat(_project.Settings.AutoplayQueueItems ?? []))
+        foreach (var item in _project.Decks.SelectMany(deck => deck.Jingles).Concat(_project.Settings.AutoplayQueueItems ?? []).Concat(_project.Settings.AutoplaySecondQueueItems ?? []))
             item.FilePath = Relative(item.FilePath)!;
         _project.Settings.MusicFolderPath = Relative(_project.Settings.MusicFolderPath);
         _project.Settings.AutoplayLastPlaylistPath = Relative(_project.Settings.AutoplayLastPlaylistPath);
+        _project.Settings.AutoplaySecondPlaylistPath = Relative(_project.Settings.AutoplaySecondPlaylistPath);
         _project.Settings.AutoplayDefaultPlaylistPath = Relative(_project.Settings.AutoplayDefaultPlaylistPath);
         foreach (var playlist in _project.Settings.AutoplayProfiles ?? []) playlist.PlaylistPath = Relative(playlist.PlaylistPath);
     }

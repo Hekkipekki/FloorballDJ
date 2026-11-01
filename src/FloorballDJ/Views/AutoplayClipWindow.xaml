@@ -1,0 +1,18 @@
+<Window x:Class="FloorballDJ.Views.AutoplayClipWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Sluttid i spellistan" Width="500" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
+    <StackPanel Margin="24">
+        <TextBlock Text="Sluttid i spellistan" Style="{StaticResource SectionTitle}" FontSize="24"/>
+        <TextBlock x:Name="SongTitle" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,12,0,6"/>
+        <TextBlock x:Name="RangeText" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"/>
+        <TextBox x:Name="EndTimeBox" Margin="0,12,0,6" FontSize="20" TextChanged="EndTime_Changed"/>
+        <TextBlock Text="Ange minuter:sekunder eller sekunder. Tomt fält återställer versionens sluttid. Decket ändras inte."
+                   TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+        <TextBlock x:Name="ErrorText" Foreground="#FFCA70" TextWrapping="Wrap" Margin="0,8,0,0"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Avbryt" IsCancel="True" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
+            <Button x:Name="ApplyButton" Content="Använd sluttid" Click="Apply_Click" IsDefault="True" Style="{StaticResource PrimaryButton}"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

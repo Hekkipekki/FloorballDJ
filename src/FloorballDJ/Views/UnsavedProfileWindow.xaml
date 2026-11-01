@@ -4,7 +4,7 @@
         Title="Osparade ändringar" Width="580" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
     <Grid Margin="24">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-        <TextBlock Text="Vill du spara ändringarna?" Style="{StaticResource SectionTitle}" FontSize="24" TextWrapping="Wrap"/>
+        <TextBlock x:Name="HeadingText" Text="Vill du spara ändringarna?" Style="{StaticResource SectionTitle}" FontSize="24" TextWrapping="Wrap"/>
         <TextBlock x:Name="DescriptionText" Grid.Row="1" Margin="0,12,0,24" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"/>
         <WrapPanel Grid.Row="2" HorizontalAlignment="Right">
             <Button Content="Avbryt" IsCancel="True" Style="{StaticResource SecondaryButton}" Margin="0,4,8,0" MinWidth="90"/>

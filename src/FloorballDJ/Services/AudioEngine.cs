@@ -7,6 +7,7 @@ using NAudio.Wave.SampleProviders;
 namespace FloorballDJ.Services;
 
 public enum PlaybackAction { Started, FadingOut, PolyphonyLimitReached }
+public sealed record PlaybackClip(double StartSeconds, double? EndSeconds);
 
 public sealed class AudioEngine : IDisposable
 {
@@ -23,6 +24,8 @@ public sealed class AudioEngine : IDisposable
         private volatile bool _isVolumeTransitioning;
 
         public required Jingle Jingle { get; init; }
+        public PlaybackClip? ClipOverride { get; set; }
+        public double? PlaybackEndSeconds => ClipOverride is { } clip ? clip.EndSeconds : Jingle.EndSeconds;
         public required AudioFileSeekSampleProvider SeekProvider { get; init; }
         public required AudioFileReader Reader { get; init; }
         public required IVoiceOutput Output { get; init; }
@@ -269,7 +272,7 @@ public sealed class AudioEngine : IDisposable
     public PlaybackAction Play(Jingle jingle, bool honorJingleLoop = true, double? fadeInSecondsOverride = null,
         double? fadeOutPreviousSecondsOverride = null, bool releaseTalkDucking = true,
         TimeSpan? initialClipPosition = null, double? playbackStartSecondsOverride = null,
-        double playbackGainOffsetDb = 0)
+        double playbackGainOffsetDb = 0, PlaybackClip? clipOverride = null, bool forceSolo = false)
     {
         var performance = PerformanceDiagnostics.BeginOperation("PlaybackRequested");
         using var preparation = performance.Measure("PlaybackPreparation");
@@ -305,7 +308,7 @@ public sealed class AudioEngine : IDisposable
             }
             // Buttons sharing a source file still have independent playback and clip settings.
             // Only another press of the same button should toggle its active voices off.
-            var matching = jingle.AllowMultipleClicks
+            var matching = forceSolo || jingle.AllowMultipleClicks
                 ? Array.Empty<Voice>()
                 : _voices.Where(voice => voice.UsesSecondaryDevice == _useSecondaryDevice &&
                     voice.Jingle.Id == jingle.Id).ToArray();
@@ -317,11 +320,11 @@ public sealed class AudioEngine : IDisposable
                 return PlaybackAction.FadingOut;
             }
 
-            var previous = jingle.PlayMode is JinglePlayMode.Mix or JinglePlayMode.Duck
+            var previous = !forceSolo && jingle.PlayMode is JinglePlayMode.Mix or JinglePlayMode.Duck
                 ? Array.Empty<Voice>()
-                : _voices.Where(voice => voice.UsesSecondaryDevice == _useSecondaryDevice && voice.Jingle.PlayMode != JinglePlayMode.Mix &&
-                    !(jingle.AllowMultipleClicks && voice.Jingle.Id == jingle.Id)).ToArray();
-            var resetTalkForNewPrimary = releaseTalkDucking && !_useSecondaryDevice && jingle.PlayMode == JinglePlayMode.Solo;
+                : _voices.Where(voice => voice.UsesSecondaryDevice == _useSecondaryDevice && (forceSolo || voice.Jingle.PlayMode != JinglePlayMode.Mix) &&
+                    (forceSolo || !(jingle.AllowMultipleClicks && voice.Jingle.Id == jingle.Id))).ToArray();
+            var resetTalkForNewPrimary = releaseTalkDucking && !_useSecondaryDevice && (forceSolo || jingle.PlayMode == JinglePlayMode.Solo);
 
             AudioFileReader? reader = null;
             IVoiceOutput? output = null;
@@ -332,9 +335,9 @@ public sealed class AudioEngine : IDisposable
                 if (performance.Enabled)
                     performance.Mark("SourceFormat", detail: $"{reader.WaveFormat.SampleRate}Hz/{reader.WaveFormat.Channels}ch");
                 var providersStarted = performance.Timestamp;
-                var playbackStartSeconds = Math.Max(0, playbackStartSecondsOverride ?? jingle.StartSeconds);
+                var playbackStartSeconds = Math.Max(0, playbackStartSecondsOverride ?? clipOverride?.StartSeconds ?? jingle.StartSeconds);
                 var clipStart = TimeSpan.FromSeconds(playbackStartSeconds);
-                var clipEnd = jingle.EndSeconds is double endSeconds
+                var clipEnd = (clipOverride is { } clip ? clip.EndSeconds : jingle.EndSeconds) is double endSeconds
                     ? TimeSpan.FromSeconds(Math.Max(playbackStartSeconds, endSeconds))
                     : reader.TotalTime;
                 if (clipStart > reader.TotalTime) clipStart = reader.TotalTime;
@@ -392,6 +395,7 @@ public sealed class AudioEngine : IDisposable
                 var voice = new Voice
                 {
                     Jingle = jingle,
+                    ClipOverride = clipOverride,
                     Reader = reader,
                     Output = output,
                     Volume = volume,
@@ -508,7 +512,7 @@ public sealed class AudioEngine : IDisposable
             var voice = _voices.LastOrDefault(candidate => candidate.UsesSecondaryDevice && !candidate.IsDisposed);
             if (voice is null) return;
             var start = TimeSpan.FromSeconds(voice.PlaybackStartSeconds);
-            var end = voice.Jingle.EndSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : voice.Reader.TotalTime;
+            var end = voice.PlaybackEndSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : voice.Reader.TotalTime;
             voice.SeekProvider.Seek(start + TimeSpan.FromTicks(Math.Clamp(position.Ticks, 0, Math.Max(0, (end - start).Ticks))));
         }
     }
@@ -576,11 +580,22 @@ public sealed class AudioEngine : IDisposable
             if (_primary is not null)
             {
                 var start = TimeSpan.FromSeconds(_primary.PlaybackStartSeconds);
-                var end = _primary.Jingle.EndSeconds is double seconds
+                var end = _primary.PlaybackEndSeconds is double seconds
                     ? TimeSpan.FromSeconds(seconds) : _primary.Reader.TotalTime;
                 _primary.SeekProvider.Seek(start + TimeSpan.FromTicks(
                     Math.Clamp(position.Ticks, 0, Math.Max(0, (end - start).Ticks))));
             }
+    }
+
+    public void UpdatePrimaryClipEnd(Guid jingleId, double? endSeconds)
+    {
+        lock (_gate)
+        {
+            var voice = _voices.LastOrDefault(candidate => !candidate.UsesSecondaryDevice && !candidate.IsDisposed && candidate.Jingle.Id == jingleId);
+            if (voice is null) return;
+            voice.ClipOverride = new(voice.PlaybackStartSeconds, endSeconds);
+        }
+        PublishSnapshot();
     }
 
     public TimeSpan? GetCurrentPosition()
@@ -660,7 +675,7 @@ public sealed class AudioEngine : IDisposable
             foreach (var voice in _voices)
             {
                 if (voice.IsDisposed || voice.StopRequested || voice.NaturalEndRequested) continue;
-                if (voice.Jingle.EndSeconds is not double endSeconds || voice.Reader.CurrentTime.TotalSeconds < endSeconds) continue;
+                if (voice.PlaybackEndSeconds is not double endSeconds || voice.Reader.CurrentTime.TotalSeconds < endSeconds) continue;
                 if (voice.LoopEnabled)
                     voice.SeekProvider.Seek(TimeSpan.FromSeconds(voice.PlaybackStartSeconds));
                 else
@@ -794,7 +809,7 @@ public sealed class AudioEngine : IDisposable
         // Finish at silence before the source/clip runs out, even if the requested
         // fade is longer than the unread tail. The reader position includes audio
         // already handed to WASAPI; its queued buffers still drain below.
-        var end = Math.Min(voice.Reader.TotalTime.TotalSeconds, voice.Jingle.EndSeconds ?? double.MaxValue);
+        var end = Math.Min(voice.Reader.TotalTime.TotalSeconds, voice.PlaybackEndSeconds ?? double.MaxValue);
         return Math.Min(Math.Clamp(requestedSeconds, 0, 30), Math.Max(0, end - voice.Reader.CurrentTime.TotalSeconds));
     }
 
@@ -895,7 +910,7 @@ public sealed class AudioEngine : IDisposable
         if (voice is null)
             return empty;
         var start = TimeSpan.FromSeconds(voice.PlaybackStartSeconds);
-        var end = voice.Jingle.EndSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : voice.Reader.TotalTime;
+        var end = voice.PlaybackEndSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : voice.Reader.TotalTime;
         var duration = end > start ? end - start : TimeSpan.Zero;
         var currentTime = voice.Reader.CurrentTime;
         var position = currentTime > start ? currentTime - start : TimeSpan.Zero;

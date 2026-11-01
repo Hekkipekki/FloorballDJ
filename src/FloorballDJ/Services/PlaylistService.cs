@@ -3,9 +3,9 @@ using System.Text.Json;
 
 namespace FloorballDJ.Services;
 
-internal sealed record PlaylistEntry(string Title, string FilePath);
-internal sealed record PlaylistDocument(int Version, bool ShuffleEnabled, bool LoopEnabled, List<PlaylistEntry>? Entries);
-internal sealed record PlaylistDefinition(bool ShuffleEnabled, bool LoopEnabled, IReadOnlyList<PlaylistEntry> Entries);
+internal sealed record PlaylistEntry(string Title, string FilePath, bool UseRawFile = false, double? EndSeconds = null);
+internal sealed record PlaylistDocument(int Version, bool ShuffleEnabled, bool LoopEnabled, List<PlaylistEntry>? Entries, FloorballDJ.Models.AutoplayTransitionType TransitionType = FloorballDJ.Models.AutoplayTransitionType.Crossfade, double? TransitionSeconds = null, double? FadeInSeconds = null, double? FadeOutSeconds = null);
+internal sealed record PlaylistDefinition(bool ShuffleEnabled, bool LoopEnabled, IReadOnlyList<PlaylistEntry> Entries, FloorballDJ.Models.AutoplayTransitionType TransitionType = FloorballDJ.Models.AutoplayTransitionType.Crossfade, double? TransitionSeconds = null, double? FadeInSeconds = null, double? FadeOutSeconds = null);
 internal sealed record PlaylistPreparation(PlaylistDefinition Definition, PlaylistEntry[] ExistingEntries, IReadOnlyDictionary<string, string> FolderFiles);
 
 /// <summary>Owned playlist data only; file I/O never enumerates live UI models.</summary>
@@ -83,7 +83,8 @@ internal sealed class PlaylistService
             {
                 var document = ReadDocument(json);
                 definition = new(document.ShuffleEnabled, document.LoopEnabled,
-                    (document.Entries ?? []).Select(entry => entry with { FilePath = ResolveMediaPath(entry.FilePath, document.Version, path) }).ToArray());
+                    (document.Entries ?? []).Select(entry => entry with { FilePath = ResolveMediaPath(entry.FilePath, document.Version, path) }).ToArray(),
+                    document.TransitionType, document.TransitionSeconds, document.FadeInSeconds, document.FadeOutSeconds);
             }
             // Conservative retained payload estimate, including strings/list/record overhead.
             var bytes = 256L + definition.Entries.Sum(entry => 128L + 2L * ((entry.Title?.Length ?? 0) + (entry.FilePath?.Length ?? 0)));

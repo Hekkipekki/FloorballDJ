@@ -153,7 +153,7 @@ internal static class AutoplayChecks
         first.PitchSemitones = 2; first.TempoPercent = 5; first.RatePercent = 4;
         first.FadeInOverrideSeconds = .2; first.PlayMode = JinglePlayMode.Mix;
         vm.Decks[3].Jingles[0].FilePath = deckPath;
-        var view = new AutoplayView { DataContext = vm };
+        var view = new AutoplayView { ConfirmPlaylistReplacement = () => UnsavedProfileChoice.Discard, DataContext = vm };
         var entries = new List<PlaylistEntry>
         {
             new("saved deck", deckPath.ToUpperInvariant()), new("duplicate deck", deckPath),
@@ -171,15 +171,15 @@ internal static class AutoplayChecks
         Check(vm.PlaybackQueue[4].Title == "saved outside" && !ReferenceEquals(vm.PlaybackQueue[4], vm.PlaybackQueue[5]), "Outside folder entries keep saved title and separate identities");
         Check(vm.PlaybackQueue[6].Title == "unsupported" && vm.QueueShuffleEnabled && !vm.QueueLoopEnabled, "Existing unsupported files are still admitted; v2 flags preserved");
         Check((double)Field(vm, "_playbackQueueGainOffsetDb")! == 12, "Queue volume clamp preserved");
-        var available = (ListBox)view.FindName("AvailableList");
-        var allDeckRaw = available.Items.Cast<Jingle>().Single(item => item.FilePath == folderPath);
+        var allDeckRaw = view.FolderItems.Single(item => item.FilePath == folderPath);
         Check(allDeckRaw.StartSeconds == 0 && allDeckRaw.GainDb == 0 && allDeckRaw.PlayMode == JinglePlayMode.Solo, "All-files available filter uses raw-file defaults");
         var legacyPath = Path.Combine(root, "v1.json");
         File.WriteAllText(legacyPath, JsonSerializer.Serialize(entries));
         await view.LoadPlaylistAsync(legacyPath, false, -100);
         Check(!vm.QueueShuffleEnabled && vm.QueueLoopEnabled && (double)Field(vm, "_playbackQueueGainOffsetDb")! == -60, "v1 defaults/order/volume clamp retained");
         var queue = vm.PlaybackQueue.ToArray();
-        Check(!await view.LoadDefaultPlaylistAndStartAsync(Path.Combine(root, "absent.json"), 0) && vm.PlaybackQueue.SequenceEqual(queue), "Missing default leaves queue and flags untouched");
+        Check(!await view.LoadDefaultPlaylistAndStartAsync(Path.Combine(root, "absent.json"), 0) && vm.LeftPlaybackQueue.SequenceEqual(queue), "Missing default leaves queue and flags untouched");
+        vm.EditingQueueIndex = 0;
         var empty = Write(root, "empty.json", true, false, []);
         Check(!await view.LoadPlaylistAsync(empty, false) && vm.PlaybackQueue.Count == 0 && vm.QueueShuffleEnabled && !vm.QueueLoopEnabled, "Valid empty playlist clears queue and applies flags");
         var nullPath = Path.Combine(root, "null.json"); File.WriteAllText(nullPath, "null");
@@ -206,7 +206,7 @@ internal static class AutoplayChecks
     {
         var media = Wave(root, "blocked.wav");
         var path = Write(root, "blocked.json", false, true, [new("new", media)]);
-        foreach (var cancel in new[] { "latest", "profile", "unload", "stop", "leave", "queue", "folder" })
+        foreach (var cancel in new[] { "latest", "profile", "unload", "stop", "leave", "queue", "folder", "slot" })
         {
             var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             using var release = new ManualResetEventSlim();
@@ -223,7 +223,7 @@ internal static class AutoplayChecks
             using var vm = CreateVm(root);
             var existing = new Jingle { Title = "old", FilePath = media };
             vm.ReplaceQueue([existing]); vm.SetAutoplayMode(true);
-            var view = new AutoplayView { DataContext = vm, Playlists = service };
+            var view = new AutoplayView { ConfirmPlaylistReplacement = () => UnsavedProfileChoice.Discard, DataContext = vm, Playlists = service };
             var pending = view.LoadPlaylistAsync(path, false);
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
             var input = false;
@@ -245,12 +245,13 @@ internal static class AutoplayChecks
                     case "stop": view.CancelPlaylistPreparation(); break;
                     case "leave": vm.SetAutoplayMode(false); vm.SetAutoplayMode(true); break;
                     case "queue": vm.ReplaceQueue([existing]); break;
+                    case "slot": vm.EditingQueueIndex = 1; break;
                     case "folder": vm.Settings.MusicFolderPath = root; break;
                 }
                 release.Set();
                 await Canceled(pending);
                 if (newer is not null) Check(await newer && vm.PlaybackQueue.Single().Title == "latest" && vm.QueueShuffleEnabled, "Only newest request applies");
-                else if (cancel != "profile") Check(vm.PlaybackQueue.Single() == existing, "Canceled preparation cannot replace the queue");
+                else if (cancel != "profile") Check(vm.LeftPlaybackQueue.Single() == existing, "Canceled preparation cannot replace the queue");
                 else Check(vm.PlaybackQueue.Count == 0, "Old request cannot change the replacement profile's restored empty queue");
             }
             finally { release.Set(); view.CancelPlaylistPreparation(); }
@@ -260,7 +261,7 @@ internal static class AutoplayChecks
         using var editRelease = new ManualResetEventSlim();
         using var editVm = CreateVm(root);
         var deck = editVm.Decks[0].Jingles[0]; deck.FilePath = media;
-        var editView = new AutoplayView { DataContext = editVm, Playlists = new PlaylistService(readText: file =>
+        var editView = new AutoplayView { ConfirmPlaylistReplacement = () => UnsavedProfileChoice.Discard, DataContext = editVm, Playlists = new PlaylistService(readText: file =>
         {
             editEntered.TrySetResult(); Check(editRelease.Wait(TimeSpan.FromSeconds(10)), "Edit release"); return File.ReadAllText(file);
         }) };
@@ -276,6 +277,7 @@ internal static class AutoplayChecks
         var window = new MainWindow();
         var vm = (MainViewModel)window.DataContext;
         var view = (AutoplayView)window.FindName("EmbeddedAutoplay");
+        view.ConfirmPlaylistReplacement = () => UnsavedProfileChoice.Discard;
         using var source = new HwndSource(new HwndSourceParameters("autoplay input fixture") { Width = 1, Height = 1, WindowStyle = 0 });
         try
         {
@@ -302,12 +304,10 @@ internal static class AutoplayChecks
                     $"Space in {name} must remain available to text entry without starting/fading playback");
             }
 
-            CheckTextSpace("SearchBox");
             CheckTextSpace("TransitionSecondsBox");
             var next = (Button)view.FindName("PlayNextButton");
             next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Check(ReferenceEquals(vm.ActiveQueueItem, first), "Next button starts the first queued song when idle");
-            CheckTextSpace("SearchBox");
             CheckTextSpace("TransitionSecondsBox");
             next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Check(ReferenceEquals(vm.ActiveQueueItem, second), "Next button advances sequentially independent of selected row");
@@ -356,6 +356,7 @@ internal static class AutoplayChecks
         var window = new MainWindow();
         var vm = (MainViewModel)window.DataContext;
         var view = (AutoplayView)window.FindName("EmbeddedAutoplay");
+        view.ConfirmPlaylistReplacement = () => UnsavedProfileChoice.Discard;
         using var release = new ManualResetEventSlim();
         var scanEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         typeof(AutoplayView).GetProperty("LibraryEnumerator", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(view,
@@ -425,7 +426,7 @@ internal static class AutoplayChecks
         await Canceled(service.ReadAsync(path, canceled.Token));
         using var vm = CreateVm(root);
         vm.ReplaceQueue([new Jingle { FilePath = path }]); vm.SetAutoplayMode(true); vm.QueueLoopEnabled = false;
-        typeof(MainViewModel).GetField("_queuePlaybackIndex", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(vm, 1);
+        typeof(MainViewModel).GetProperty("_queuePlaybackIndex", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(vm, 1);
         Check(vm.NextQueuePrefetchPath() is null, "No prefetch beyond a non-looping queue");
         vm.QueueLoopEnabled = true;
         Check(vm.NextQueuePrefetchPath() == path, "Loop hint wraps without changing index");
@@ -436,7 +437,7 @@ internal static class AutoplayChecks
         var projects = new ProjectService();
         return new(projects, new ProfilePreferencesService(projects.AppDataDirectory, projects.DefaultProjectPath), new AudioEngine());
     }
-    private static object? Field(object target, string name) => target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(target);
+    private static object? Field(object target, string name) => target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(target) ?? target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(target);
     private static string Write(string root, string name, bool shuffle, bool loop, List<PlaylistEntry> entries, int version = 2)
     {
         var path = Path.Combine(root, name);

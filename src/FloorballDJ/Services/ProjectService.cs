@@ -306,9 +306,10 @@ public sealed partial class ProjectService
         string? ResolvePlaylist(string? playlist) => !string.IsNullOrWhiteSpace(playlist) && !Path.IsPathRooted(playlist)
             ? Path.GetFullPath(Path.Combine(projectDirectory, playlist)) : playlist;
         project.Settings.AutoplayLastPlaylistPath = ResolvePlaylist(project.Settings.AutoplayLastPlaylistPath);
+        project.Settings.AutoplaySecondPlaylistPath = ResolvePlaylist(project.Settings.AutoplaySecondPlaylistPath);
         project.Settings.AutoplayDefaultPlaylistPath = ResolvePlaylist(project.Settings.AutoplayDefaultPlaylistPath);
         foreach (var autoplay in project.Settings.AutoplayProfiles ?? []) autoplay.PlaylistPath = ResolvePlaylist(autoplay.PlaylistPath);
-        foreach (var jingle in project.Decks.SelectMany(deck => deck.Jingles).Concat(project.Settings.AutoplayQueueItems ?? []))
+        foreach (var jingle in project.Decks.SelectMany(deck => deck.Jingles).Concat(project.Settings.AutoplayQueueItems ?? []).Concat(project.Settings.AutoplaySecondQueueItems ?? []))
             if (jingle.HasAudio && !Path.IsPathRooted(jingle.FilePath))
                 jingle.FilePath = Path.GetFullPath(Path.Combine(projectDirectory, jingle.FilePath));
         if (!string.IsNullOrWhiteSpace(project.Settings.MusicFolderPath) &&
@@ -447,14 +448,15 @@ public sealed partial class ProjectService
                 entries.Add(entry with { FilePath = Path.GetRelativePath(Path.GetDirectoryName(destination)!, Path.Combine(directory, mediaRelative)) });
             }
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            await PlaylistService.Shared.SaveAsync(destination, new PlaylistDocument(3, document.ShuffleEnabled, document.LoopEnabled, entries));
+            await PlaylistService.Shared.SaveAsync(destination, document with { Version = 3, Entries = entries });
             playlistPaths.Add(source, relative);
             return relative;
         }
         foreach (var autoplay in copy.Settings.AutoplayProfiles) autoplay.PlaylistPath = await CopyPlaylist(autoplay.PlaylistPath);
         copy.Settings.AutoplayDefaultPlaylistPath = await CopyPlaylist(copy.Settings.AutoplayDefaultPlaylistPath);
         copy.Settings.AutoplayLastPlaylistPath = await CopyPlaylist(copy.Settings.AutoplayLastPlaylistPath);
-        foreach (var item in copy.Settings.AutoplayQueueItems ?? [])
+        copy.Settings.AutoplaySecondPlaylistPath = await CopyPlaylist(copy.Settings.AutoplaySecondPlaylistPath);
+        foreach (var item in (copy.Settings.AutoplayQueueItems ?? []).Concat(copy.Settings.AutoplaySecondQueueItems ?? []))
         {
             if (!item.HasAudio) continue;
             var source = Path.GetFullPath(item.FilePath);

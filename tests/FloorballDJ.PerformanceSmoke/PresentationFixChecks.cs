@@ -65,7 +65,7 @@ internal static class PresentationFixChecks
             livePrimaryLimiterOnly = true, previewAndNormalizationRetained = true, sessionOnly = true, newProfileHeadroomDefaultOff = true,
             limitation = "WPF rendered fixtures and deterministic DSP/silent WASAPI checks; not loud playback or physical venue qualification."
         }, new JsonSerializerOptions { WriteIndented = true }));
-        Console.WriteLine("PASS: dark selected/unselected song cards, accessible autoplay dropdown, live main-only limiter toggle, preview/normalization retention and new-profile headroom default.");
+        Console.WriteLine("PASS: dark selected/unselected song cards, two visible autoplay playlists, live main-only limiter toggle, preview/normalization retention and new-profile headroom default.");
     }
 
     private static async Task CheckAutoplay(string root, string? output)
@@ -78,21 +78,13 @@ internal static class PresentationFixChecks
         try
         {
             window.Show(); await view.RefreshAvailableAsync(); await Idle();
-            var combo = (ComboBox)view.FindName("DeckFilterCombo"); var list = (ListBox)view.FindName("AvailableList");
-            Check(combo.Items.Count == 16 && combo.SelectedIndex == 0, "All plus every one of fifteen decks is directly selectable");
-            for (var i = 1; i < combo.Items.Count; i++)
-            {
-                combo.SelectedIndex = i; await Idle();
-                Check(list.Items.Cast<Jingle>().SequenceEqual(vm.Decks[i - 1].Jingles.Where(j => j.HasAudio).OrderBy(j => j.Title)), "Dropdown filters the same complete deck source");
-            }
-            combo.SelectedIndex = 0; await Idle(); combo.IsDropDownOpen = true; await Idle();
-            Check(combo.IsDropDownOpen && combo.ActualWidth > 160, "Dropdown opens at laptop width");
-            if (output is not null)
-            {
-                SaveImage(view, Path.Combine(output, "autoplay-dropdown.png"));
-                var popup = (System.Windows.Controls.Primitives.Popup)combo.Template.FindName("PART_Popup", combo);
-                SaveImage((FrameworkElement)popup.Child, Path.Combine(output, "autoplay-deck-menu.png"));
-            }
+            vm.AddToQueue(vm.Decks[0].Jingles[0]);
+            vm.EditingQueueIndex = 1; vm.AddToQueue(vm.Decks[14].Jingles[0]);
+            await Idle();
+            var left = (ListBox)view.FindName("QueueList"); var right = (ListBox)view.FindName("RightQueueList");
+            Check(left.Items.Count == 1 && right.Items.Count == 1 && left.ActualWidth > 350 && right.ActualWidth > 350, "Both playlists remain available at laptop width");
+            Check(view.FindName("AvailableList") is null, "Old library panel is replaced by the second playlist");
+            if (output is not null) SaveImage(view, Path.Combine(output, "autoplay-two-playlists.png"));
         }
         finally { window.Close(); await Idle(); }
     }

@@ -249,10 +249,11 @@ public sealed partial class ProjectService
     {
         var project = JsonSerializer.Deserialize<FloorballProject>(bytes, JsonOptions) ?? throw new InvalidDataException("Profilen är tom.");
         string? Resolve(string? path) => string.IsNullOrWhiteSpace(path) || Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(mediaDirectory, path));
-        foreach (var jingle in project.Decks.SelectMany(deck => deck.Jingles).Concat(project.Settings.AutoplayQueueItems ?? [])) jingle.FilePath = Resolve(jingle.FilePath)!;
+        foreach (var jingle in project.Decks.SelectMany(deck => deck.Jingles).Concat(project.Settings.AutoplayQueueItems ?? []).Concat(project.Settings.AutoplaySecondQueueItems ?? [])) jingle.FilePath = Resolve(jingle.FilePath)!;
         project.Settings.MusicFolderPath = Resolve(project.Settings.MusicFolderPath);
         project.Settings.AutoplayDefaultPlaylistPath = Resolve(project.Settings.AutoplayDefaultPlaylistPath);
         project.Settings.AutoplayLastPlaylistPath = Resolve(project.Settings.AutoplayLastPlaylistPath);
+        project.Settings.AutoplaySecondPlaylistPath = Resolve(project.Settings.AutoplaySecondPlaylistPath);
         foreach (var playlist in project.Settings.AutoplayProfiles ?? []) playlist.PlaylistPath = Resolve(playlist.PlaylistPath);
         return JsonSerializer.SerializeToUtf8Bytes(project, JsonOptions);
     }
@@ -296,6 +297,7 @@ public sealed partial class ProjectService
             if (!oldSettings.TryGetProperty(setting.Name, out var old) || old.GetRawText() != setting.Value.GetRawText())
                 changes.Add(setting.Name switch
                 {
+                    "autoplaySecondQueueItems" => "Ändrade låtar eller ordning i Autoplay-lista 2",
                     "autoplayQueueItems" => "Ändrade låtar eller ordning i Autoplay-kön",
                     "randomPoolSetups" or "randomPoolProfiles" => "Ändrade slumpprofiler eller slumpgrupper",
                     "autoplayProfiles" => "Ändrade sparade Autoplay-listor",

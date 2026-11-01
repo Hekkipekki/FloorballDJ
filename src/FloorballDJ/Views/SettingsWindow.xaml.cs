@@ -354,6 +354,7 @@ public partial class SettingsWindow : Window
         target.AutoplayTransitionSeconds = source.AutoplayTransitionSeconds;
         target.AutoplayDefaultPlaylistPath = source.AutoplayDefaultPlaylistPath;
         target.AutoplayLastPlaylistPath = source.AutoplayLastPlaylistPath;
+        target.AutoplaySecondPlaylistPath = source.AutoplaySecondPlaylistPath;
         target.AutoplayShortcut = ShortcutService.Normalize(source.AutoplayShortcut);
         target.AutoplayDefaultPlaylistVolumeDb = source.AutoplayDefaultPlaylistVolumeDb;
         target.AutoplayProfiles = source.AutoplayProfiles?.Select(profile => new AutoplayProfile

@@ -128,6 +128,10 @@ internal static class SaveChecks
     {
         var project = new FloorballProject();
         project.Settings.AutoplayProfiles = [new()];
+        project.Settings.AutoplayQueueItems = [new()];
+        project.Settings.AutoplaySecondQueueItems = [new()];
+        project.Settings.AutoplayClipOptions = [new(Guid.NewGuid(), true, 1.25)];
+        project.Settings.AutoplaySecondClipOptions = [new(Guid.NewGuid(), false, 2.5)];
         project.Settings.RandomPoolDeckIds = [Guid.NewGuid()];
         project.Settings.RandomPoolJingleIds = [Guid.NewGuid()];
         project.Settings.RandomPoolProfiles = [new() { DeckIds = [Guid.NewGuid()], JingleIds = [Guid.NewGuid()], FollowUpJingleIds = [Guid.NewGuid()] }];

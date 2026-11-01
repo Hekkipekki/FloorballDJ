@@ -147,7 +147,7 @@
                                       SelectedValue="{Binding SelectedAutoplayProfile.RandomPoolSetupId, Mode=TwoWay}" Margin="0,4" />
                         </Grid>
                         <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap"
-                                   Text="Varje Autoplay-lista har egen spellista, snabbtangent och volym. Tangenten öppnar Autoplay, ersätter kön och startar första låten automatiskt." />
+                                   Text="Varje Autoplay-lista har egen spellista, snabbtangent och volym. Snabbknappen återupptar en redan öppnad spellista utan omstart eller sparfråga. Annars väljs först en tom lista, sedan sidan som inte spelar. Sparfrågan visas bara när listan innehåller låtar." />
                     </StackPanel>
                 </GroupBox>
 
